@@ -71,7 +71,7 @@ Run with `docker compose` on PostgreSQL 17.11, on an 8 GB machine under heavy lo
 | `npm run typecheck` and `npm run build` | Pass (run natively on Node 22) |
 | `npm test` with a 60-second timeout | 14 passed |
 | Browser | Services, 6 FAQs, and 7 days of hours render, with no console errors or horizontal scroll |
-| GitHub Actions, first run | Frontend and backend image jobs passed |
+| GitHub Actions on `main` | Backend, frontend, and image jobs passed |
 | Database value changed, then backend restarted | API returned the new value, then the seed restored it |
 | Database stopped under Compose | Readiness and catalog return 503. Recovers on restart without a backend restart |
 
@@ -91,7 +91,6 @@ Frontend: https://pawcare-voice-receptionist.netlify.app. Backend: https://pawca
 
 | Item | Why | How to close it |
 |---|---|---|
-| GitHub Actions backend job | The first run failed before any code ran: the workflow referenced `setup-uv@v10`, a tag that does not exist. Pinned to `v10.3.3` | Next CI run |
 | Color contrast | Not measured | Accessibility review |
 
 ### Known issues
@@ -99,9 +98,37 @@ Frontend: https://pawcare-voice-receptionist.netlify.app. Backend: https://pawca
 - **Default-timeout test failure:** `npm test` with the default 5-second timeout failed once locally, on the first test only, at a load average above 400. The GitHub Actions frontend job passed with the default timeout, so this was machine load.
 - **Slow on this machine:** the first page load under Compose takes more than 5 seconds while Vite bundles dependencies. The first image build took about 18 minutes under overload, and later starts took about 3.
 - **The earlier 503 is still unexplained.** It has not recurred, including on the deployed host so far. Keep watching.
-- **PostgreSQL versions differ:** Railway runs 18, while Compose and CI use 17. Align them before the booking constraint.
 - **Netlify badge:** a "Powered by Netlify" badge appears in the corner of the live site. At narrow widths it can cover part of the navigation.
 
 ### What remains
 
-Get the backend CI job passing on `main`.
+The rest of the roadmap in [mvp.md](mvp.md), starting with availability.
+
+## Availability (2026-11-05)
+
+**Outcome:** the API calculates real appointment starts from business and groomer hours, breaks, blocked periods, existing bookings, buffers, service duration, minimum notice, and the booking horizon. Compose and CI moved to PostgreSQL 18 to match Railway.
+
+### Verified
+
+Run locally on PostgreSQL 18.6.
+
+| Check | Result |
+|---|---|
+| `ruff check` and `ruff format --check` | Pass |
+| `pytest -W error::DeprecationWarning` | 73 passed |
+| Daylight saving | Tests cover the 14 March and 7 November 2027 changes: true elapsed durations, no repeated instants, normal hours keep their wall-clock times |
+| Rule sensitivity | 9 deliberately broken rules were each caught by `test_availability_rules.py`: touching intervals, buffer, closing overrun, notice, breaks, blocks, bookings, groomer hours, and wall-clock stepping |
+| Privacy | Availability responses contain only time and service fields, never booking or customer data |
+| Docker on PostgreSQL 18 | Readiness reports `0003`. A 2-hour Tuesday groom returns starts from 09:00 to 10:00 and 12:30 to 15:00 |
+| Frontend tests and typecheck | 14 passed with the default timeout, typecheck passes |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| Availability on the live site | Not merged or deployed | Merge, then call the live endpoint |
+| Migration 0003 on Railway | Same | Readiness reports `0003` after deploy |
+
+### What remains
+
+Booking: the overlap constraint, idempotency keys, and confirmation bound to the exact service, pet details, and slot. Availability does not reserve a slot, so booking must recheck it.

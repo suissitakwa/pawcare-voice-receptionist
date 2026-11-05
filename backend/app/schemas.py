@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, datetime, time
 from zoneinfo import available_timezones
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -40,6 +40,19 @@ class FaqSeed(SeedModel):
     answer: str
 
 
+class GroomerPeriodSeed(SeedModel):
+    weekday: int = Field(ge=0, le=6)
+    starts_at: time
+    ends_at: time
+
+
+class GroomerSeed(SeedModel):
+    slug: str
+    display_name: str
+    hours: list[GroomerPeriodSeed]
+    breaks: list[GroomerPeriodSeed]
+
+
 class BusinessSeed(SeedModel):
     slug: str
     name: str
@@ -50,7 +63,12 @@ class BusinessSeed(SeedModel):
     contact_phone: str
     address: str
     is_demo: bool
+    slot_increment_minutes: int = Field(gt=0)
+    buffer_minutes: int = Field(ge=0)
+    min_notice_minutes: int = Field(ge=0)
+    booking_horizon_days: int = Field(gt=0)
     hours: list[HoursSeed]
+    groomers: list[GroomerSeed]
     size_categories: list[SizeCategorySeed]
     services: list[ServiceSeed]
     faqs: list[FaqSeed]
@@ -130,6 +148,23 @@ class FaqPublic(BaseModel):
     slug: str
     question: str
     answer: str
+
+
+class SlotPublic(BaseModel):
+    starts_at: datetime
+    ends_at: datetime
+    local_start: datetime
+    local_end: datetime
+
+
+class AvailabilityPublic(BaseModel):
+    date: date
+    timezone: str
+    service: str
+    size: str
+    duration_minutes: int
+    closed: bool
+    slots: list[SlotPublic]
 
 
 class LiveStatus(BaseModel):

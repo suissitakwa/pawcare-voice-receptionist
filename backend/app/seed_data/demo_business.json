@@ -8,6 +8,10 @@
   "contact_phone": "(323) 555-0142",
   "address": "100 Sample Street, Los Angeles, CA (fictional address)",
   "is_demo": true,
+  "slot_increment_minutes": 15,
+  "buffer_minutes": 15,
+  "min_notice_minutes": 120,
+  "booking_horizon_days": 30,
   "hours": [
     {
       "weekday": 1,
@@ -33,6 +37,66 @@
       "weekday": 5,
       "opens_at": "09:00",
       "closes_at": "17:00"
+    }
+  ],
+  "groomers": [
+    {
+      "slug": "demo-groomer",
+      "display_name": "Demo Groomer",
+      "hours": [
+        {
+          "weekday": 1,
+          "starts_at": "09:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 2,
+          "starts_at": "09:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 3,
+          "starts_at": "09:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 4,
+          "starts_at": "09:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 5,
+          "starts_at": "09:00",
+          "ends_at": "15:00"
+        }
+      ],
+      "breaks": [
+        {
+          "weekday": 1,
+          "starts_at": "12:00",
+          "ends_at": "12:30"
+        },
+        {
+          "weekday": 2,
+          "starts_at": "12:00",
+          "ends_at": "12:30"
+        },
+        {
+          "weekday": 3,
+          "starts_at": "12:00",
+          "ends_at": "12:30"
+        },
+        {
+          "weekday": 4,
+          "starts_at": "12:00",
+          "ends_at": "12:30"
+        },
+        {
+          "weekday": 5,
+          "starts_at": "12:00",
+          "ends_at": "12:30"
+        }
+      ]
     }
   ],
   "size_categories": [
