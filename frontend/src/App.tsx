@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { type Business, type Catalog, type Faq } from "./api";
 import { formatDuration, formatPrice, formatTime, weekdayName } from "./format";
 import BookingForm from "./BookingForm";
+import VoiceAssistant from "./VoiceAssistant";
 import { useSiteData } from "./useSiteData";
 
 const NAV_LINKS = [
@@ -121,10 +122,6 @@ function Section({
       </div>
     </section>
   );
-}
-
-function NotYetAvailable({ children }: { children: React.ReactNode }) {
-  return <p className="notice">{children}</p>;
 }
 
 function ServicesList({ catalog }: { catalog: Catalog }) {
@@ -302,10 +299,7 @@ export default function App() {
         </Section>
 
         <Section id="assistant" title="Talk to our assistant" tone="tint">
-          <NotYetAvailable>
-            The voice assistant is not connected in this build. Nothing you say is being recorded,
-            and your microphone is not used.
-          </NotYetAvailable>
+          <VoiceAssistant />
         </Section>
 
         <Section id="services" title="Services and pricing">

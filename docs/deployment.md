@@ -64,7 +64,7 @@ Then open the Netlify URL and confirm that services, hours, and FAQs appear, wit
 
 ## Cost control
 
-Set a usage limit in Railway's workspace settings before sharing the URL. Voice costs are separate and are controlled by the quota and disable switch added with the voice feature.
+Set a usage limit in Railway's workspace settings before sharing the URL. Voice costs are separate. See the voice section below.
 
 ## Staff account
 
@@ -82,3 +82,33 @@ The dashboard is at `/staff` on the website. To create the staff account:
 3. Sign in at `https://YOUR-SITE.netlify.app/staff`.
 
 The container creates or updates the account on every start. To change the password, generate a new hash and replace the variable. The password itself is never stored in Railway.
+
+## Voice
+
+Voice runs in one of three modes, set by `VOICE_MODE` on the backend:
+
+| Mode | Behaviour |
+|---|---|
+| `off` | The kill switch. "Start talking" explains that voice is turned off |
+| `test` | A clearly labelled scripted preview. No microphone, no provider, no cost. This is the default |
+| `live` | Real voice through OpenAI's Realtime API |
+
+To go live:
+
+1. Create an API key at https://platform.openai.com/api-keys, and set a monthly spending limit in OpenAI's billing settings first.
+2. In Railway, set these on the backend service, then deploy:
+
+   | Variable | Value |
+   |---|---|
+   | `OPENAI_API_KEY` | The key. It stays on the server and is never sent to the browser |
+   | `VOICE_MODE` | `live` |
+   | `VOICE_DAILY_SESSION_LIMIT` | Optional, default `30` |
+   | `VOICE_SESSIONS_PER_CLIENT_PER_HOUR` | Optional, default `6` |
+   | `VOICE_MAX_SESSION_SECONDS` | Optional, default `300` |
+   | `VOICE_MODEL` | Optional, default `gpt-realtime-2.1-mini` |
+
+3. Open the live site, click "Start talking", and allow the microphone.
+
+To stop all voice spending at once, set `VOICE_MODE=off` and deploy. Calls already in progress continue until they end or reach their time limit.
+
+The browser enforces the session time limit. A visitor who modifies the page could keep a call open longer, so the daily quota, the per-visitor limit, and the OpenAI spending limit are what cap cost.

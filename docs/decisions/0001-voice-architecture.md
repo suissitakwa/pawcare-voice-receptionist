@@ -1,6 +1,6 @@
 # 0001: Voice architecture
 
-**Status:** Accepted for connection flow. Tool transport is provisional until tested with a real call.
+**Status:** Connection flow implemented in migration 0006, `app/voice.py`, and `VoiceAssistant.tsx`. Tool transport is still provisional.
 
 ## Context
 
@@ -38,3 +38,12 @@ The relay is safe here because a forged call gains nothing: each tool can do no 
 - Every tool endpoint needs validation, rate limits, and session scoping.
 - A visitor can technically see their own session's tool traffic in developer tools. It must not contain anything they could not already see.
 - Minting credentials costs money, so it needs its own rate limit, daily quota, and disable switch before voice goes live.
+
+## Implementation notes
+
+- The credential lives for 60 seconds, enough to start one call. It cannot extend a call that has started.
+- The default model is `gpt-realtime-2.1-mini`, chosen for cost. It is configurable through `VOICE_MODEL`.
+- Instructions are built on the server from database records: hours, sizes, services, demo prices, and approved FAQs. Until tools exist, the assistant is told it cannot check availability or book, and to send callers to the booking form.
+- Caller speech is transcribed with `gpt-4o-mini-transcribe` so the visitor sees a transcript. Transcripts are not sent to the backend or stored.
+- Voice activity detection lets the caller interrupt the assistant mid-sentence.
+- Only session outcomes and token counts are stored, never audio or transcripts. Visitor addresses are stored only as hashes.

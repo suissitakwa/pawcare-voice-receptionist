@@ -53,8 +53,8 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Availability from hours, breaks, buffers, and blocked times
 - [x] Booking with database-enforced overlap prevention, idempotency, and bound confirmation
 - [x] Non-voice booking form
-- [ ] Browser voice session with short-lived credentials, quota, and disable switch
-- [ ] Voice interface states, transcript, and error handling
+- [x] Browser voice session with short-lived credentials, quota, and disable switch
+- [x] Voice interface states, transcript, and error handling
 - [ ] Assistant tools backed by the API, including full voice booking
 - [x] Protected staff dashboard: bookings, cancellation, blocked time, booking metrics
 - [ ] Callback requests and assistant session outcomes on the dashboard

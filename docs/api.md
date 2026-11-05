@@ -22,7 +22,7 @@ Readiness.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0005"}` | Safe to serve |
+| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0006"}` | Safe to serve |
 | 503 | `{"status": "unavailable", "database": "unreachable", "schema_revision": null}` | Database cannot be reached |
 | 503 | `{"status": "unavailable", "database": "ok", "schema_revision": "<found>"}` | Migrations have not been applied for this build |
 
@@ -183,3 +183,27 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason}` as wall-clock values in the business time zone. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range |
 | `DELETE /api/v1/staff/blocks/{id}` | Removes a block. `204`, or `404 block_not_found` |
 | `GET /api/v1/staff/metrics` | Upcoming bookings, bookings made in the last 7 days, and cancellations in the last 7 days |
+
+## Voice
+
+### `POST /api/v1/voice/sessions`
+
+Starts a voice session. The server applies the off switch, a daily quota in the business time zone, and a per-visitor hourly limit before anything else.
+
+| Field | Meaning |
+|---|---|
+| `session_id`, `session_token` | Identify the session when ending it. The token is stored only as a hash |
+| `mode` | `test` (scripted preview, no provider) or `live` |
+| `client_secret` | Live only. A short-lived OpenAI credential, valid for 60 seconds to start the call. The permanent key never leaves the server |
+| `max_duration_seconds` | When the browser ends the call |
+
+| Status | Code | Meaning |
+|---|---|---|
+| 503 | `voice_disabled` | `VOICE_MODE=off`, or live mode without a key |
+| 429 | `voice_quota_reached` | Today's session limit is used up |
+| 429 | `too_many_requests` | This visitor started too many sessions in the last hour |
+| 502 | `voice_unavailable` | OpenAI could not issue a credential. No quota is used |
+
+### `POST /api/v1/voice/sessions/{id}/end`
+
+`{session_token, reason, usage}` records how the session ended: `user_ended`, `timeout`, `error`, `disconnected`, `mic_denied`, or `page_closed`. `usage` holds token counts reported by the provider. Repeating it is harmless. Returns `204`.

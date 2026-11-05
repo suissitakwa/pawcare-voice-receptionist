@@ -1,6 +1,7 @@
 import re
 import uuid
 from datetime import date, datetime, time
+from typing import Literal
 from zoneinfo import available_timezones
 
 from pydantic import (
@@ -328,3 +329,28 @@ class StaffMetrics(BaseModel):
     upcoming_bookings: int
     bookings_last_7_days: int
     cancellations_last_7_days: int
+
+
+class VoiceSessionStarted(BaseModel):
+    session_id: uuid.UUID
+    session_token: str
+    mode: Literal["test", "live"]
+    client_secret: str | None
+    expires_at: datetime | None
+    max_duration_seconds: int
+
+
+class VoiceUsage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    input_tokens: int = Field(ge=0, le=10_000_000)
+    output_tokens: int = Field(ge=0, le=10_000_000)
+    responses: int = Field(ge=0, le=10_000)
+
+
+class VoiceEndRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_token: str = Field(min_length=20, max_length=128)
+    reason: Literal["user_ended", "timeout", "error", "disconnected", "mic_denied", "page_closed"]
+    usage: VoiceUsage | None = None
