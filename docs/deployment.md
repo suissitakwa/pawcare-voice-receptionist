@@ -10,7 +10,7 @@
 
 ### 1. Database
 
-In a new Railway project, add a **PostgreSQL** service.
+In a new Railway project on a paid plan or active trial, add a **PostgreSQL** service.
 
 ### 2. Backend
 
@@ -45,7 +45,7 @@ In Netlify, import the same repository. `netlify.toml` supplies the build settin
 
 ### 4. Connect them
 
-Set `CORS_ALLOWED_ORIGINS` on the backend to the exact Netlify origin, for example `https://your-site.netlify.app`. No wildcards and no trailing slash.
+Set `CORS_ALLOWED_ORIGINS` on the backend to the exact Netlify origin, for example `https://your-site.netlify.app`. No wildcards and no trailing slash. Click **Deploy** to apply it, and wait for **Active**: the old deployment keeps serving the old value until the rollout finishes.
 
 ### 5. Verify
 
