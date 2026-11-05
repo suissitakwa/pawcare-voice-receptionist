@@ -250,3 +250,30 @@ Run locally on PostgreSQL 14.13 and in a browser against a local backend.
 ### What remains
 
 Callback requests and assistant session outcomes, which arrive with the voice assistant.
+
+## Voice connection (2026-11-05)
+
+**Outcome:** "Start talking" opens a browser voice session. The backend applies the off switch, a daily quota, and a per-visitor limit, then issues a 60-second OpenAI credential. The browser connects over WebRTC and shows listening, hearing, thinking, speaking, ended, and error states, a live transcript, mute, end, and a countdown. The assistant answers from database facts and cannot book yet. A labelled test mode runs without a microphone, provider, or cost.
+
+### Verified
+
+| Check | Result |
+|---|---|
+| Realtime API details | Checked against OpenAI's documentation on 2026-11-05: the client secret endpoint and fields, session configuration, and event names |
+| Backend tests | 195 passed. Voice tests replace the OpenAI call, so they cost nothing |
+| Voice backend coverage | Off switch, missing key, daily quota and its reset at local midnight, per-visitor limit, provider failure using no quota, the request shape sent to OpenAI, instructions built only from database facts, and ending with a token |
+| Frontend tests | 45 passed, using a fake connection and microphone: states, transcript, mute, cleanup on end, microphone denied, connection failure and drop, time limit, unmount, test mode, and the off switch |
+| Browser, local test mode | Labelled preview ran, states and countdown updated, the session was recorded with a hashed visitor address, and ending stopped the script and recorded `user_ended` |
+| Bug found in the browser | The panel showed "Call ended" before any call, because React's development mode ran cleanup twice. Fixed, with a test |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| A real spoken conversation | Needs an OpenAI key, which only the owner can add | Follow the voice section of [deployment.md](deployment.md), then talk to it |
+| Microphone permission prompt in real browsers | Automated browsers cannot grant a microphone | Manual check in Chrome and Safari |
+| Latency and cost per session | No live sessions yet | Manual audio testing |
+
+### What remains
+
+Assistant tools: answering from the API, checking real availability, preparing and confirming bookings, and callback requests.

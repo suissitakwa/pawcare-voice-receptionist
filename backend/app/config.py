@@ -1,6 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,16 @@ class Settings(BaseSettings):
     staff_email: str = ""
     staff_display_name: str = "Staff"
     staff_password_hash: str = ""
+
+    # Voice. "off" is the kill switch, "test" needs no provider and costs nothing,
+    # and "live" calls OpenAI with the server-side key.
+    voice_mode: Literal["off", "test", "live"] = "test"
+    openai_api_key: str = Field(default="", repr=False)
+    voice_model: str = "gpt-realtime-2.1-mini"
+    voice_name: str = "marin"
+    voice_daily_session_limit: int = 30
+    voice_sessions_per_client_per_hour: int = 6
+    voice_max_session_seconds: int = 300
 
     @field_validator("database_url")
     @classmethod

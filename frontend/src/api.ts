@@ -192,3 +192,44 @@ export function confirmBooking(
     }),
   });
 }
+
+export interface VoiceSession {
+  session_id: string;
+  session_token: string;
+  mode: "test" | "live";
+  client_secret: string | null;
+  expires_at: string | null;
+  max_duration_seconds: number;
+}
+
+export type VoiceEndReason =
+  | "user_ended"
+  | "timeout"
+  | "error"
+  | "disconnected"
+  | "mic_denied"
+  | "page_closed";
+
+export interface VoiceUsage {
+  input_tokens: number;
+  output_tokens: number;
+  responses: number;
+}
+
+export function startVoiceSession(): Promise<VoiceSession> {
+  return request<VoiceSession>("/api/v1/voice/sessions", { method: "POST" });
+}
+
+/** Best effort: `keepalive` lets the report finish even while the page is closing. */
+export function endVoiceSession(
+  session: VoiceSession,
+  reason: VoiceEndReason,
+  usage: VoiceUsage | null,
+): Promise<void> {
+  return request<void>(`/api/v1/voice/sessions/${session.session_id}/end`, {
+    method: "POST",
+    keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_token: session.session_token, reason, usage }),
+  }).catch(() => undefined);
+}

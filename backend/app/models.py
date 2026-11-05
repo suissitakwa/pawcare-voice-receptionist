@@ -304,3 +304,25 @@ class StaffSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class VoiceSession(Base):
+    __tablename__ = "voice_sessions"
+    __table_args__ = (
+        CheckConstraint("mode IN ('test', 'live')", name="voice_mode_known"),
+        CheckConstraint("status IN ('started', 'ended')", name="voice_status_known"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    mode: Mapped[str] = mapped_column(String(8))
+    model: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), server_default="started")
+    end_reason: Mapped[str | None] = mapped_column(String(32))
+    client_hash: Mapped[str] = mapped_column(String(64))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usage: Mapped[dict | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

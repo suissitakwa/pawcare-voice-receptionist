@@ -20,7 +20,14 @@ os.environ["BUSINESS_SLUG"] = "pawcare-demo"
 
 from app.db import get_db, get_engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import BlockedPeriod, Booking, BookingDraft, StaffSession, StaffUser  # noqa: E402
+from app.models import (  # noqa: E402
+    BlockedPeriod,
+    Booking,
+    BookingDraft,
+    StaffSession,
+    StaffUser,
+    VoiceSession,
+)
 from app.seed import seed_business  # noqa: E402
 
 ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
@@ -57,6 +64,7 @@ def db() -> Iterator[Session]:
         session.execute(delete(BookingDraft))
         session.execute(delete(BlockedPeriod))
         session.execute(delete(StaffSession))
+        session.execute(delete(VoiceSession))
         session.execute(delete(StaffUser))
         seed_business(session)
         session.commit()

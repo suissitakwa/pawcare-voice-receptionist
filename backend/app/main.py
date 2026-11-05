@@ -45,8 +45,11 @@ from app.schemas import (
     ServicePublic,
     SizeCategoryPublic,
     SlotPublic,
+    VoiceEndRequest,
+    VoiceSessionStarted,
 )
 from app.staff_api import router as staff_router
+from app.voice import end_voice_session, start_voice_session
 
 logger = logging.getLogger("pawcare")
 
@@ -285,3 +288,42 @@ def confirm(
 
 
 app.include_router(staff_router)
+
+
+def client_ip(request: Request) -> str:
+    # Railway's proxy adds the visitor's address. The value can be forged, so the per-visitor
+    # limit is best effort. The daily quota is the hard cap on cost.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
+
+
+@app.post(
+    "/api/v1/voice/sessions", response_model=VoiceSessionStarted, status_code=201, tags=["voice"]
+)
+def create_voice_session(
+    request: Request,
+    db: DbSession,
+    business_id: CurrentBusinessId,
+    settings: AppSettings,
+    now: Now,
+) -> VoiceSessionStarted:
+    """Starts a voice session, returning a short-lived credential when voice is live."""
+    started = start_voice_session(
+        db, load_business(db, business_id), settings, client_ip(request), now
+    )
+    db.commit()
+    return started
+
+
+@app.post("/api/v1/voice/sessions/{session_id}/end", status_code=204, tags=["voice"])
+def end_voice(
+    session_id: uuid.UUID,
+    body: VoiceEndRequest,
+    db: DbSession,
+    business_id: CurrentBusinessId,
+    now: Now,
+) -> Response:
+    """Records how a session ended. Repeating it is harmless."""
+    end_voice_session(db, load_business(db, business_id), session_id, body, now)
+    db.commit()
+    return Response(status_code=204)
