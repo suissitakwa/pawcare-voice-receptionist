@@ -346,6 +346,9 @@ export default function App() {
             {business?.name ?? "This site"} is a fictional business used for product demonstration.
             No real grooming services are offered.
           </p>
+          <p className="footer-links">
+            <a href="/staff">Staff sign in</a>
+          </p>
         </div>
       </footer>
     </>

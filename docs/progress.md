@@ -213,3 +213,40 @@ The non-voice booking form on the website, which uses these two endpoints.
 ### Known issues
 
 - The opening hours table shows business hours. On Saturdays the groomer finishes at 3 PM, so the last bookable start is earlier than the table suggests.
+
+### Booking form, verified live
+
+| Check | Result |
+|---|---|
+| GitHub Actions on the pull request and `main` | Backend, frontend, and image jobs passed. The frontend tests fit within the 15-second limit |
+| Live booking form | The deployed form loaded 24 real open times for Tuesday 17 November from production, with no console errors |
+
+## Staff dashboard (2026-11-05)
+
+**Outcome:** staff sign in at `/staff` to see upcoming and past bookings with contact details, cancel bookings, block time, and see booking metrics. Every staff endpoint requires a session and is scoped to the staff member's business.
+
+### Verified
+
+Run locally on PostgreSQL 14.13 and in a browser against a local backend.
+
+| Check | Result |
+|---|---|
+| `ruff check` and `ruff format --check` | Pass |
+| Backend tests | 181 passed, including sign-in, lockout, expiry, revocation, every staff route rejecting missing or invalid tokens, and isolation between two businesses |
+| Frontend typecheck and tests | Pass. 34 tests passed with no time limit |
+| Browser sign-in | A wrong password showed the generic message. The right one opened the dashboard |
+| Browser cancellation | Two clicks cancelled a 9 AM booking. 9 AM reappeared in public availability, and the database recorded when and by whom |
+| Browser block | Blocking 12 to 2 PM warned about the overlapping 12:45 booking by reference, and removed those times from public availability |
+| Browser sign-out | Cleared the browser's token and revoked the session in the database |
+| Phone width | 375 px with no horizontal scroll |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| Staff sign-in on the live site | Needs a password hash set in Railway by the owner | Follow the staff account section of [deployment.md](deployment.md) |
+| PostgreSQL 18 | Docker was unresponsive | CI on the pull request |
+
+### What remains
+
+Callback requests and assistant session outcomes, which arrive with the voice assistant.

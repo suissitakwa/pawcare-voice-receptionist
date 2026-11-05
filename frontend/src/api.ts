@@ -140,7 +140,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, init);
@@ -148,6 +148,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new ApiRequestError("network", "We couldn't reach the booking service.");
   }
+  if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = body?.error;

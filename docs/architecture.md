@@ -34,6 +34,7 @@ flowchart LR
 | Business identity | Backend configuration | Never accepted from a request |
 | Availability and booking success | PostgreSQL through backend rules | The model can only report results it receives |
 | Tool arguments | Untrusted input, validated on every call | They pass through the browser and originate from a model hearing user speech |
+| Staff access | Hashed bearer sessions, scoped to the staff member's business | See [decision 0004](decisions/0004-staff-authentication.md) |
 
 ## Health checks
 

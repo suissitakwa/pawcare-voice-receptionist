@@ -5,6 +5,9 @@ description = "FastAPI backend for the PawCare demo grooming site and voice rece
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic==1.20.1",
+    "argon2-cffi==25.1.0",
+    # 26.x ships no Intel macOS wheel and would need a local compiler toolchain.
+    "argon2-cffi-bindings==25.1.0",
     "fastapi==0.162.0",
     "psycopg[binary]==3.3.8",
     "pydantic-settings==2.16.2",

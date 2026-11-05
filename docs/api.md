@@ -22,7 +22,7 @@ Readiness.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0004"}` | Safe to serve |
+| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0005"}` | Safe to serve |
 | 503 | `{"status": "unavailable", "database": "unreachable", "schema_revision": null}` | Database cannot be reached |
 | 503 | `{"status": "unavailable", "database": "ok", "schema_revision": "<found>"}` | Migrations have not been applied for this build |
 
@@ -166,4 +166,20 @@ Books exactly the prepared summary. Requires an `Idempotency-Key` header of 8 to
 
 Prepare also returns the service, size, and date errors listed under availability.
 
-No public endpoint lists, reads, changes, or cancels bookings.
+No public endpoint lists, reads, changes, or cancels bookings. Only signed-in staff can, through the staff endpoints below.
+
+## Staff
+
+Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, and returns `401 not_authenticated` without a valid, unexpired, unrevoked token. Results are limited to the signed-in staff member's business. See [decision 0004](decisions/0004-staff-authentication.md).
+
+| Method and path | Purpose |
+|---|---|
+| `POST /api/v1/staff/login` | `{email, password}` returns `token`, `expires_at` (8 hours), and `staff`. Wrong details return `401 invalid_credentials`. Five failures return `429 too_many_attempts` for 15 minutes |
+| `POST /api/v1/staff/logout` | Revokes the token. `204` |
+| `GET /api/v1/staff/me` | The signed-in staff member |
+| `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details. `scope=past` lists finished bookings, most recent first |
+| `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
+| `GET /api/v1/staff/blocks` | Current and future blocked periods |
+| `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason}` as wall-clock values in the business time zone. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range |
+| `DELETE /api/v1/staff/blocks/{id}` | Removes a block. `204`, or `404 block_not_found` |
+| `GET /api/v1/staff/metrics` | Upcoming bookings, bookings made in the last 7 days, and cancellations in the last 7 days |

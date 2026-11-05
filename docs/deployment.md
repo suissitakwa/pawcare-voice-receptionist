@@ -65,3 +65,20 @@ Then open the Netlify URL and confirm that services, hours, and FAQs appear, wit
 ## Cost control
 
 Set a usage limit in Railway's workspace settings before sharing the URL. Voice costs are separate and are controlled by the quota and disable switch added with the voice feature.
+
+## Staff account
+
+The dashboard is at `/staff` on the website. To create the staff account:
+
+1. On your own computer, in `backend/`, run `uv run python -m app.staff hash`, enter a password of at least 12 characters, and copy the printed hash. It starts with `$argon2id$`.
+2. In Railway, set these variables on the backend service, then deploy:
+
+   | Variable | Value |
+   |---|---|
+   | `STAFF_EMAIL` | The staff sign-in email |
+   | `STAFF_DISPLAY_NAME` | The name shown on the dashboard |
+   | `STAFF_PASSWORD_HASH` | The hash from step 1 |
+
+3. Sign in at `https://YOUR-SITE.netlify.app/staff`.
+
+The container creates or updates the account on every start. To change the password, generate a new hash and replace the variable. The password itself is never stored in Railway.

@@ -1,7 +1,7 @@
 import logging
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -25,6 +25,7 @@ from app.availability import (
     working_window,
 )
 from app.booking import confirm_booking, prepare_booking
+from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.errors import ApiError
@@ -45,6 +46,7 @@ from app.schemas import (
     SizeCategoryPublic,
     SlotPublic,
 )
+from app.staff_api import router as staff_router
 
 logger = logging.getLogger("pawcare")
 
@@ -70,10 +72,6 @@ def error_response(status_code: int, code: str, message: str) -> JSONResponse:
 
 class BusinessNotConfigured(Exception):
     pass
-
-
-def get_now() -> datetime:
-    return datetime.now(UTC)
 
 
 @lru_cache
@@ -284,3 +282,6 @@ def confirm(
     if not created:
         response.headers["Idempotent-Replayed"] = "true"
     return confirmation
+
+
+app.include_router(staff_router)
