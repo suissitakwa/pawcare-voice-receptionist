@@ -2,7 +2,7 @@
 
 A demonstration website for a fictional dog grooming business, with a browser-based AI voice receptionist that books real appointments in a real database. A conventional booking form covers visitors who can't or won't use voice.
 
-> **Status: in active development.** The [live demo](https://pawcare-voice-receptionist.netlify.app) shows services, prices, hours, and FAQs from the database. **Voice and booking are not built yet.** See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
+> **Status: in active development.** The [live demo](https://pawcare-voice-receptionist.netlify.app) shows services, prices, hours, and FAQs from the database, and the API calculates real availability. **Voice and booking are not built yet.** See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
 
 PawCare Grooming Studio is fictional. It offers no real services.
 
@@ -34,13 +34,19 @@ Host ports are bound to localhost only: PostgreSQL 5440, API 8000, website 5173.
 curl -s http://localhost:8000/health/ready
 ```
 
-Expected: `{"status":"ready","database":"ok","schema_revision":"0002"}`
+Expected: `{"status":"ready","database":"ok","schema_revision":"0003"}`
 
 ```bash
 curl -s http://localhost:8000/api/v1/business
 ```
 
 Expected: JSON describing PawCare Grooming Studio, read from PostgreSQL.
+
+Check real availability for a future open date. The seeded business opens Tuesday to Saturday:
+
+```bash
+curl -s "http://localhost:8000/api/v1/availability?service=full-groom&size=medium&date=YYYY-MM-DD"
+```
 
 Then open the website. The business name in the header comes from the database. To see that for yourself, change it and reload the page:
 

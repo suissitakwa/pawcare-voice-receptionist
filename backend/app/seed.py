@@ -9,7 +9,17 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db import get_engine
-from app.models import Business, BusinessHours, Faq, Service, ServiceSizeRule, SizeCategory
+from app.models import (
+    Business,
+    BusinessHours,
+    Faq,
+    Groomer,
+    GroomerBreak,
+    GroomerHours,
+    Service,
+    ServiceSizeRule,
+    SizeCategory,
+)
 from app.schemas import BusinessSeed
 
 SEED_FILE = Path(__file__).parent / "seed_data" / "demo_business.json"
@@ -17,7 +27,7 @@ SEED_FILE = Path(__file__).parent / "seed_data" / "demo_business.json"
 
 def seed_business(session: Session) -> None:
     seed = BusinessSeed.model_validate(json.loads(SEED_FILE.read_text()))
-    profile = seed.model_dump(exclude={"hours", "size_categories", "services", "faqs"})
+    profile = seed.model_dump(exclude={"hours", "groomers", "size_categories", "services", "faqs"})
     updates = {key: value for key, value in profile.items() if key != "slug"}
     business_id = session.scalar(
         insert(Business)
@@ -38,6 +48,23 @@ def seed_business(session: Session) -> None:
         Faq(business_id=business_id, display_order=order, **faq.model_dump())
         for order, faq in enumerate(seed.faqs)
     )
+
+    for groomer in seed.groomers:
+        groomer_id = _upsert(
+            session,
+            Groomer,
+            business_id,
+            groomer.slug,
+            {"display_name": groomer.display_name, "is_active": True},
+        )
+        session.execute(delete(GroomerHours).where(GroomerHours.groomer_id == groomer_id))
+        session.add_all(
+            GroomerHours(groomer_id=groomer_id, **period.model_dump()) for period in groomer.hours
+        )
+        session.execute(delete(GroomerBreak).where(GroomerBreak.groomer_id == groomer_id))
+        session.add_all(
+            GroomerBreak(groomer_id=groomer_id, **period.model_dump()) for period in groomer.breaks
+        )
 
     # Services and sizes keep their ids so that future bookings can reference them.
     size_ids = {
@@ -84,7 +111,11 @@ def seed_business(session: Session) -> None:
 
 
 def _upsert(
-    session: Session, model: type[Service | SizeCategory], business_id, slug: str, values: dict
+    session: Session,
+    model: type[Service | SizeCategory | Groomer],
+    business_id,
+    slug: str,
+    values: dict,
 ) -> uuid.UUID:
     return session.scalar(
         insert(model)

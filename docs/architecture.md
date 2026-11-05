@@ -43,3 +43,7 @@ flowchart LR
 | `GET /health/ready` | Database reachable and schema at the revision this build expects | Deploy verification |
 
 Records of the reasoning: [voice](decisions/0001-voice-architecture.md), [booking consistency](decisions/0002-booking-consistency.md), [scope](decisions/0003-scope.md).
+
+## Availability
+
+`app/availability.py` separates a pure calculation from the database queries that feed it, so time zone and overlap rules can be tested exactly. Bookings are stored in UTC with the appointment end and the end of the trailing buffer, and the business time zone is applied per date.
