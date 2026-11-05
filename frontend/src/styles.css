@@ -208,3 +208,14 @@ h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.3125rem; font-weig
 .hours-table { width: 100%; border-collapse: collapse; }
 .hours-table th, .hours-table td { padding: 5px 12px 5px 0; text-align: left; }
 .hours-table th { font-weight: 500; }
+
+.video-layout { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 40px; align-items: start; }
+.explainer-video { display: block; width: 100%; aspect-ratio: 9 / 16; background: var(--brand-dark); border-radius: var(--radius); }
+.video-copy { display: grid; gap: 20px; }
+.transcript summary { font-weight: 600; cursor: pointer; }
+.transcript p { max-width: 65ch; margin: 12px 0 0; color: var(--ink-soft); }
+
+@media (max-width: 720px) {
+  .video-layout { grid-template-columns: 1fr; }
+  .explainer-video { max-width: 340px; margin-inline: auto; }
+}

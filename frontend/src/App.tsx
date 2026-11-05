@@ -4,6 +4,7 @@ import { formatDuration, formatPrice, formatTime, weekdayName } from "./format";
 import { useSiteData } from "./useSiteData";
 
 const NAV_LINKS = [
+  { href: "#video", label: "Video" },
   { href: "#services", label: "Services" },
   { href: "#about", label: "About" },
   { href: "#faqs", label: "FAQs" },
@@ -49,6 +50,53 @@ function Hero({ tagline }: { tagline?: string }) {
         </div>
       </div>
     </section>
+  );
+}
+
+const VIDEO_TRANSCRIPT = [
+  "This is Maya. She runs a one-groomer dog salon. All day long, both hands are busy.",
+  "So when the phone rings, she can't pick up. And a customer who can't get through may book somewhere else.",
+  "So we're building her some help. Meet Pip, a voice receptionist that lives on her website.",
+  "A customer taps, Talk to our assistant, and just asks. Pip answers from Maya's approved prices and FAQs, never from a guess.",
+  "Then Pip checks the real calendar, and only offers times that are actually free.",
+  "The customer reviews the details and taps confirm. Only then is it booked, with a reference.",
+  "A health question? Pip doesn't guess. It sets up a callback, so Maya can answer.",
+  "Later, Maya sees every booking and callback in one place.",
+  "Maya keeps grooming. Pip handles the front desk. PawCare is in development, and we're looking for our first pilot salon.",
+  "On screen: Run a salon? Be our first pilot: suissitakwa@gmail.com",
+];
+
+function ExplainerVideo() {
+  return (
+    <div className="video-layout">
+      <video
+        className="explainer-video"
+        controls
+        playsInline
+        preload="none"
+        poster="/pawcare-explainer-poster.jpg"
+        aria-label="PawCare concept explainer video"
+      >
+        <source src="/pawcare-explainer.mp4" type="video/mp4" />
+        Your browser can't play this video. The transcript has the full story.
+      </video>
+      <div className="video-copy">
+        <p className="lead">
+          A one-minute look at the idea: a voice receptionist that answers questions and books
+          appointments while the groomer's hands are busy.
+        </p>
+        <p className="notice">
+          This is a concept animation with an AI-generated narrator. The voice assistant is still
+          in development, and Maya's salon is fictional.
+        </p>
+        <details className="transcript">
+          <summary>Read the transcript</summary>
+          {VIDEO_TRANSCRIPT.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </details>
+      </div>
+    </div>
   );
 }
 
@@ -247,6 +295,10 @@ export default function App() {
         )}
 
         <Hero tagline={business?.tagline} />
+
+        <Section id="video" title="See the idea in one minute">
+          <ExplainerVideo />
+        </Section>
 
         <Section id="assistant" title="Talk to our assistant" tone="tint">
           <NotYetAvailable>
