@@ -1,0 +1,164 @@
+{
+  "slug": "pawcare-demo",
+  "name": "PawCare Grooming Studio",
+  "tagline": "Calm, one-on-one grooming for dogs, with one groomer and one dog at a time.",
+  "about": "PawCare Grooming Studio is a fictional business created to demonstrate an online booking and voice receptionist product. Its location, staff, prices, and policies are sample data, and no real grooming services are offered.",
+  "timezone": "America/Los_Angeles",
+  "contact_email": "hello@pawcare.example",
+  "contact_phone": "(323) 555-0142",
+  "address": "100 Sample Street, Los Angeles, CA (fictional address)",
+  "is_demo": true,
+  "hours": [
+    {
+      "weekday": 1,
+      "opens_at": "09:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 2,
+      "opens_at": "09:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 3,
+      "opens_at": "09:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 4,
+      "opens_at": "09:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 5,
+      "opens_at": "09:00",
+      "closes_at": "17:00"
+    }
+  ],
+  "size_categories": [
+    {
+      "slug": "small",
+      "label": "Small",
+      "description": "Under 25 lb",
+      "requires_staff_assessment": false
+    },
+    {
+      "slug": "medium",
+      "label": "Medium",
+      "description": "25 to 50 lb",
+      "requires_staff_assessment": false
+    },
+    {
+      "slug": "large",
+      "label": "Large",
+      "description": "51 to 90 lb",
+      "requires_staff_assessment": false
+    },
+    {
+      "slug": "extra-large",
+      "label": "Extra large",
+      "description": "Over 90 lb. Staff assess these dogs before booking.",
+      "requires_staff_assessment": true
+    }
+  ],
+  "services": [
+    {
+      "slug": "bath-and-tidy",
+      "name": "Bath and Tidy",
+      "description": "Bath, blow-dry, brush-out, and a light tidy around the face and paws.",
+      "options": [
+        {
+          "size": "small",
+          "duration_minutes": 60,
+          "price_cents": 4500
+        },
+        {
+          "size": "medium",
+          "duration_minutes": 75,
+          "price_cents": 6000
+        },
+        {
+          "size": "large",
+          "duration_minutes": 90,
+          "price_cents": 7500
+        }
+      ]
+    },
+    {
+      "slug": "full-groom",
+      "name": "Full Groom",
+      "description": "Everything in Bath and Tidy, plus a full haircut styled to your request.",
+      "options": [
+        {
+          "size": "small",
+          "duration_minutes": 90,
+          "price_cents": 7000
+        },
+        {
+          "size": "medium",
+          "duration_minutes": 120,
+          "price_cents": 9000
+        },
+        {
+          "size": "large",
+          "duration_minutes": 150,
+          "price_cents": 11500
+        }
+      ]
+    },
+    {
+      "slug": "nail-and-paw",
+      "name": "Nail and Paw Care",
+      "description": "Nail trim and paw tidy, with no bath.",
+      "options": [
+        {
+          "size": "small",
+          "duration_minutes": 30,
+          "price_cents": 2000
+        },
+        {
+          "size": "medium",
+          "duration_minutes": 30,
+          "price_cents": 2000
+        },
+        {
+          "size": "large",
+          "duration_minutes": 30,
+          "price_cents": 2500
+        }
+      ]
+    }
+  ],
+  "faqs": [
+    {
+      "slug": "what-dogs",
+      "question": "Which dogs do you groom?",
+      "answer": "Dogs only. Dogs under 90 pounds can book online. Dogs over 90 pounds need a staff assessment first, so please request a callback."
+    },
+    {
+      "slug": "prices",
+      "question": "Are the prices final?",
+      "answer": "The listed prices are indicative demo prices that depend on your dog's size. This is a demonstration, so no payment is taken."
+    },
+    {
+      "slug": "how-long",
+      "question": "How long does an appointment take?",
+      "answer": "It depends on the service and your dog's size. Appointments range from 30 minutes to two and a half hours, and the duration is shown for each option."
+    },
+    {
+      "slug": "health-concerns",
+      "question": "My dog has a health or behavior concern. Can you help?",
+      "answer": "We can't give veterinary advice. Please request a callback so staff can review your dog's needs, and speak to your vet about any health concerns."
+    },
+    {
+      "slug": "change-booking",
+      "question": "How do I change or cancel a booking?",
+      "answer": "Please contact staff using the details on this page. Bookings can't be changed or cancelled online."
+    },
+    {
+      "slug": "payment",
+      "question": "How do I pay?",
+      "answer": "This is a demonstration site. No payment is taken and no real appointment takes place."
+    }
+  ]
+}

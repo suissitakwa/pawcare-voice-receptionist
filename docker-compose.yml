@@ -1,0 +1,53 @@
+# Local development only. Credentials here are throwaway and bound to localhost.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pawcare
+      POSTGRES_PASSWORD: pawcare
+      POSTGRES_DB: pawcare
+    ports:
+      - "127.0.0.1:5440:5432"
+    volumes:
+      - pawcare-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pawcare -d pawcare"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      ENVIRONMENT: local
+      DATABASE_URL: postgresql+psycopg://pawcare:pawcare@db:5432/pawcare
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      BUSINESS_SLUG: pawcare-demo
+      SEED_DEMO_DATA: "true"
+    command: ["./scripts/start.sh", "--reload"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - pawcare-node-modules:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pawcare-db:
+  pawcare-node-modules:
