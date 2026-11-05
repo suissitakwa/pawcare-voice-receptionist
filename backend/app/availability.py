@@ -11,9 +11,20 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.models import BlockedPeriod, Booking, Business, Groomer, GroomerBreak, GroomerHours
+from app.errors import ApiError
+from app.models import (
+    BlockedPeriod,
+    Booking,
+    Business,
+    Groomer,
+    GroomerBreak,
+    GroomerHours,
+    Service,
+    ServiceSizeRule,
+    SizeCategory,
+)
 
 
 @dataclass(frozen=True)
@@ -167,3 +178,62 @@ def load_day_rules(session: Session, business: Business, day: date) -> DayRules:
         buffer=timedelta(minutes=business.buffer_minutes),
         min_notice=timedelta(minutes=business.min_notice_minutes),
     )
+
+
+def load_business(session: Session, business_id: uuid.UUID) -> Business:
+    return session.scalar(
+        select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
+    )
+
+
+def resolve_option(
+    session: Session, business_id: uuid.UUID, service_slug: str, size_slug: str
+) -> tuple[Service, SizeCategory, ServiceSizeRule]:
+    """The bookable service, dog size, and rule, or the error explaining why not."""
+    size = session.scalar(
+        select(SizeCategory).where(
+            SizeCategory.business_id == business_id, SizeCategory.slug == size_slug
+        )
+    )
+    if size is None:
+        raise ApiError(404, "unknown_size", "That dog size is not recognised.")
+    if size.requires_staff_assessment:
+        raise ApiError(
+            422,
+            "staff_assessment_required",
+            "Dogs of this size need a staff assessment before booking. Please request a callback.",
+        )
+    found = session.execute(
+        select(Service, ServiceSizeRule)
+        .join(ServiceSizeRule, ServiceSizeRule.service_id == Service.id)
+        .where(
+            Service.business_id == business_id,
+            Service.slug == service_slug,
+            Service.is_active,
+            ServiceSizeRule.size_category_id == size.id,
+        )
+    ).first()
+    if found is None:
+        raise ApiError(404, "unknown_service", "That service is not available for this dog size.")
+    return found[0], size, found[1]
+
+
+def check_booking_window(business: Business, day: date, now: datetime) -> None:
+    today = now.astimezone(ZoneInfo(business.timezone)).date()
+    if day < today:
+        raise ApiError(422, "date_in_past", "That date has already passed.")
+    if day > today + timedelta(days=business.booking_horizon_days):
+        raise ApiError(
+            422,
+            "date_too_far_ahead",
+            f"Appointments can be booked up to {business.booking_horizon_days} days ahead.",
+        )
+
+
+def slot_is_open(
+    session: Session, business: Business, starts_at: datetime, duration: timedelta, now: datetime
+) -> bool:
+    """Whether this exact start would be offered right now, under every scheduling rule."""
+    day = starts_at.astimezone(ZoneInfo(business.timezone)).date()
+    rules = load_day_rules(session, business, day)
+    return any(slot.starts_at == starts_at for slot in compute_slots(day, duration, rules, now))

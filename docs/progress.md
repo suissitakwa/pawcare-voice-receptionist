@@ -122,13 +122,66 @@ Run locally on PostgreSQL 18.6.
 | Docker on PostgreSQL 18 | Readiness reports `0003`. A 2-hour Tuesday groom returns starts from 09:00 to 10:00 and 12:30 to 15:00 |
 | Frontend tests and typecheck | 14 passed with the default timeout, typecheck passes |
 
-### Not verified
+### Verified live
 
-| Item | Why | How to close it |
-|---|---|---|
-| Availability on the live site | Not merged or deployed | Merge, then call the live endpoint |
-| Migration 0003 on Railway | Same | Readiness reports `0003` after deploy |
+| Check | Result |
+|---|---|
+| GitHub Actions on PostgreSQL 18 | Backend, frontend, and image jobs passed on the pull request and on `main` |
+| Migration 0003 on Railway | Applied during the deploy. Readiness reports `0003` |
+| Live availability | A 2-hour Tuesday groom returns starts from 09:00 to 10:00 and 12:30 to 15:00. Saturday ends at the groomer's 15:00 finish |
+| Live error handling | Closed Monday, staff-assessment size, past date, beyond the horizon, and a missing date each return the documented response |
+| Website after deploy | Business details, 3 services, 6 FAQs, and 7 days of hours load, with no console errors |
 
 ### What remains
 
 Booking: the overlap constraint, idempotency keys, and confirmation bound to the exact service, pet details, and slot. Availability does not reserve a slot, so booking must recheck it.
+
+## Concept video (2026-11-05)
+
+**Outcome:** the site has a one-minute concept video with a poster, transcript, and in-development labelling. It loads only when played.
+
+### Verified
+
+| Check | Result |
+|---|---|
+| Frontend tests | 17 passed, including video controls, labelling, and showing the video when the API is down |
+| Live file | Identical checksum to the rendered file. Served as `video/mp4` with range requests |
+| Live playback | Plays with no errors in a desktop browser, muted |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| Playback with sound and on a phone | Automated check was muted, desktop only | Watch it on a phone |
+
+## Booking core (2026-11-05)
+
+**Outcome:** the API books appointments in two steps. Prepare checks the slot and returns a summary. Confirm books exactly that summary, once, under an idempotency key. PostgreSQL rejects overlapping confirmed bookings through the `bookings_no_overlap` exclusion constraint.
+
+### Verified
+
+Run locally on PostgreSQL 14.13, because Docker Desktop was unresponsive. CI runs the same tests on PostgreSQL 18.
+
+| Check | Result |
+|---|---|
+| `ruff check` and `ruff format --check` | Pass |
+| `pytest -W error::DeprecationWarning` | 117 passed |
+| Simultaneous confirmations for one slot | 12 customers, 3 rounds: exactly 1 booked each round, 11 received `slot_unavailable` |
+| Overlapping starts racing | 12 attempts at 9:00 to 9:45: exactly 1 booked, no overlapping rows |
+| Same request retried at once | 10 simultaneous retries: 1 booking, 1 reference |
+| One summary, different keys at once | 8 attempts: 1 booked, 7 received `already_confirmed` |
+| Constraint is what prevents double booking | With the constraint removed, 11 of 12 racing confirmations succeeded, so the tests fail without it |
+| Replays, expiry, binding, conflicts | Covered by `tests/test_booking_api.py`, including a slot taken or blocked between prepare and confirm |
+| Privacy | Confirmation tokens are stored only as hashes. No endpoint lists or reads bookings |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| PostgreSQL 18 | Docker was unresponsive locally | CI on the pull request |
+| Migration 0004 on Railway | Not merged | Readiness reports `0004` after deploy |
+| Rate limits and cleanup of expired drafts | Not built yet | Hardening |
+
+### What remains
+
+The non-voice booking form on the website, which uses these two endpoints.
