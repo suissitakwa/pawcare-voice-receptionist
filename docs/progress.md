@@ -71,6 +71,7 @@ Run with `docker compose` on PostgreSQL 17.11, on an 8 GB machine under heavy lo
 | `npm run typecheck` and `npm run build` | Pass (run natively on Node 22) |
 | `npm test` with a 60-second timeout | 14 passed |
 | Browser | Services, 6 FAQs, and 7 days of hours render, with no console errors or horizontal scroll |
+| GitHub Actions, first run | Frontend and backend image jobs passed |
 | Database value changed, then backend restarted | API returned the new value, then the seed restored it |
 | Database stopped under Compose | Readiness and catalog return 503. Recovers on restart without a backend restart |
 
@@ -80,15 +81,15 @@ Run with `docker compose` on PostgreSQL 17.11, on an 8 GB machine under heavy lo
 |---|---|---|
 | Railway and Netlify deployment | Needs a GitHub repository and accounts, which only the owner can set up | Follow [deployment.md](deployment.md) |
 | `btree_gist` on Railway | Same | First deploy |
-| GitHub Actions | Nothing has been pushed | First push |
+| GitHub Actions backend job | The first run failed before any code ran: the workflow referenced `setup-uv@v10`, a tag that does not exist. Pinned to `v10.3.3` | Next CI run |
 | Color contrast | Not measured | Day 13 |
 
 ### Known issues
 
-- **Default-timeout test failure:** `npm test` with the default 5-second timeout failed once, on the first test only, at a load average above 400. All 14 passed with a 60-second timeout. CI will show whether this happens on a normal machine.
+- **Default-timeout test failure:** `npm test` with the default 5-second timeout failed once locally, on the first test only, at a load average above 400. The GitHub Actions frontend job passed with the default timeout, so this was machine load.
 - **Slow on this machine:** the first page load under Compose takes more than 5 seconds while Vite bundles dependencies. The first image build took about 18 minutes under overload, and later starts took about 3.
 - **The Day 1 503 is still unexplained.** It has not recurred. Keep watching on the deployed host.
 
 ### What remains for Day 2
 
-Commit, create the GitHub repository, push, and deploy using [deployment.md](deployment.md).
+Get the backend CI job passing, then deploy using [deployment.md](deployment.md).
