@@ -8,7 +8,7 @@ from typing import Annotated
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,16 +16,29 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.availability import compute_slots, load_day_rules, working_window
+from app.availability import (
+    check_booking_window,
+    compute_slots,
+    load_business,
+    load_day_rules,
+    resolve_option,
+    working_window,
+)
+from app.booking import confirm_booking, prepare_booking
 from app.config import Settings, get_settings
 from app.db import get_db
+from app.errors import ApiError
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
 from app.schemas import (
     AvailabilityPublic,
+    BookingConfirmation,
     BusinessPublic,
     CatalogPublic,
+    ConfirmBookingRequest,
     FaqPublic,
     LiveStatus,
+    PrepareBookingRequest,
+    PreparedBooking,
     ReadyStatus,
     ServiceOptionPublic,
     ServicePublic,
@@ -57,14 +70,6 @@ def error_response(status_code: int, code: str, message: str) -> JSONResponse:
 
 class BusinessNotConfigured(Exception):
     pass
-
-
-class ApiError(Exception):
-    def __init__(self, status_code: int, code: str, message: str) -> None:
-        super().__init__(code)
-        self.status_code = status_code
-        self.code = code
-        self.message = message
 
 
 def get_now() -> datetime:
@@ -212,45 +217,10 @@ def get_availability(
     day: Annotated[date, Query(alias="date")],
 ) -> AvailabilityPublic:
     """Open appointment starts for one service, dog size, and local date."""
-    business = db.scalar(
-        select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
-    )
-    size_category = db.scalar(
-        select(SizeCategory).where(
-            SizeCategory.business_id == business_id, SizeCategory.slug == size
-        )
-    )
-    if size_category is None:
-        raise ApiError(404, "unknown_size", "That dog size is not recognised.")
-    if size_category.requires_staff_assessment:
-        raise ApiError(
-            422,
-            "staff_assessment_required",
-            "Dogs of this size need a staff assessment before booking. Please request a callback.",
-        )
-    rule = db.scalar(
-        select(ServiceSizeRule)
-        .join(Service)
-        .where(
-            Service.business_id == business_id,
-            Service.slug == service,
-            Service.is_active,
-            ServiceSizeRule.size_category_id == size_category.id,
-        )
-    )
-    if rule is None:
-        raise ApiError(404, "unknown_service", "That service is not available for this dog size.")
-
+    business = load_business(db, business_id)
+    _, _, rule = resolve_option(db, business_id, service, size)
     rules = load_day_rules(db, business, day)
-    today = now.astimezone(rules.timezone).date()
-    if day < today:
-        raise ApiError(422, "date_in_past", "That date has already passed.")
-    if day > today + timedelta(days=business.booking_horizon_days):
-        raise ApiError(
-            422,
-            "date_too_far_ahead",
-            f"Appointments can be booked up to {business.booking_horizon_days} days ahead.",
-        )
+    check_booking_window(business, day, now)
 
     duration = timedelta(minutes=rule.duration_minutes)
     return AvailabilityPublic(
@@ -270,3 +240,47 @@ def get_availability(
             for slot in compute_slots(day, duration, rules, now)
         ],
     )
+
+
+Now = Annotated[datetime, Depends(get_now)]
+
+
+@app.post(
+    "/api/v1/bookings/prepare", response_model=PreparedBooking, status_code=201, tags=["booking"]
+)
+def prepare(
+    request: PrepareBookingRequest, db: DbSession, business_id: CurrentBusinessId, now: Now
+) -> PreparedBooking:
+    """Check a slot and hold the details as a summary for the customer to confirm.
+
+    Nothing is booked yet. The returned token and summary hash confirm exactly this summary
+    for ten minutes. Changing anything means preparing again.
+    """
+    prepared = prepare_booking(db, load_business(db, business_id), request, now)
+    db.commit()
+    return prepared
+
+
+@app.post("/api/v1/bookings/confirm", response_model=BookingConfirmation, tags=["booking"])
+def confirm(
+    request: ConfirmBookingRequest,
+    response: Response,
+    db: DbSession,
+    business_id: CurrentBusinessId,
+    now: Now,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+) -> BookingConfirmation:
+    """Book exactly the prepared summary. Retrying with the same key returns the same booking."""
+    confirmation, created = confirm_booking(
+        db,
+        load_business(db, business_id),
+        request.confirmation_token,
+        request.summary_hash,
+        idempotency_key,
+        now,
+    )
+    db.commit()
+    response.status_code = 201 if created else 200
+    if not created:
+        response.headers["Idempotent-Replayed"] = "true"
+    return confirmation

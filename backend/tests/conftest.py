@@ -20,7 +20,7 @@ os.environ["BUSINESS_SLUG"] = "pawcare-demo"
 
 from app.db import get_db, get_engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import BlockedPeriod, Booking  # noqa: E402
+from app.models import BlockedPeriod, Booking, BookingDraft  # noqa: E402
 from app.seed import seed_business  # noqa: E402
 
 ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
@@ -54,6 +54,7 @@ def migrated_database() -> Iterator[None]:
 def db() -> Iterator[Session]:
     with Session(get_engine()) as session:
         session.execute(delete(Booking))
+        session.execute(delete(BookingDraft))
         session.execute(delete(BlockedPeriod))
         seed_business(session)
         session.commit()

@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -10,12 +10,10 @@ from sqlalchemy.orm import Session
 from app.main import app, get_now
 from app.models import (
     BlockedPeriod,
-    Booking,
-    Business,
     Groomer,
     Service,
-    SizeCategory,
 )
+from tests.factories import make_booking
 
 LA = ZoneInfo("America/Los_Angeles")
 URL = "/api/v1/availability"
@@ -42,21 +40,7 @@ def local_starts(body: dict) -> list[str]:
 
 
 def add_booking(db: Session, start: datetime, minutes: int = 30, status="confirmed") -> None:
-    business_id = db.scalar(select(Business.id).where(Business.slug == "pawcare-demo"))
-    end = start + timedelta(minutes=minutes)
-    db.add(
-        Booking(
-            business_id=business_id,
-            groomer_id=db.scalar(select(Groomer.id).where(Groomer.business_id == business_id)),
-            service_id=db.scalar(select(Service.id).where(Service.slug == "nail-and-paw")),
-            size_category_id=db.scalar(select(SizeCategory.id).where(SizeCategory.slug == "small")),
-            starts_at=end - timedelta(minutes=minutes),
-            ends_at=end,
-            occupied_until=end + timedelta(minutes=15),
-            status=status,
-        )
-    )
-    db.commit()
+    make_booking(db, start, minutes, status)
 
 
 def test_returns_seeded_hours_break_and_duration(client: TestClient) -> None:

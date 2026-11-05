@@ -1,7 +1,15 @@
+import re
 from datetime import date, datetime, time
 from zoneinfo import available_timezones
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class SeedModel(BaseModel):
@@ -175,3 +183,80 @@ class ReadyStatus(BaseModel):
     status: str
     database: str
     schema_revision: str | None = None
+
+
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PHONE_PATTERN = re.compile(r"^\+?[0-9 ().-]{7,20}$")
+
+
+class PrepareBookingRequest(BaseModel):
+    """Everything is untrusted input, whether typed into the form or passed by the assistant."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    service: str = Field(min_length=1, max_length=64)
+    size: str = Field(min_length=1, max_length=32)
+    starts_at: AwareDatetime
+    owner_name: str = Field(min_length=1, max_length=80)
+    owner_email: str | None = Field(default=None, max_length=254)
+    owner_phone: str | None = Field(default=None, max_length=20)
+    pet_name: str = Field(min_length=1, max_length=40)
+
+    @field_validator("owner_email")
+    @classmethod
+    def valid_email(cls, value: str | None) -> str | None:
+        if value in (None, ""):
+            return None
+        if not EMAIL_PATTERN.match(value):
+            raise ValueError("not a valid email address")
+        return value.lower()
+
+    @field_validator("owner_phone")
+    @classmethod
+    def valid_phone(cls, value: str | None) -> str | None:
+        if value in (None, ""):
+            return None
+        if not PHONE_PATTERN.match(value):
+            raise ValueError("not a valid phone number")
+        return value
+
+    @model_validator(mode="after")
+    def has_contact(self) -> "PrepareBookingRequest":
+        if self.owner_email is None and self.owner_phone is None:
+            raise ValueError("an email address or phone number is required")
+        return self
+
+
+class BookingSummary(BaseModel):
+    service: str
+    size: str
+    pet_name: str
+    owner_name: str
+    owner_email: str | None
+    owner_phone: str | None
+    starts_at: datetime
+    local_start: datetime
+    local_end: datetime
+    timezone: str
+    duration_minutes: int
+    price_cents: int
+
+
+class PreparedBooking(BaseModel):
+    confirmation_token: str
+    summary_hash: str
+    expires_at: datetime
+    summary: BookingSummary
+
+
+class ConfirmBookingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    confirmation_token: str = Field(min_length=20, max_length=128)
+    summary_hash: str = Field(min_length=64, max_length=64)
+
+
+class BookingConfirmation(BaseModel):
+    reference: str
+    status: str
+    summary: BookingSummary

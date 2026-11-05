@@ -23,3 +23,8 @@ Voice and form users can race for the same slot. A check-then-insert in applicat
 ## Consequences
 
 Blocked periods stay in their own table, outside the exclusion constraint, because they are staff-entered ranges and not bookings. The booking transaction rechecks them. A staff member can create a block that overlaps a booking made moments earlier, and the dashboard must show that conflict. Concurrency tests must run on real PostgreSQL, so tests never substitute SQLite.
+
+## Evidence
+
+- With `bookings_no_overlap` removed from the migration, 11 of 12 simultaneous confirmations for one slot succeeded. With it in place, exactly one succeeds and the other 11 receive `slot_unavailable`. See `tests/test_booking_concurrency.py`.
+- Ten simultaneous retries with one idempotency key create one booking and return one reference.

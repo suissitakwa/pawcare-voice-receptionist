@@ -51,7 +51,7 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Service catalog, hours, and FAQs from the database
 - [x] Live deployment
 - [x] Availability from hours, breaks, buffers, and blocked times
-- [ ] Booking with database-enforced overlap prevention, idempotency, and bound confirmation
+- [x] Booking with database-enforced overlap prevention, idempotency, and bound confirmation
 - [ ] Non-voice booking form
 - [ ] Browser voice session with short-lived credentials, quota, and disable switch
 - [ ] Voice interface states, transcript, and error handling

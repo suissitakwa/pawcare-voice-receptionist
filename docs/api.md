@@ -22,7 +22,7 @@ Readiness.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0003"}` | Safe to serve |
+| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0004"}` | Safe to serve |
 | 503 | `{"status": "unavailable", "database": "unreachable", "schema_revision": null}` | Database cannot be reached |
 | 503 | `{"status": "unavailable", "database": "ok", "schema_revision": "<found>"}` | Migrations have not been applied for this build |
 
@@ -115,3 +115,55 @@ Open appointment starts for one service, dog size, and local date in the busines
 - Starts step by the configured increment from the opening time.
 - Starts must respect the minimum notice. Dates must fall within the booking horizon.
 - Comparisons use UTC. Wall-clock hours are converted per date, so appointments have their true elapsed length across daylight-saving changes.
+
+## Booking
+
+Booking takes two steps, so nothing is booked until the customer has seen and accepted the exact details. Every field in a request is treated as untrusted, including when the assistant sends it. Prices, durations, and availability always come from the database.
+
+### `POST /api/v1/bookings/prepare`
+
+Checks the slot and returns a summary to show the customer. Nothing is booked yet.
+
+```json
+{
+  "service": "full-groom",
+  "size": "medium",
+  "starts_at": "2026-11-10T09:00:00-08:00",
+  "owner_name": "Jordan Example",
+  "owner_email": "jordan@example.com",
+  "owner_phone": null,
+  "pet_name": "Biscuit"
+}
+```
+
+`starts_at` must include a UTC offset and match a start that `GET /api/v1/availability` would offer. An email address or a phone number is required. Unknown fields, including any attempt to send a price, are rejected.
+
+`201` returns `confirmation_token`, `summary_hash`, `expires_at` (10 minutes), and `summary`: service, size, pet and owner details, UTC and local times, duration, and price.
+
+### `POST /api/v1/bookings/confirm`
+
+Books exactly the prepared summary. Requires an `Idempotency-Key` header of 8 to 128 characters.
+
+```json
+{ "confirmation_token": "...", "summary_hash": "..." }
+```
+
+| Status | Meaning |
+|---|---|
+| 201 | Booked. Returns `reference`, `status`, and the `summary` |
+| 200 | A retry with the same key and token. Returns the original booking, with header `Idempotent-Replayed: true` |
+
+### Booking errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 404 | `confirmation_not_found` | Unknown confirmation token |
+| 409 | `slot_unavailable` | The time is no longer free, or never was |
+| 409 | `already_confirmed` | This summary was already booked under a different key |
+| 409 | `confirmation_mismatch` | The summary hash does not match what was prepared |
+| 410 | `confirmation_expired` | The summary is older than 10 minutes. Prepare again |
+| 422 | `idempotency_key_reused` | The key was used for a different request |
+
+Prepare also returns the service, size, and date errors listed under availability.
+
+No public endpoint lists, reads, changes, or cancels bookings.

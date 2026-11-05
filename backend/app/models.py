@@ -14,6 +14,7 @@ from sqlalchemy import (
     text,
     true,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -199,6 +200,13 @@ class Booking(Base):
         CheckConstraint("ends_at > starts_at", name="booking_end_after_start"),
         CheckConstraint("occupied_until >= ends_at", name="booking_buffer_after_end"),
         CheckConstraint("status IN ('confirmed', 'cancelled')", name="booking_status_known"),
+        CheckConstraint(
+            "owner_email IS NOT NULL OR owner_phone IS NOT NULL", name="booking_has_contact"
+        ),
+        UniqueConstraint("reference", name="uq_bookings_reference"),
+        UniqueConstraint("business_id", "idempotency_key", name="uq_bookings_idempotency_key"),
+        UniqueConstraint("draft_id", name="uq_bookings_draft_id"),
+        # bookings_no_overlap, the exclusion constraint, is created in migration 0004.
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -212,4 +220,48 @@ class Booking(Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     occupied_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), server_default="confirmed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reference: Mapped[str] = mapped_column(String(16))
+    price_cents: Mapped[int]
+    owner_name: Mapped[str] = mapped_column(String(80))
+    owner_email: Mapped[str | None] = mapped_column(String(254))
+    owner_phone: Mapped[str | None] = mapped_column(String(20))
+    pet_name: Mapped[str] = mapped_column(String(40))
+    summary: Mapped[dict] = mapped_column(JSONB)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    draft_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("booking_drafts.id", ondelete="SET NULL")
+    )
+
+
+class BookingDraft(Base):
+    """A prepared booking. Its details never change, so a confirmation binds to exactly them."""
+
+    __tablename__ = "booking_drafts"
+    __table_args__ = (
+        CheckConstraint(
+            "owner_email IS NOT NULL OR owner_phone IS NOT NULL", name="draft_has_contact"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    groomer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groomers.id"))
+    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("services.id"))
+    size_category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("size_categories.id"))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    occupied_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    price_cents: Mapped[int]
+    owner_name: Mapped[str] = mapped_column(String(80))
+    owner_email: Mapped[str | None] = mapped_column(String(254))
+    owner_phone: Mapped[str | None] = mapped_column(String(20))
+    pet_name: Mapped[str] = mapped_column(String(40))
+    summary: Mapped[dict] = mapped_column(JSONB)
+    summary_hash: Mapped[str] = mapped_column(String(64))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
