@@ -3,8 +3,6 @@
 .env.*
 !.env.example
 secrets.yaml
-CLAUDE.md
-.claude/
 
 # Python
 .venv/

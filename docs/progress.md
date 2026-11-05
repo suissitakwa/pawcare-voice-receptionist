@@ -2,7 +2,7 @@
 
 Evidence log. Each entry records what was actually run. Anything not run is listed as not verified.
 
-## Day 1: Foundation (2026-11-04)
+## Foundation (2026-11-04)
 
 **Outcome:** a website shell that renders business details read from PostgreSQL through the API, with health endpoints, migrations, repeatable seed data, tests, and CI configuration.
 
@@ -34,9 +34,9 @@ Run on macOS with Python 3.12, Node 22.23.4, and PostgreSQL **14.13** running na
 | Browser | Error message and retry button. The demo notice stays visible |
 | After restarting PostgreSQL | Readiness returned 200 and the retry button restored the page, without restarting the backend |
 
-### Verified later on Day 2
+### Verified later
 
-The Docker items that could not run on Day 1 passed once the machine had recovered. See the Day 2 entry below.
+The Docker items that could not run at first passed once the machine had recovered. See the next entry.
 
 ### Open issue: one unexplained 503
 
@@ -45,13 +45,13 @@ The first page load in the browser got a 503 from `/api/v1/business`, and a relo
 - **Observed:** the server logged `OperationalError`. PostgreSQL's log showed no error. The machine's load average was over 500, with 4 GB of swap in use.
 - **Most likely cause, not proven:** the 3-second database connection timeout expired while the machine was overloaded.
 - **Done:** the original log recorded only the exception type, which is why the cause was lost. It now records the driver message for connection failures and still logs other database errors by type only, so row data stays out of logs. Tests cover both.
-- **Next:** if it recurs, the log will identify the cause. Check again on Day 2 on a healthy host, before changing the timeout.
+- **Next:** if it recurs, the log will identify the cause. Check again on a healthy host, before changing the timeout.
 
 ### What remains
 
-Everything from Day 2 onward in [mvp.md](mvp.md). The services, FAQ, voice, and booking sections currently state that they are not available.
+The rest of the roadmap in [mvp.md](mvp.md). The services, FAQ, voice, and booking sections currently state that they are not available.
 
-## Day 2: Catalog and deployment readiness (2026-11-04)
+## Catalog and deployment (2026-11-04)
 
 **Outcome:** services, prices, durations, hours, and FAQs now come from PostgreSQL and appear on the site. The site is deployed: frontend on Netlify, backend and PostgreSQL on Railway.
 
@@ -92,16 +92,16 @@ Frontend: https://pawcare-voice-receptionist.netlify.app. Backend: https://pawca
 | Item | Why | How to close it |
 |---|---|---|
 | GitHub Actions backend job | The first run failed before any code ran: the workflow referenced `setup-uv@v10`, a tag that does not exist. Pinned to `v10.3.3` | Next CI run |
-| Color contrast | Not measured | Day 13 |
+| Color contrast | Not measured | Accessibility review |
 
 ### Known issues
 
 - **Default-timeout test failure:** `npm test` with the default 5-second timeout failed once locally, on the first test only, at a load average above 400. The GitHub Actions frontend job passed with the default timeout, so this was machine load.
 - **Slow on this machine:** the first page load under Compose takes more than 5 seconds while Vite bundles dependencies. The first image build took about 18 minutes under overload, and later starts took about 3.
-- **The Day 1 503 is still unexplained.** It has not recurred, including on the deployed host so far. Keep watching.
-- **PostgreSQL versions differ:** Railway runs 18, while Compose and CI use 17. Align them before the Day 4 booking constraint.
+- **The earlier 503 is still unexplained.** It has not recurred, including on the deployed host so far. Keep watching.
+- **PostgreSQL versions differ:** Railway runs 18, while Compose and CI use 17. Align them before the booking constraint.
 - **Netlify badge:** a "Powered by Netlify" badge appears in the corner of the live site. At narrow widths it can cover part of the navigation.
 
-### What remains for Day 2
+### What remains
 
 Get the backend CI job passing on `main`.

@@ -1,6 +1,6 @@
 # 0001: Voice architecture
 
-**Status:** Accepted for connection flow. Tool transport is provisional until tested on Day 6.
+**Status:** Accepted for connection flow. Tool transport is provisional until tested with a real call.
 
 ## Context
 
@@ -18,7 +18,7 @@ Verified against OpenAI's documentation on 2026-11-04:
 ## Decision
 
 1. **Browser connects directly to OpenAI over WebRTC** with a backend-minted credential. The backend does not relay audio, which keeps it small and adds no audio latency.
-2. **The backend sets instructions and tools when minting the credential.** The model name is configuration, re-verified on Day 6, and never hardcoded in the client.
+2. **The backend sets instructions and tools when minting the credential.** The model name is configuration, re-verified before the first real call, and never hardcoded in the client.
 3. **Start with the browser relaying tool calls** to authenticated backend endpoints, scoped by a server-issued voice session.
 4. **Booking confirmation requires a real click** on a visible control. A model tool call alone cannot commit a booking.
 
@@ -37,4 +37,4 @@ The relay is safe here because a forged call gains nothing: each tool can do no 
 
 - Every tool endpoint needs validation, rate limits, and session scoping.
 - A visitor can technically see their own session's tool traffic in developer tools. It must not contain anything they could not already see.
-- Minting credentials costs money, so it needs its own rate limit, daily quota, and disable switch before Day 6 goes live.
+- Minting credentials costs money, so it needs its own rate limit, daily quota, and disable switch before voice goes live.

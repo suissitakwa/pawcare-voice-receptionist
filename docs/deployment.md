@@ -64,4 +64,4 @@ Then open the Netlify URL and confirm that services, hours, and FAQs appear, wit
 
 ## Cost control
 
-Set a usage limit in Railway's workspace settings before sharing the URL. Voice costs are separate and are controlled by the quota and disable switch added on Day 6.
+Set a usage limit in Railway's workspace settings before sharing the URL. Voice costs are separate and are controlled by the quota and disable switch added with the voice feature.
