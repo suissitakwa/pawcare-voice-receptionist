@@ -185,3 +185,31 @@ Run locally on PostgreSQL 14.13, because Docker Desktop was unresponsive. CI run
 ### What remains
 
 The non-voice booking form on the website, which uses these two endpoints.
+
+## Booking form (2026-11-05)
+
+**Outcome:** visitors can book on the website without voice. They choose a service, dog size, and date, pick from real open times, enter their details, review a summary, and confirm to receive a reference.
+
+### Verified
+
+| Check | Result |
+|---|---|
+| Frontend typecheck and build | Pass |
+| Frontend tests | 28 passed with no time limit. With a 15-second limit, one booking journey test took 17 seconds while the machine's load average was about 330 |
+| End to end in a browser, local backend and database | Booked Bath and Tidy at 9 AM and received a reference. The database held one booking with its buffer, and 9 AM to 10 AM disappeared from availability |
+| Conflict in a browser | While a customer reviewed 12:30 PM, another customer booked 12:45 PM through the API. Confirm showed "booked by someone else", returned to fresh times without 12:30 to 1:15, and created no booking |
+| Retry safety | A confirmation retried after a network failure reuses the same idempotency key (unit test) |
+| Staff-assessment size | Shows a staff message and requests no times |
+| Accessibility | Labelled fields, grouped choices with legends, errors linked to fields, focus moves to each step's heading, tap targets at least 47 px |
+| Phone width | 375 px with no horizontal scroll |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| Live booking on the deployed site | Bookings cannot be cancelled yet, so a test booking would permanently block a slot | After the staff dashboard adds cancellation |
+| Screen reader walkthrough | Only structure was checked | Accessibility review |
+
+### Known issues
+
+- The opening hours table shows business hours. On Saturdays the groomer finishes at 3 PM, so the last bookable start is earlier than the table suggests.

@@ -75,3 +75,119 @@ export async function fetchSiteData(signal?: AbortSignal): Promise<SiteData> {
   }
   return { business, catalog, faqs };
 }
+
+export interface Slot {
+  starts_at: string;
+  ends_at: string;
+  local_start: string;
+  local_end: string;
+}
+
+export interface Availability {
+  date: string;
+  timezone: string;
+  duration_minutes: number;
+  closed: boolean;
+  slots: Slot[];
+}
+
+export interface BookingDetails {
+  service: string;
+  size: string;
+  starts_at: string;
+  owner_name: string;
+  owner_email: string | null;
+  owner_phone: string | null;
+  pet_name: string;
+}
+
+export interface BookingSummary {
+  service: string;
+  size: string;
+  pet_name: string;
+  owner_name: string;
+  owner_email: string | null;
+  owner_phone: string | null;
+  starts_at: string;
+  local_start: string;
+  local_end: string;
+  timezone: string;
+  duration_minutes: number;
+  price_cents: number;
+}
+
+export interface PreparedBooking {
+  confirmation_token: string;
+  summary_hash: string;
+  expires_at: string;
+  summary: BookingSummary;
+}
+
+export interface BookingConfirmation {
+  reference: string;
+  status: string;
+  summary: BookingSummary;
+}
+
+/** A failure the UI can act on. `code` is the API's error code, or "network" if no reply came. */
+export class ApiRequestError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status = 0,
+  ) {
+    super(message);
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, init);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new ApiRequestError("network", "We couldn't reach the booking service.");
+  }
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = body?.error;
+    throw new ApiRequestError(
+      typeof detail?.code === "string" ? detail.code : "unexpected",
+      typeof detail?.message === "string" ? detail.message : "Something went wrong.",
+      response.status,
+    );
+  }
+  return body as T;
+}
+
+export function fetchAvailability(
+  service: string,
+  size: string,
+  date: string,
+  signal?: AbortSignal,
+): Promise<Availability> {
+  const query = new URLSearchParams({ service, size, date });
+  return request<Availability>(`/api/v1/availability?${query}`, { signal });
+}
+
+export function prepareBooking(details: BookingDetails): Promise<PreparedBooking> {
+  return request<PreparedBooking>("/api/v1/bookings/prepare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(details),
+  });
+}
+
+export function confirmBooking(
+  prepared: PreparedBooking,
+  idempotencyKey: string,
+): Promise<BookingConfirmation> {
+  return request<BookingConfirmation>("/api/v1/bookings/confirm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({
+      confirmation_token: prepared.confirmation_token,
+      summary_hash: prepared.summary_hash,
+    }),
+  });
+}
