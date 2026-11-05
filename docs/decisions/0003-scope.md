@@ -4,7 +4,7 @@
 
 ## Decisions
 
-- **Modular monolith:** one FastAPI service, one React app, one database. A single developer has 15 days, and nothing here needs independent scaling.
+- **Modular monolith:** one FastAPI service, one React app, one database. One developer maintains it, and nothing here needs independent scaling.
 - **Synchronous SQLAlchemy with psycopg 3.** Traffic is low and the transactions are short and critical. Sync code is simpler to reason about for locking, and FastAPI runs these handlers in a thread pool. Async can come later if measurement calls for it.
 - **Structured FAQs, not RAG.** A small approved list gives exact answers and a reliable "I don't know, let me route you to staff." Retrieval would add the risk of plausible wrong answers without a content problem to solve.
 - **No multi-agent framework.** One model session and a handful of typed tools are enough.
@@ -14,4 +14,4 @@
 
 ## Consequences
 
-Scaling beyond one business would require tenant scoping through every query. `business_slug` is resolved server-side from day one so that path stays open, but multi-tenancy itself is not built.
+Scaling beyond one business would require tenant scoping through every query. `business_slug` is resolved server-side from the start so that path stays open, but multi-tenancy itself is not built.

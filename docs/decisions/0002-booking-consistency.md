@@ -1,6 +1,6 @@
 # 0002: Booking consistency
 
-**Status:** Accepted. Implementation scheduled for Day 4.
+**Status:** Accepted. Not yet implemented.
 
 ## Context
 
@@ -22,4 +22,4 @@ Voice and form users can race for the same slot. A check-then-insert in applicat
 
 ## Consequences
 
-Blocked periods must be checked against the same rules. Whether they share the constraint is decided on Day 3 to 4. Concurrency tests must run on real PostgreSQL, so tests never substitute SQLite.
+Blocked periods must be checked against the same rules. Whether they share the constraint is decided when availability is built. Concurrency tests must run on real PostgreSQL, so tests never substitute SQLite.

@@ -43,26 +43,21 @@ Telephone numbers, external calendar sync, payments, SMS or email delivery, mult
 
 See [architecture.md](architecture.md) and the [decision records](decisions/).
 
-## 15-day plan
+## Roadmap
 
-Each day ends with something running, evidence in [progress.md](progress.md), and a suggested commit. Deployment and real voice are deliberately early because they carry the most unknowns.
+Evidence for finished work is in [progress.md](progress.md).
 
-| Day | Outcome | Proof |
-|---|---|---|
-| 1 | Website shell, health endpoints, Postgres, migrations, local setup, CI | Browser renders data read from Postgres |
-| 2 | **First deployment.** Live backend, managed Postgres, Netlify frontend, then catalog schema: services, size rules, hours, FAQs | Live URL renders database content; readiness passes in production |
-| 3 | Availability engine: hours, breaks, buffers, blocks, durations, time zone | Boundary tests, including daylight-saving changes |
-| 4 | Booking core: exclusion constraint, idempotency keys, prepare and confirm, confirmation binding | Concurrency test: N simultaneous requests, exactly one succeeds |
-| 5 | Non-voice booking form, end to end, live | Book on the live site; conflict shown when a slot is taken |
-| 6 | **First real voice call.** Ephemeral credentials, WebRTC connection, quota, disable switch, rate limit | Real spoken conversation on the deployed site |
-| 7 | Voice UI: all states, transcript, mute, end, permission and connection errors, track cleanup | Manual checklist, including microphone denied |
-| 8 | Tools wired to the backend: business info, services, FAQ, availability, callback | Voice answers from database records; unknown FAQ falls back |
-| 9 | Full voice booking: visible summary, confirm control, correction, interruption | Real spoken booking appears in the database with a reference |
-| 10 | Staff authentication and dashboard: bookings, callbacks, blocks, cancellation | Authorization tests; a block removes a slot from voice and form |
-| 11 | Session outcomes, summaries, metrics, usage and cost capture | Metrics match database counts |
-| 12 | Local test mode without paid calls; 30+ scenarios; scripted evaluation runner | First evaluation report, labelled as scripted |
-| 13 | Hardening: rate limits, failure paths, accessibility pass, retention and cleanup | Fault-injection tests; keyboard-only and contrast checks |
-| 14 | Manual audio testing and latency measurement with a defined method | Logged real sessions, reported apart from scripted results |
-| 15 | Final evaluation report, documentation, demo script, customer checklist, release | Fresh clone reproduces; two-minute demo rehearsed on live site |
-
-**Buffer rule:** if the schedule slips, cut in this order: dashboard polish, cost reporting detail, then scripted scenarios beyond the required 30. Booking correctness, real voice, and the form are never cut.
+- [x] Website, API, database, automated checks
+- [x] Service catalog, hours, and FAQs from the database
+- [x] Live deployment
+- [ ] Availability from hours, breaks, buffers, and blocked times
+- [ ] Booking with database-enforced overlap prevention, idempotency, and bound confirmation
+- [ ] Non-voice booking form
+- [ ] Browser voice session with short-lived credentials, quota, and disable switch
+- [ ] Voice interface states, transcript, and error handling
+- [ ] Assistant tools backed by the API, including full voice booking
+- [ ] Protected staff dashboard with session outcomes and metrics
+- [ ] Local test mode and scripted evaluations
+- [ ] Hardening, accessibility review, and data retention
+- [ ] Manual audio testing and latency measurement
+- [ ] Evaluation report, demo script, and customer demonstration checklist

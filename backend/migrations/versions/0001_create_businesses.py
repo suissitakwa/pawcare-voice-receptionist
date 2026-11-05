@@ -1,6 +1,6 @@
 """Create businesses and enable btree_gist
 
-btree_gist is enabled here, ahead of the Day 4 booking exclusion constraint, so
+btree_gist is enabled here, ahead of the booking exclusion constraint, so
 that a managed Postgres host that refuses the extension fails on first deploy.
 
 Revision ID: 0001

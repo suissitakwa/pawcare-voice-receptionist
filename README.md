@@ -2,7 +2,7 @@
 
 A demonstration website for a fictional dog grooming business, with a browser-based AI voice receptionist that books real appointments in a real database. A conventional booking form covers visitors who can't or won't use voice.
 
-> **Status: Day 2 of 15.** The website shows services, prices, hours, and FAQs from the database. **Voice and booking are not built yet.** See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
+> **Status: in active development.** The [live demo](https://pawcare-voice-receptionist.netlify.app) shows services, prices, hours, and FAQs from the database. **Voice and booking are not built yet.** See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
 
 PawCare Grooming Studio is fictional. It offers no real services.
 
@@ -90,7 +90,7 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 
 ## Documentation
 
-- [MVP scope and 15-day plan](docs/mvp.md)
+- [MVP scope and roadmap](docs/mvp.md)
 - [Progress log with evidence](docs/progress.md)
 - [Architecture](docs/architecture.md)
 - [API](docs/api.md)
@@ -102,4 +102,3 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 
 - The "Talk to our assistant" and "Book an appointment" buttons lead to sections explaining that those features are not available yet.
 - Prices are indicative demo values for a fictional business.
-- Nothing is deployed yet.
