@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import date, datetime, time
 from zoneinfo import available_timezones
 
@@ -260,3 +261,70 @@ class BookingConfirmation(BaseModel):
     reference: str
     status: str
     summary: BookingSummary
+
+
+class StaffLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class StaffPublic(BaseModel):
+    email: str
+    display_name: str
+
+
+class StaffLoginResult(BaseModel):
+    token: str
+    expires_at: datetime
+    staff: StaffPublic
+
+
+class StaffBooking(BaseModel):
+    reference: str
+    status: str
+    service: str
+    size: str
+    pet_name: str
+    owner_name: str
+    owner_email: str | None
+    owner_phone: str | None
+    starts_at: datetime
+    local_start: datetime
+    local_end: datetime
+    price_cents: int
+    created_at: datetime
+    cancelled_at: datetime | None
+
+
+class StaffBlock(BaseModel):
+    id: uuid.UUID
+    starts_at: datetime
+    ends_at: datetime
+    local_start: datetime
+    local_end: datetime
+    reason: str
+
+
+class BlockRequest(BaseModel):
+    """Wall-clock dates and times in the business time zone."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    start_date: date
+    start_time: time
+    end_date: date
+    end_time: time
+    reason: str = Field(default="", max_length=200)
+
+
+class BlockCreated(BaseModel):
+    block: StaffBlock
+    conflicts: list[StaffBooking]
+
+
+class StaffMetrics(BaseModel):
+    upcoming_bookings: int
+    bookings_last_7_days: int
+    cancellations_last_7_days: int

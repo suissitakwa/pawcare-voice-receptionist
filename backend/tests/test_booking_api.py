@@ -266,14 +266,13 @@ def test_block_added_after_prepare_is_respected(client: TestClient, db: Session)
     assert count(db) == 0
 
 
-def test_no_endpoint_lists_or_reads_bookings(client: TestClient) -> None:
+def test_only_signed_in_staff_can_list_bookings(client: TestClient) -> None:
     confirm(client, prepare(client).json())
-    paths = {route.path for route in app.routes}
-    assert not any(
-        path.startswith("/api/v1/bookings") and "prepare" not in path and "confirm" not in path
-        for path in paths
-    )
+    paths = app.openapi()["paths"]
+    readable = [path for path, ops in paths.items() if "bookings" in path and "get" in ops]
+    assert readable == ["/api/v1/staff/bookings"]
     assert client.get("/api/v1/bookings").status_code in (404, 405)
+    assert client.get("/api/v1/staff/bookings").status_code == 401
 
 
 def test_database_failure_returns_503(client: TestClient, database_down: None) -> None:
