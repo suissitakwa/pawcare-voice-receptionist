@@ -129,4 +129,29 @@ describe("App", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("Service From Database")).not.toBeInTheDocument();
   });
+
+  it("offers the explainer video with controls, a poster, and no autoplay", () => {
+    vi.stubGlobal("fetch", mockFetchOk());
+    const { container } = render(<App />);
+    const video = container.querySelector("video");
+    expect(video).toHaveAttribute("controls");
+    expect(video).toHaveAttribute("poster", "/pawcare-explainer-poster.jpg");
+    expect(video).not.toHaveAttribute("autoplay");
+    expect(video?.querySelector("source")).toHaveAttribute("src", "/pawcare-explainer.mp4");
+  });
+
+  it("labels the video as a concept and provides a transcript", () => {
+    vi.stubGlobal("fetch", mockFetchOk());
+    render(<App />);
+    expect(screen.getByText(/concept animation/)).toHaveTextContent("still in development");
+    expect(screen.getByText("Read the transcript")).toBeInTheDocument();
+    expect(screen.getByText(/This is Maya/)).toBeInTheDocument();
+  });
+
+  it("shows the video even when the API is down", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+    const { container } = render(<App />);
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(container.querySelector("video")).toBeInTheDocument();
+  });
 });

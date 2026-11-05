@@ -6,6 +6,8 @@ A demonstration website for a fictional dog grooming business, with a browser-ba
 
 PawCare Grooming Studio is fictional. It offers no real services.
 
+The site includes a one-minute concept video. It shows the planned voice experience, which is still in development.
+
 ## Stack
 
 React, TypeScript, and Vite on the frontend. FastAPI, SQLAlchemy, Alembic, and PostgreSQL on the backend. The OpenAI Realtime API over WebRTC will provide voice. See [docs/architecture.md](docs/architecture.md).
