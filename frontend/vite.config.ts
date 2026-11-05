@@ -7,5 +7,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/setupTests.ts",
+    // Booking tests walk a whole multi-step journey, which needs more than the 5-second default.
+    testTimeout: 15000,
   },
 });

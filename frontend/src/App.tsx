@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { type Business, type Catalog, type Faq } from "./api";
 import { formatDuration, formatPrice, formatTime, weekdayName } from "./format";
+import BookingForm from "./BookingForm";
 import { useSiteData } from "./useSiteData";
 
 const NAV_LINKS = [
@@ -331,9 +332,11 @@ export default function App() {
         </Section>
 
         <Section id="booking" title="Book an appointment">
-          <NotYetAvailable>
-            Online booking is not open in this build, so no appointment can be made here yet.
-          </NotYetAvailable>
+          {data ? (
+            <BookingForm business={data.business} catalog={data.catalog} />
+          ) : (
+            <SectionFallback failed={failed} />
+          )}
         </Section>
       </main>
 
