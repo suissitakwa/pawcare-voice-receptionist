@@ -8,7 +8,7 @@ is validated here as untrusted input. The model never receives confirmation toke
 import json
 import logging
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -42,6 +42,7 @@ class AvailabilityArgs(BaseModel):
     service: str = Field(max_length=64)
     size: str = Field(max_length=32)
     date: date
+    preferred_time: time | None = None
 
 
 class CallbackArgs(BaseModel):
@@ -94,9 +95,19 @@ def check_availability(session: Session, business, raw: dict, now: datetime) -> 
     rules = load_day_rules(session, business, args.date)
     timezone = ZoneInfo(business.timezone)
     slots = compute_slots(args.date, timedelta(minutes=rule.duration_minutes), rules, now)
+    result: dict = {}
+    if args.preferred_time is not None:
+        wanted = args.preferred_time.replace(second=0, microsecond=0)
+        match = next((s for s in slots if s.starts_at.astimezone(timezone).time() == wanted), None)
+        result["requested_time"] = {
+            "label": format_time(wanted),
+            "available": match is not None,
+            "starts_at": match.starts_at.isoformat() if match else None,
+        }
     return VoiceToolResult(
         ok=True,
         result={
+            **result,
             "date": args.date.isoformat(),
             "closed": working_window(args.date, rules) is None,
             "duration_minutes": rule.duration_minutes,
@@ -198,9 +209,15 @@ def run_tool(
             outcome = create_callback(session, business, record, raw)
         else:
             outcome = tool_error("unknown_tool", "That tool does not exist.")
-    except (ValueError, ValidationError):
+    except ValidationError as error:
         # Names of rejected fields only. The values may be personal details.
-        outcome = tool_error("invalid_arguments", "Some details were missing or not valid.")
+        fields = sorted({str(e["loc"][0]) for e in error.errors() if e["loc"]})
+        outcome = tool_error(
+            "invalid_arguments",
+            "Some details were missing or not valid: " + (", ".join(fields) or "arguments") + ".",
+        )
+    except ValueError:
+        outcome = tool_error("invalid_arguments", "The arguments must be a JSON object.")
     except ApiError as error:
         outcome = tool_error(error.code, error.message)
     if not outcome.ok:

@@ -108,6 +108,17 @@ async def main() -> None:
                         "transcript": record.entries,
                         "tool_calls": len(record.tool_calls),
                         "tool_failures": sum(not c["ok"] for c in record.tool_calls),
+                        # Synthetic scenario data only, kept so failures can be diagnosed.
+                        "tool_log": [
+                            {
+                                "name": c["name"],
+                                "args": c["args"],
+                                "ok": c["ok"],
+                                "error": (c["result"] or {}).get("error"),
+                                "message": (c["result"] or {}).get("message"),
+                            }
+                            for c in record.tool_calls
+                        ],
                         "first_output_ms": [r["first_output_ms"] for r in record.replies],
                         "input_tokens": sum(
                             r["usage"].get("input_tokens", 0) for r in record.replies

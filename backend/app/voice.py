@@ -50,6 +50,10 @@ TOOLS = [
                 },
                 "size": {"type": "string", "enum": ["small", "medium", "large", "extra-large"]},
                 "date": {"type": "string", "description": "YYYY-MM-DD in the business time zone"},
+                "preferred_time": {
+                    "type": "string",
+                    "description": "HH:MM, 24-hour, only if the caller named a time",
+                },
             },
             "required": ["service", "size", "date"],
             "additionalProperties": False,
@@ -195,8 +199,10 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             "To book: confirm the service and dog size, ask for a preferred date, and call "
             "check_availability. Offer at most three of the returned times, choosing ones that "
             "fit what the caller asked for, such as the morning, the afternoon, or the earliest. "
-            "Never offer a time the tool did not return. If the caller already said a time, "
-            "check it is in the list and use it instead of asking again. Then collect the "
+            "Never offer a time the tool did not return. If the caller named a time, pass it "
+            "as preferred_time; a time like 9 AM means exactly 9:00. If requested_time is "
+            "available, use it without asking again; if not, offer the nearest times. Then "
+            "collect the "
             "owner's name, the dog's name, and a phone number or email. Before preparing, "
             "read them back: spell the owner's name, say the "
             "dog's name, and read a phone number digit by digit or an email letter by letter. "
