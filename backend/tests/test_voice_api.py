@@ -219,6 +219,7 @@ def test_ending_records_the_outcome_once(client, db) -> None:
             "incomplete_responses": 1,
             "interrupted_responses": 1,
             "empty_turns": 2,
+            "reply_latency_ms": [1200, 800],
         },
     }
     assert client.post(url, json=payload).status_code == 204
@@ -234,7 +235,22 @@ def test_ending_records_the_outcome_once(client, db) -> None:
         "incomplete_responses": 1,
         "interrupted_responses": 1,
         "empty_turns": 2,
+        "reply_latency_ms": [1200, 800],
     }
+
+
+def test_reply_times_are_bounded(client, db) -> None:
+    use_settings(voice_mode="test")
+    body = start(client).json()
+    url = f"{START}/{body['session_id']}/end"
+    usage = {"input_tokens": 1, "output_tokens": 1, "responses": 1}
+    for bad in ([-1], [120_001], [500] * 201):
+        payload = {
+            "session_token": body["session_token"],
+            "reason": "user_ended",
+            "usage": {**usage, "reply_latency_ms": bad},
+        }
+        assert client.post(url, json=payload).status_code == 422
 
 
 def test_ending_needs_the_session_token(client, db) -> None:

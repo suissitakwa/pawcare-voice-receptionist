@@ -217,6 +217,8 @@ export interface VoiceUsage {
   incomplete_responses: number;
   interrupted_responses: number;
   empty_turns: number;
+  // Milliseconds from the end of each caller turn to the start of the reply's audio.
+  reply_latency_ms: number[];
 }
 
 export function startVoiceSession(): Promise<VoiceSession> {

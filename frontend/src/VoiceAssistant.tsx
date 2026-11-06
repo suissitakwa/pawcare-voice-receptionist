@@ -14,6 +14,8 @@ import {
   type VoiceUsage,
 } from "./api";
 
+const MAX_LATENCY_SAMPLES = 200;
+
 export type VoiceStatus =
   | "idle"
   | "starting"
@@ -106,8 +108,10 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const timers = useRef<number[]>([]);
-  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0 });
+  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0, reply_latency_ms: [] });
   const ending = useRef(false);
+  // When the provider reported the caller stopped talking, until the reply's audio starts.
+  const turnEnded = useRef<number | null>(null);
 
   const removeLine = useCallback((id: string) => {
     setLines((current) => current.filter((line) => line.id !== id));
@@ -259,15 +263,26 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
     }
     switch (event.type) {
       case "input_audio_buffer.speech_started":
+        turnEnded.current = null;
         setStatus("hearing");
         // Reserve the caller's place now. Transcription finishes after the reply has started,
         // so adding the line only then would show it after the answer.
         upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text: "…", final: false });
         break;
       case "input_audio_buffer.speech_stopped":
+        turnEnded.current = performance.now();
         setStatus("thinking");
         break;
       case "output_audio_buffer.started":
+        if (turnEnded.current !== null) {
+          // Includes any tool calls in between, as the caller waits through those too.
+          const waited = Math.round(performance.now() - turnEnded.current);
+          turnEnded.current = null;
+          if (usage.current.reply_latency_ms.length < MAX_LATENCY_SAMPLES) {
+            usage.current = { ...usage.current, reply_latency_ms: [...usage.current.reply_latency_ms, waited] };
+          }
+          console.info("Voice reply started after", waited, "ms");
+        }
         setStatus("speaking");
         break;
       case "output_audio_buffer.stopped":
@@ -384,7 +399,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
 
   async function startCall() {
     ending.current = false;
-    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0 };
+    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0, reply_latency_ms: [] };
     setLines([]);
     setPrepared(null);
     setBooked(null);

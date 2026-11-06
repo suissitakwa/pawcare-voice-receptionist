@@ -10,7 +10,7 @@ The site includes a one-minute concept video. It shows the planned voice experie
 
 ## Stack
 
-React, TypeScript, and Vite on the frontend. FastAPI, SQLAlchemy, Alembic, and PostgreSQL on the backend. The OpenAI Realtime API over WebRTC will provide voice. See [docs/architecture.md](docs/architecture.md).
+React, TypeScript, and Vite on the frontend. FastAPI, SQLAlchemy, Alembic, and PostgreSQL on the backend. The OpenAI Realtime API over WebRTC provides voice. See [docs/architecture.md](docs/architecture.md).
 
 ## Run it locally
 
@@ -103,6 +103,7 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 - [Architecture](docs/architecture.md)
 - [API](docs/api.md)
 - [Deployment](docs/deployment.md)
+- [Manual voice testing](docs/voice-testing.md)
 - Decisions: [voice](docs/decisions/0001-voice-architecture.md), [booking consistency](docs/decisions/0002-booking-consistency.md), [scope](docs/decisions/0003-scope.md), [staff authentication](docs/decisions/0004-staff-authentication.md)
 - [Evaluations: scenarios, checks, and how to run them](evals/README.md)
 

@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import date, datetime, time
-from typing import Literal
+from typing import Annotated, Literal
 from zoneinfo import available_timezones
 
 from pydantic import (
@@ -334,6 +334,10 @@ class StaffMetrics(BaseModel):
     voice_sessions_last_7_days: int
     open_callbacks: int
     tool_failures_last_7_days: int
+    # Voice reply time over the last 7 days. None until a call has been measured.
+    voice_replies_measured: int
+    voice_reply_median_ms: int | None
+    voice_reply_p90_ms: int | None
 
 
 class StaffCallback(BaseModel):
@@ -370,6 +374,11 @@ class VoiceUsage(BaseModel):
     interrupted_responses: int = Field(default=0, ge=0, le=10_000)
     # Caller turns with no words, such as background noise.
     empty_turns: int = Field(default=0, ge=0, le=10_000)
+    # Milliseconds from the end of each caller turn to the start of the reply's audio,
+    # measured in the browser.
+    reply_latency_ms: list[Annotated[int, Field(ge=0, le=120_000)]] = Field(
+        default_factory=list, max_length=200
+    )
 
 
 class VoiceEndRequest(BaseModel):

@@ -479,3 +479,17 @@ Each run now saves a tool log (name, arguments, error code) for every scenario, 
 The tool log shows what each error was. Five come from scenarios that cause them on purpose: two with the backend unreachable, two attempts at a slot taken by someone else, and one date past the 30-day booking window. The sixth is in `change-date`, where the model called `prepare_booking` without a read-back. The backend refused it, the model read the details back, and the scenario passed. That refusal is the safeguard working, but the model can still skip the read-back step and rely on it.
 
 Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single attempt per scenario, so this shows the faults found were fixed, not that the model is reliable. Repeated runs (`--repeat`) would measure that.
+
+## Voice reply times and the manual test script (2026-11-06)
+
+**Outcome:** every live call now records how long each reply took to start, and the staff dashboard shows the median and 90th percentile. [voice-testing.md](voice-testing.md) is the script for real calls: 11 scenarios covering noise, interruptions, spelling, and corrections, with a results table.
+
+- **Measured in the browser:** from the provider's end-of-turn event to the start of the reply's audio, including tool calls. It excludes the end-of-turn detection delay and playback buffering, so the wait a caller hears is longer. The script explains how to measure that from a recording.
+- **Stored:** at most 200 values per call, each 0 to 120,000 ms, validated by the backend. Only times are stored, no audio or transcript.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 251 passed |
+| Frontend | Node 22: typecheck clean, 53 tests passed, build succeeded |
+| Real calls with the script | Not run yet |
