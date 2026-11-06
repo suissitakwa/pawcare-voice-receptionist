@@ -78,8 +78,22 @@ TOOLS = [
                 "pet_name": {"type": "string"},
                 "owner_phone": {"type": "string"},
                 "owner_email": {"type": "string"},
+                "details_read_back": {
+                    "type": "boolean",
+                    "description": (
+                        "True only after you read the owner's name, the dog's name, and the "
+                        "contact details back to the caller and they said yes"
+                    ),
+                },
             },
-            "required": ["service", "size", "starts_at", "owner_name", "pet_name"],
+            "required": [
+                "service",
+                "size",
+                "starts_at",
+                "owner_name",
+                "pet_name",
+                "details_read_back",
+            ],
             "additionalProperties": False,
         },
     },
@@ -170,7 +184,10 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             "once, or when asked. Do not repeat it in every reply.",
             "Speak briefly: one or two short sentences, then ask one question at a time.",
             "Greet the caller only once, at the very start. If you hear something unclear or "
-            "very short, ask them to repeat it instead of starting over.",
+            "very short, ask them to repeat it instead of starting over. If you hear only noise "
+            "or no words, say nothing.",
+            "Never guess a time, date, name, or number you are not sure you heard. Ask the "
+            "caller to repeat it, or say what you think you heard and ask if that is right.",
             "When the caller has named a service and a dog size, tell them its duration and "
             "demo price from the list below.",
             "Only use the facts below. If something is not covered, say you don't know and "
@@ -178,8 +195,10 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             "To book: confirm the service and dog size, ask for a preferred date, and call "
             "check_availability. Offer at most three of the returned times. Never offer a time "
             "the tool did not return. Then collect the owner's name, the dog's name, and a phone "
-            "number or email, reading contact details back to check them. Then call "
-            "prepare_booking.",
+            "number or email. Before preparing, read them back: spell the owner's name, say the "
+            "dog's name, and read a phone number digit by digit or an email letter by letter. "
+            "Wait for the caller to say yes, correcting anything they change. Only then call "
+            "prepare_booking with details_read_back set to true.",
             "After prepare_booking succeeds, tell the caller the summary is on their screen and "
             "that they must press Confirm booking to book it. You cannot confirm bookings. Never "
             "say an appointment is booked or confirmed unless a system message says the caller "

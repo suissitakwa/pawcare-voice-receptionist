@@ -368,6 +368,8 @@ class VoiceUsage(BaseModel):
     # Replies stopped by a limit or filter, and replies the caller talked over.
     incomplete_responses: int = Field(default=0, ge=0, le=10_000)
     interrupted_responses: int = Field(default=0, ge=0, le=10_000)
+    # Caller turns with no words, such as background noise.
+    empty_turns: int = Field(default=0, ge=0, le=10_000)
 
 
 class VoiceEndRequest(BaseModel):

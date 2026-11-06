@@ -371,3 +371,39 @@ Run locally on PostgreSQL 14.13.
 |---|---|---|
 | A real spoken booking | Needs the live deployment | A live call after merging |
 | PostgreSQL 18 | Docker unresponsive | CI on the pull request |
+
+### Assistant tools, verified live
+
+| Check | Result |
+|---|---|
+| GitHub Actions on `main` | Backend, frontend, and image jobs passed |
+| Migration 0007 on Railway | Applied |
+
+## First real voice booking (2026-11-06, manual)
+
+The owner booked a Full Groom for a medium dog by voice on the live site. One manual observation, not a measurement.
+
+| Observation | Assessment |
+|---|---|
+| Offered 9, 9:15, and 9:30 AM for Tuesday 10 November | Correct. These were genuinely open |
+| Stated 120 minutes and $90 | Correct |
+| Said to press Confirm booking, and said "confirmed" with reference PC-77PFQNW8 only after the click | Safety rule held |
+| Morning starts for a 2-hour groom disappeared from public availability afterwards | Booking and buffer stored correctly |
+| Heard the owner's name "Dakwa" as "Quoc" and prepared without reading the name or phone number back | Fault. The on-screen summary was the only check |
+| Heard "9:30" as "3 a.m." and guessed 9:30 without asking | Risky. The guess happened to be right |
+| Greeted twice at the start | Fault. Likely cause: noise counted as a caller turn with no words. Not confirmed |
+
+### Changes made in response
+
+- `prepare_booking` now requires `details_read_back: true`. The backend refuses to prepare a booking without it and tells the model to read the details back first. The instructions say how: spell the name, read a phone number digit by digit, and wait for yes.
+- The instructions forbid guessing a time, date, name, or number, and tell the model to stay silent on turns with no words.
+- Each call now reports how many caller turns had no words, so the next call shows whether noise causes the double greeting.
+
+| Check | Result |
+|---|---|
+| Backend tests | 228 passed, including refusal of a missing, false, or non-boolean read-back |
+| Frontend tests | 52 passed, including the empty-turn count |
+
+### Not verified
+
+Whether the model now reads details back reliably, and whether the double greeting stops. The read-back is a check that the model claims to have done: the backend can require the claim but cannot hear the conversation. The on-screen summary remains the final safeguard.

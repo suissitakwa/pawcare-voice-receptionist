@@ -106,7 +106,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const timers = useRef<number[]>([]);
-  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 });
+  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0 });
   const ending = useRef(false);
 
   const removeLine = useCallback((id: string) => {
@@ -276,8 +276,13 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
         break;
       case "conversation.item.input_audio_transcription.completed": {
         const text = String(event.transcript ?? "").trim();
-        if (text) upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text, final: true });
-        else removeLine(`caller-${event.item_id}`);
+        if (text) {
+          upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text, final: true });
+        } else {
+          // Counted so a call's report shows whether noise is starting turns.
+          usage.current = { ...usage.current, empty_turns: usage.current.empty_turns + 1 };
+          removeLine(`caller-${event.item_id}`);
+        }
         break;
       }
       case "conversation.item.input_audio_transcription.failed":
@@ -309,6 +314,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
           console.warn("Voice reply incomplete", reason);
         }
         usage.current = {
+          ...usage.current,
           input_tokens: usage.current.input_tokens + (response?.usage?.input_tokens ?? 0),
           output_tokens: usage.current.output_tokens + (response?.usage?.output_tokens ?? 0),
           responses: usage.current.responses + 1,
@@ -378,7 +384,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
 
   async function startCall() {
     ending.current = false;
-    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 };
+    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0, empty_turns: 0 };
     setLines([]);
     setPrepared(null);
     setBooked(null);
