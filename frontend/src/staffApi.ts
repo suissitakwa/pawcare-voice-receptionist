@@ -20,6 +20,19 @@ export interface StaffBooking {
   price_cents: number;
   created_at: string;
   cancelled_at: string | null;
+  source: "form" | "voice";
+}
+
+export interface StaffCallback {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  reason: string;
+  note: string;
+  status: "open" | "done";
+  created_at: string;
+  resolved_at: string | null;
 }
 
 export interface StaffBlock {
@@ -43,6 +56,10 @@ export interface StaffMetrics {
   upcoming_bookings: number;
   bookings_last_7_days: number;
   cancellations_last_7_days: number;
+  voice_bookings_last_7_days: number;
+  voice_sessions_last_7_days: number;
+  open_callbacks: number;
+  tool_failures_last_7_days: number;
 }
 
 const BASE = "/api/v1/staff";
@@ -84,4 +101,7 @@ export const staffApi = {
   removeBlock: (token: string, id: string) =>
     authed<void>(token, `/blocks/${encodeURIComponent(id)}`, { method: "DELETE" }),
   metrics: (token: string) => authed<StaffMetrics>(token, "/metrics"),
+  callbacks: (token: string) => authed<StaffCallback[]>(token, "/callbacks?status=open"),
+  completeCallback: (token: string, id: string) =>
+    authed<StaffCallback>(token, `/callbacks/${encodeURIComponent(id)}/done`, { method: "POST" }),
 };

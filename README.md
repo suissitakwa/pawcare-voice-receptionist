@@ -2,7 +2,7 @@
 
 A demonstration website for a fictional dog grooming business, with a browser-based AI voice receptionist that books real appointments in a real database. A conventional booking form covers visitors who can't or won't use voice.
 
-> **Status: in active development.** The [live demo](https://pawcare-voice-receptionist.netlify.app) shows services, prices, hours, and FAQs from the database, and the API calculates real availability visitors can book through a form, with bookings that cannot overlap, and staff manage bookings and blocked time from a protected dashboard. The voice assistant holds real browser conversations about services, prices, hours, and FAQs, but **cannot book by voice yet**. See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
+> **Status: in active development.** The [live demo](https://pawcare-voice-receptionist.netlify.app) shows services, prices, hours, and FAQs from the database, and the API calculates real availability visitors can book through a form, with bookings that cannot overlap, and staff manage bookings and blocked time from a protected dashboard. The voice assistant holds real browser conversations, checks real availability, prepares bookings, and takes callback requests. A booking is made only when the visitor presses Confirm. See [docs/progress.md](docs/progress.md) for verified progress and [docs/mvp.md](docs/mvp.md) for the plan.
 
 PawCare Grooming Studio is fictional. It offers no real services.
 
@@ -109,6 +109,6 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 ## Current limitations
 
 - Voice runs in a labelled test mode until an OpenAI key is configured. See [docs/deployment.md](docs/deployment.md).
-- The voice assistant cannot check availability or book yet. It sends callers to the booking form.
-- Callback requests and assistant session history are not on the dashboard yet.
+- Booking by voice has passed automated tests only. A live end-to-end voice booking has not been made yet.
+- Per-session summaries are not on the dashboard yet. Callback requests and voice metrics are.
 - Prices are indicative demo values for a fictional business.

@@ -235,3 +235,20 @@ export function endVoiceSession(
     body: JSON.stringify({ session_token: session.session_token, reason, usage }),
   }).catch(() => undefined);
 }
+
+export interface VoiceToolResult {
+  ok: boolean;
+  result: Record<string, unknown>;
+  prepared: PreparedBooking | null;
+}
+
+export function callVoiceTool(session: VoiceSession, name: string, args: string): Promise<VoiceToolResult> {
+  return request<VoiceToolResult>(
+    `/api/v1/voice/sessions/${session.session_id}/tools/${encodeURIComponent(name)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_token: session.session_token, arguments: args }),
+    },
+  );
+}

@@ -297,6 +297,7 @@ class StaffBooking(BaseModel):
     price_cents: int
     created_at: datetime
     cancelled_at: datetime | None
+    source: Literal["form", "voice"]
 
 
 class StaffBlock(BaseModel):
@@ -329,6 +330,24 @@ class StaffMetrics(BaseModel):
     upcoming_bookings: int
     bookings_last_7_days: int
     cancellations_last_7_days: int
+    voice_bookings_last_7_days: int
+    voice_sessions_last_7_days: int
+    open_callbacks: int
+    tool_failures_last_7_days: int
+
+
+class StaffCallback(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    phone: str | None
+    email: str | None
+    reason: str
+    note: str
+    status: str
+    created_at: datetime
+    resolved_at: datetime | None
 
 
 class VoiceSessionStarted(BaseModel):
@@ -357,3 +376,19 @@ class VoiceEndRequest(BaseModel):
     session_token: str = Field(min_length=20, max_length=128)
     reason: Literal["user_ended", "timeout", "error", "disconnected", "mic_denied", "page_closed"]
     usage: VoiceUsage | None = None
+
+
+class VoiceToolRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_token: str = Field(min_length=20, max_length=128)
+    # The raw JSON string the model produced. Parsed and validated by the backend.
+    arguments: str = Field(default="", max_length=4000)
+
+
+class VoiceToolResult(BaseModel):
+    ok: bool
+    # Sent back to the model.
+    result: dict
+    # Shown on screen only. Holds the confirmation token, which the model never sees.
+    prepared: PreparedBooking | None = None

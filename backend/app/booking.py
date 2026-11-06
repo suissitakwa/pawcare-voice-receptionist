@@ -9,10 +9,11 @@ first only so that callers get a clear error rather than a constraint violation.
 import hashlib
 import json
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,7 @@ from app.availability import (
     slot_is_open,
 )
 from app.errors import ApiError
-from app.models import Booking, BookingDraft, Business
+from app.models import Booking, BookingDraft, Business, VoiceSession
 from app.schemas import BookingConfirmation, BookingSummary, PrepareBookingRequest, PreparedBooking
 
 DRAFT_LIFETIME = timedelta(minutes=10)
@@ -50,7 +51,11 @@ def slot_unavailable() -> ApiError:
 
 
 def prepare_booking(
-    session: Session, business: Business, request: PrepareBookingRequest, now: datetime
+    session: Session,
+    business: Business,
+    request: PrepareBookingRequest,
+    now: datetime,
+    voice_session_id: uuid.UUID | None = None,
 ) -> PreparedBooking:
     service, size, rule = resolve_option(session, business.id, request.service, request.size)
     timezone = ZoneInfo(business.timezone)
@@ -95,6 +100,7 @@ def prepare_booking(
         # Only a hash is stored, so the database alone cannot be used to confirm a draft.
         token_hash=sha256(token),
         expires_at=now + DRAFT_LIFETIME,
+        voice_session_id=voice_session_id,
     )
     session.add(draft)
     session.flush()
@@ -193,6 +199,9 @@ def confirm_booking(
             idempotency_key=idempotency_key,
             request_hash=request_hash,
             draft_id=draft.id,
+            voice_session_id=draft.voice_session_id,
+            # The same clock as every other booking rule, so metrics windows line up.
+            created_at=now,
         )
         try:
             with session.begin_nested():
@@ -211,5 +220,11 @@ def confirm_booking(
             if constraint == "uq_bookings_reference":
                 continue
             raise
+        if draft.voice_session_id is not None:
+            session.execute(
+                update(VoiceSession)
+                .where(VoiceSession.id == draft.voice_session_id)
+                .values(booking_reference=booking.reference)
+            )
         return to_confirmation(booking), True
     raise ApiError(503, "reference_unavailable", "Please try confirming again.")

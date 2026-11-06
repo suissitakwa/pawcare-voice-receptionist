@@ -49,7 +49,9 @@ function fakeMicrophone() {
   return { track, stream };
 }
 
-function mockBackend(session: unknown = LIVE, status = 201) {
+type Handler = (init?: RequestInit) => { status: number; body: unknown } | "network";
+
+function mockBackend(session: unknown = LIVE, status = 201, routes: Record<string, Handler> = {}) {
   const ends: { reason: string; usage: unknown }[] = [];
   vi.stubGlobal(
     "fetch",
@@ -58,10 +60,59 @@ function mockBackend(session: unknown = LIVE, status = 201) {
         ends.push(JSON.parse(String(init?.body)));
         return { ok: true, status: 204, json: () => Promise.resolve(null) };
       }
+      const route = Object.keys(routes).find((suffix) => url.endsWith(suffix));
+      if (route) {
+        const reply = routes[route](init);
+        if (reply === "network") throw new TypeError("Failed to fetch");
+        return { ok: reply.status < 400, status: reply.status, json: () => Promise.resolve(reply.body) };
+      }
       return { ok: status < 400, status, json: () => Promise.resolve(session) };
     }),
   );
   return ends;
+}
+
+const SUMMARY = {
+  service: "Full Groom",
+  size: "Medium",
+  pet_name: "Biscuit",
+  owner_name: "Jordan",
+  owner_email: null,
+  owner_phone: "(323) 555-0100",
+  starts_at: "2027-01-05T17:00:00Z",
+  local_start: "2027-01-05T09:00:00-08:00",
+  local_end: "2027-01-05T11:00:00-08:00",
+  timezone: "America/Los_Angeles",
+  duration_minutes: 120,
+  price_cents: 9000,
+};
+const PREPARED = { confirmation_token: "secret-token-1234567890", summary_hash: "h".repeat(64), expires_at: "", summary: SUMMARY };
+const PREPARE_RESULT = { ok: true, result: { status: "awaiting_caller_confirmation", time: "9 AM" }, prepared: PREPARED };
+
+async function connectedCall(routes: Record<string, Handler>) {
+  mockBackend(LIVE, 201, routes);
+  const ctx = setup();
+  const user = userEvent.setup({ delay: null });
+  render(<VoiceAssistant deps={ctx.deps} />);
+  await user.click(screen.getByRole("button", { name: "Start talking" }));
+  await waitFor(() => expect(ctx.peer.setRemoteDescription).toHaveBeenCalled());
+  act(() => {
+    Object.defineProperty(ctx.peer.channel, "readyState", { value: "open" });
+    ctx.peer.channel.open();
+  });
+  return { ...ctx, user };
+}
+
+function requestPrepare(peer: FakePeer) {
+  act(() =>
+    peer.channel.emit({
+      type: "response.done",
+      response: {
+        status: "completed",
+        output: [{ type: "function_call", name: "prepare_booking", call_id: "call_1", arguments: '{"service":"full-groom"}' }],
+      },
+    }),
+  );
 }
 
 function setup(overrides: Partial<RealtimeDeps> = {}) {
@@ -164,6 +215,76 @@ describe("VoiceAssistant", () => {
 
     const items = screen.getAllByRole("listitem").map((item) => item.textContent);
     expect(items).toEqual(["You(not transcribed)"]);
+  });
+
+  it("runs a tool through the backend and returns only the safe result to the model", async () => {
+    const bodies: unknown[] = [];
+    const { peer } = await connectedCall({
+      "/tools/prepare_booking": (init) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        return { status: 200, body: PREPARE_RESULT };
+      },
+    });
+    requestPrepare(peer);
+
+    expect(await screen.findByRole("region", { name: "Booking summary" })).toHaveTextContent("Full Groom, medium dog");
+    expect(bodies[0]).toEqual({ session_token: LIVE.session_token, arguments: '{"service":"full-groom"}' });
+    const output = peer.channel.sent.find((e) => (e as { item?: { type?: string } }).item?.type === "function_call_output") as {
+      item: { call_id: string; output: string };
+    };
+    expect(output.item.call_id).toBe("call_1");
+    expect(output.item.output).not.toContain("secret-token");
+    expect(peer.channel.sent.at(-1)).toEqual({ type: "response.create" });
+  });
+
+  it("books only when the visitor clicks Confirm, then tells the assistant the reference", async () => {
+    const confirmed: RequestInit[] = [];
+    const { peer, user } = await connectedCall({
+      "/tools/prepare_booking": () => ({ status: 200, body: PREPARE_RESULT }),
+      "/bookings/confirm": (init) => {
+        confirmed.push(init!);
+        return { status: 201, body: { reference: "PC-VOICE234", status: "confirmed", summary: SUMMARY } };
+      },
+    });
+    requestPrepare(peer);
+    await screen.findByRole("region", { name: "Booking summary" });
+    expect(confirmed).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Confirm booking" }));
+    expect(await screen.findByText("PC-VOICE234")).toBeInTheDocument();
+    expect((confirmed[0].headers as Record<string, string>)["Idempotency-Key"]).toBeTruthy();
+    const message = peer.channel.sent.find((e) => (e as { item?: { role?: string } }).item?.role === "system") as {
+      item: { content: { text: string }[] };
+    };
+    expect(message.item.content[0].text).toContain("PC-VOICE234");
+    expect(screen.queryByRole("region", { name: "Booking summary" })).not.toBeInTheDocument();
+  });
+
+  it("explains a slot taken before the click", async () => {
+    const { peer, user } = await connectedCall({
+      "/tools/prepare_booking": () => ({ status: 200, body: PREPARE_RESULT }),
+      "/bookings/confirm": () => ({ status: 409, body: { error: { code: "slot_unavailable", message: "Taken" } } }),
+    });
+    requestPrepare(peer);
+    await user.click(await screen.findByRole("button", { name: "Confirm booking" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("just taken");
+    const message = peer.channel.sent.find((e) => (e as { item?: { role?: string } }).item?.role === "system") as {
+      item: { content: { text: string }[] };
+    };
+    expect(message.item.content[0].text).toContain("booked by someone else");
+  });
+
+  it("tells the model when a tool cannot be reached instead of leaving it waiting", async () => {
+    const { peer } = await connectedCall({ "/tools/prepare_booking": () => "network" });
+    requestPrepare(peer);
+    await waitFor(() =>
+      expect(peer.channel.sent.some((e) => (e as { item?: { type?: string } }).item?.type === "function_call_output")).toBe(true),
+    );
+    const output = peer.channel.sent.find((e) => (e as { item?: { type?: string } }).item?.type === "function_call_output") as {
+      item: { output: string };
+    };
+    expect(JSON.parse(output.item.output).error).toBe("tool_unavailable");
+    expect(screen.queryByRole("region", { name: "Booking summary" })).not.toBeInTheDocument();
   });
 
   it("mutes the microphone track without ending the call", async () => {

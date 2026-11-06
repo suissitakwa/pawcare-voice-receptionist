@@ -24,6 +24,7 @@ from app.models import (  # noqa: E402
     BlockedPeriod,
     Booking,
     BookingDraft,
+    CallbackRequest,
     StaffSession,
     StaffUser,
     VoiceSession,
@@ -64,6 +65,7 @@ def db() -> Iterator[Session]:
         session.execute(delete(BookingDraft))
         session.execute(delete(BlockedPeriod))
         session.execute(delete(StaffSession))
+        session.execute(delete(CallbackRequest))
         session.execute(delete(VoiceSession))
         session.execute(delete(StaffUser))
         seed_business(session)

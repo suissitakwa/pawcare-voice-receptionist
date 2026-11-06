@@ -241,6 +241,9 @@ class Booking(Base):
     cancelled_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("staff_users.id", ondelete="SET NULL")
     )
+    voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="SET NULL")
+    )
 
 
 class BookingDraft(Base):
@@ -273,6 +276,9 @@ class BookingDraft(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="SET NULL")
+    )
 
 
 class StaffUser(Base):
@@ -326,3 +332,33 @@ class VoiceSession(Base):
     usage: Mapped[dict | None] = mapped_column(JSONB)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    tool_calls: Mapped[int] = mapped_column(server_default=text("0"))
+    tool_failures: Mapped[int] = mapped_column(server_default=text("0"))
+    booking_reference: Mapped[str | None] = mapped_column(String(16))
+
+
+class CallbackRequest(Base):
+    __tablename__ = "callback_requests"
+    __table_args__ = (
+        CheckConstraint("phone IS NOT NULL OR email IS NOT NULL", name="callback_has_contact"),
+        CheckConstraint("status IN ('open', 'done')", name="callback_status_known"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="SET NULL")
+    )
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str | None] = mapped_column(String(20))
+    email: Mapped[str | None] = mapped_column(String(254))
+    reason: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str] = mapped_column(String(300), server_default="")
+    status: Mapped[str] = mapped_column(String(8), server_default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="SET NULL")
+    )

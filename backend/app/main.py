@@ -47,9 +47,12 @@ from app.schemas import (
     SlotPublic,
     VoiceEndRequest,
     VoiceSessionStarted,
+    VoiceToolRequest,
+    VoiceToolResult,
 )
 from app.staff_api import router as staff_router
 from app.voice import end_voice_session, start_voice_session
+from app.voice_tools import run_tool
 
 logger = logging.getLogger("pawcare")
 
@@ -327,3 +330,25 @@ def end_voice(
     end_voice_session(db, load_business(db, business_id), session_id, body, now)
     db.commit()
     return Response(status_code=204)
+
+
+@app.post(
+    "/api/v1/voice/sessions/{session_id}/tools/{name}",
+    response_model=VoiceToolResult,
+    tags=["voice"],
+)
+def call_voice_tool(
+    session_id: uuid.UUID,
+    name: str,
+    body: VoiceToolRequest,
+    db: DbSession,
+    business_id: CurrentBusinessId,
+    settings: AppSettings,
+    now: Now,
+) -> VoiceToolResult:
+    """Runs one assistant tool. Tool failures return ok=false so the assistant can explain."""
+    outcome = run_tool(
+        db, business_id, session_id, name, body.session_token, body.arguments, settings, now
+    )
+    db.commit()
+    return outcome

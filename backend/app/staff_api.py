@@ -14,12 +14,22 @@ from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.errors import ApiError
-from app.models import BlockedPeriod, Booking, Business, Groomer, Service, SizeCategory
+from app.models import (
+    BlockedPeriod,
+    Booking,
+    Business,
+    CallbackRequest,
+    Groomer,
+    Service,
+    SizeCategory,
+    VoiceSession,
+)
 from app.schemas import (
     BlockCreated,
     BlockRequest,
     StaffBlock,
     StaffBooking,
+    StaffCallback,
     StaffLogin,
     StaffLoginResult,
     StaffMetrics,
@@ -83,6 +93,7 @@ def to_staff_booking(booking: Booking, service: str, size: str, timezone: ZoneIn
         price_cents=booking.price_cents,
         created_at=booking.created_at,
         cancelled_at=booking.cancelled_at,
+        source="voice" if booking.voice_session_id else "form",
     )
 
 
@@ -242,10 +253,56 @@ def metrics(context: Staff, db: DbSession, now: Now) -> StaffMetrics:
             .where(Booking.business_id == business_id, *conditions)
         )
 
+    sessions = db.execute(
+        select(func.count(), func.coalesce(func.sum(VoiceSession.tool_failures), 0)).where(
+            VoiceSession.business_id == business_id, VoiceSession.started_at >= week_ago
+        )
+    ).one()
+    open_callbacks = db.scalar(
+        select(func.count())
+        .select_from(CallbackRequest)
+        .where(CallbackRequest.business_id == business_id, CallbackRequest.status == "open")
+    )
     return StaffMetrics(
         upcoming_bookings=count(Booking.status == "confirmed", Booking.ends_at > now),
         bookings_last_7_days=count(Booking.created_at >= week_ago),
         cancellations_last_7_days=count(
             Booking.status == "cancelled", Booking.cancelled_at >= week_ago
         ),
+        voice_bookings_last_7_days=count(
+            Booking.created_at >= week_ago, Booking.voice_session_id.is_not(None)
+        ),
+        voice_sessions_last_7_days=sessions[0],
+        open_callbacks=open_callbacks,
+        tool_failures_last_7_days=sessions[1],
     )
+
+
+@router.get("/callbacks", response_model=list[StaffCallback])
+def list_callbacks(context: Staff, db: DbSession, status: str = "open"):
+    """Callback requests, newest first. `status` is open, done, or all."""
+    if status not in ("open", "done", "all"):
+        raise ApiError(422, "invalid_request", "Check these fields: status.")
+    query = select(CallbackRequest).where(CallbackRequest.business_id == context.staff.business_id)
+    if status != "all":
+        query = query.where(CallbackRequest.status == status)
+    return db.scalars(query.order_by(CallbackRequest.created_at.desc()).limit(200)).all()
+
+
+@router.post("/callbacks/{callback_id}/done", response_model=StaffCallback)
+def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now: Now):
+    """Marks a callback as handled. Repeating it is harmless."""
+    callback = db.scalar(
+        select(CallbackRequest).where(
+            CallbackRequest.id == callback_id,
+            CallbackRequest.business_id == context.staff.business_id,
+        )
+    )
+    if callback is None:
+        raise ApiError(404, "callback_not_found", "No callback with that id.")
+    if callback.status == "open":
+        callback.status = "done"
+        callback.resolved_at = now
+        callback.resolved_by = context.staff.id
+        db.commit()
+    return callback

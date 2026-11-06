@@ -8,6 +8,7 @@ import {
   type BlockInput,
   type StaffBlock,
   type StaffBooking,
+  type StaffCallback,
   type StaffMetrics,
   type StaffUser,
 } from "./staffApi";
@@ -31,6 +32,15 @@ function writeToken(token: string | null) {
     // Storage can be unavailable in private browsing. Sign-in still works for this page view.
   }
 }
+
+const REASONS: Record<string, string> = {
+  health: "Health question",
+  behavior: "Behaviour",
+  special_handling: "Special handling",
+  large_dog: "Extra large dog",
+  booking_help: "Booking help",
+  other: "Other",
+};
 
 function errorText(error: unknown): string {
   return error instanceof ApiRequestError ? error.message : "Something went wrong.";
@@ -116,6 +126,7 @@ function BookingsTable({
             <th scope="col">Dog</th>
             <th scope="col">Owner</th>
             <th scope="col">Reference</th>
+            <th scope="col">Via</th>
             <th scope="col">Status</th>
             {onCancel && <th scope="col"><span className="visually-hidden">Actions</span></th>}
           </tr>
@@ -136,6 +147,7 @@ function BookingsTable({
                 <span className="size-note">{[booking.owner_email, booking.owner_phone].filter(Boolean).join(", ")}</span>
               </td>
               <td>{booking.reference}</td>
+              <td>{booking.source === "voice" ? "Voice" : "Form"}</td>
               <td>
                 <span className={`status status-${booking.status}`}>{booking.status === "confirmed" ? "Confirmed" : "Cancelled"}</span>
               </td>
@@ -231,6 +243,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
   const [bookings, setBookings] = useState<StaffBooking[] | null>(null);
   const [blocks, setBlocks] = useState<StaffBlock[]>([]);
   const [metrics, setMetrics] = useState<StaffMetrics | null>(null);
+  const [callbacks, setCallbacks] = useState<StaffCallback[]>([]);
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const [busyReference, setBusyReference] = useState<string | null>(null);
 
@@ -247,14 +260,16 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
 
   const load = useCallback(async () => {
     try {
-      const [nextBookings, nextBlocks, nextMetrics] = await Promise.all([
+      const [nextBookings, nextBlocks, nextMetrics, nextCallbacks] = await Promise.all([
         staffApi.bookings(token, scope),
         staffApi.blocks(token),
         staffApi.metrics(token),
+        staffApi.callbacks(token),
       ]);
       setBookings(nextBookings);
       setBlocks(nextBlocks);
       setMetrics(nextMetrics);
+      setCallbacks(nextCallbacks);
     } catch (error) {
       handle(error);
     }
@@ -291,6 +306,16 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             }
           : { tone: "info", text: "Time blocked. Customers can no longer book it." },
       );
+      await load();
+    } catch (error) {
+      handle(error);
+    }
+  }
+
+  async function completeCallback(id: string) {
+    try {
+      await staffApi.completeCallback(token, id);
+      setMessage({ tone: "info", text: "Callback marked as done." });
       await load();
     } catch (error) {
       handle(error);
@@ -344,6 +369,22 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             <dt>Cancelled in the last 7 days</dt>
             <dd>{metrics.cancellations_last_7_days}</dd>
           </div>
+          <div>
+            <dt>Open callbacks</dt>
+            <dd>{metrics.open_callbacks}</dd>
+          </div>
+          <div>
+            <dt>Voice calls in the last 7 days</dt>
+            <dd>{metrics.voice_sessions_last_7_days}</dd>
+          </div>
+          <div>
+            <dt>Booked by voice in the last 7 days</dt>
+            <dd>{metrics.voice_bookings_last_7_days}</dd>
+          </div>
+          <div>
+            <dt>Assistant tool failures in the last 7 days</dt>
+            <dd>{metrics.tool_failures_last_7_days}</dd>
+          </div>
         </dl>
       )}
       <section aria-labelledby="staff-bookings">
@@ -362,6 +403,29 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
           <p className="muted">Loading…</p>
         ) : (
           <BookingsTable bookings={bookings} onCancel={scope === "upcoming" ? cancel : undefined} busyReference={busyReference} />
+        )}
+      </section>
+      <section aria-labelledby="staff-callbacks">
+        <h2 id="staff-callbacks">Callback requests</h2>
+        {callbacks.length === 0 ? (
+          <p className="muted">No open callback requests.</p>
+        ) : (
+          <ul className="block-list">
+            {callbacks.map((callback) => (
+              <li key={callback.id}>
+                <span>
+                  <strong>{callback.name}</strong>, {[callback.phone, callback.email].filter(Boolean).join(", ")}
+                  <span className="size-note">
+                    {REASONS[callback.reason] ?? callback.reason}
+                    {callback.note ? `: ${callback.note}` : ""}. Requested {new Date(callback.created_at).toLocaleString()}
+                  </span>
+                </span>
+                <button type="button" className="button button-secondary" onClick={() => completeCallback(callback.id)}>
+                  Mark done
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
       <section aria-labelledby="staff-blocks">
