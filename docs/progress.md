@@ -462,4 +462,20 @@ Each run now saves a tool log (name, arguments, error code) for every scenario, 
 | --- | --- |
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 248 passed |
-| Rerun of the real evaluation | Pending |
+| Rerun of the real evaluation | 34 of 34, see below |
+
+## Third evaluation run (2026-11-06)
+
+**Outcome:** after the named-time fix, every scenario passed. `gpt-realtime-2.1-mini` in text mode, so these are not voice measurements. Report: [evals/results/20261106T200806Z.md](../evals/results/20261106T200806Z.md).
+
+| Measure | Result |
+| --- | --- |
+| Scenarios with every check passing | 34 of 34 |
+| Checks passing | 89 of 89 |
+| Tool calls | 42, of which 6 returned an error |
+| Time to first output, median and 90th percentile | 610 ms and 1308 ms (text, not audio) |
+| Tokens | 319,307 input, 18,911 output |
+
+The tool log shows what each error was. Five come from scenarios that cause them on purpose: two with the backend unreachable, two attempts at a slot taken by someone else, and one date past the 30-day booking window. The sixth is in `change-date`, where the model called `prepare_booking` without a read-back. The backend refused it, the model read the details back, and the scenario passed. That refusal is the safeguard working, but the model can still skip the read-back step and rely on it.
+
+Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single attempt per scenario, so this shows the faults found were fixed, not that the model is reliable. Repeated runs (`--repeat`) would measure that.

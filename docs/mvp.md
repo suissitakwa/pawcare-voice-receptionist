@@ -60,7 +60,7 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Callback requests and voice activity metrics on the dashboard
 - [ ] Per-session summaries on the dashboard
 - [x] Local test mode and scripted evaluation suite
-- [ ] Results from a real evaluation run
+- [x] Results from a real evaluation run
 - [ ] Hardening, accessibility review, and data retention
 - [ ] Manual audio testing and latency measurement
 - [ ] Evaluation report, demo script, and customer demonstration checklist
