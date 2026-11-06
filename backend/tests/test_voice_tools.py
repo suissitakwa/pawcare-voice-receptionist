@@ -52,6 +52,7 @@ def booking_args(**overrides) -> dict:
         "owner_name": "Jordan",
         "pet_name": "Biscuit",
         "owner_phone": "(323) 555-0100",
+        "details_read_back": True,
     }
     args.update(overrides)
     return args
@@ -149,6 +150,24 @@ def test_prepare_shows_a_summary_but_books_nothing(client, db, voice) -> None:
     db.expire_all()
     assert db.scalar(select(func.count()).select_from(Booking)) == 0
     assert db.scalar(select(BookingDraft.voice_session_id)) is not None
+
+
+@pytest.mark.parametrize("read_back", [False, None, "yes", 1])
+def test_prepare_requires_the_details_to_have_been_read_back(client, db, voice, read_back) -> None:
+    args = booking_args(details_read_back=read_back)
+    if read_back is None:
+        del args["details_read_back"]
+    body = call(client, voice, "prepare_booking", args).json()
+    assert body["ok"] is False
+    assert body["result"]["error"] == "read_back_required"
+    assert body["prepared"] is None
+    db.expire_all()
+    assert db.scalar(select(func.count()).select_from(BookingDraft)) == 0
+
+
+def test_the_model_is_told_it_must_read_back_details() -> None:
+    prepare_tool = next(tool for tool in TOOLS if tool["name"] == "prepare_booking")
+    assert "details_read_back" in prepare_tool["parameters"]["required"]
 
 
 def test_prepare_rejects_a_time_the_rules_do_not_allow(client, db, voice) -> None:

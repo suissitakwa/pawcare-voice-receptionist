@@ -199,8 +199,8 @@ describe("VoiceAssistant", () => {
     expect(items).toEqual(["YouYes.", "AssistantAwesome!"]);
   });
 
-  it("drops empty transcriptions and marks failed ones", async () => {
-    mockBackend();
+  it("drops empty transcriptions, counts them, and marks failed ones", async () => {
+    const ends = mockBackend();
     const { peer, deps } = setup();
     const user = userEvent.setup({ delay: null });
     render(<VoiceAssistant deps={deps} />);
@@ -215,6 +215,9 @@ describe("VoiceAssistant", () => {
 
     const items = screen.getAllByRole("listitem").map((item) => item.textContent);
     expect(items).toEqual(["You(not transcribed)"]);
+
+    await user.click(screen.getByRole("button", { name: "End call" }));
+    await waitFor(() => expect(ends[0]?.usage).toMatchObject({ empty_turns: 1 }));
   });
 
   it("runs a tool through the backend and returns only the safe result to the model", async () => {
@@ -327,7 +330,7 @@ describe("VoiceAssistant", () => {
     await waitFor(() => expect(ends).toHaveLength(1));
     expect(ends[0]).toMatchObject({
       reason: "user_ended",
-      usage: { input_tokens: 50, output_tokens: 80, responses: 3, incomplete_responses: 1, interrupted_responses: 1 },
+      usage: { input_tokens: 50, output_tokens: 80, responses: 3, incomplete_responses: 1, interrupted_responses: 1, empty_turns: 0 },
     });
   });
 

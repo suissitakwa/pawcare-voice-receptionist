@@ -196,6 +196,9 @@ def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     assert "Never say an appointment is booked or confirmed" in text
     assert "Greet the caller only once" in text
     assert "at most once" in text
+    assert "Never guess a time, date, name, or number" in text
+    assert "spell the owner's name" in text
+    assert "If you hear only noise" in text
     assert "tell them its duration and demo price" in text
     assert "@" not in text.replace("hello@pawcare.example", "")
 
@@ -213,6 +216,7 @@ def test_ending_records_the_outcome_once(client, db) -> None:
             "responses": 3,
             "incomplete_responses": 1,
             "interrupted_responses": 1,
+            "empty_turns": 2,
         },
     }
     assert client.post(url, json=payload).status_code == 204
@@ -227,6 +231,7 @@ def test_ending_records_the_outcome_once(client, db) -> None:
         "responses": 3,
         "incomplete_responses": 1,
         "interrupted_responses": 1,
+        "empty_turns": 2,
     }
 
 

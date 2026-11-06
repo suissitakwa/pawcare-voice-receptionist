@@ -115,6 +115,13 @@ def check_availability(session: Session, business, raw: dict, now: datetime) -> 
 def prepare(
     session: Session, business, record: VoiceSession, raw: dict, now: datetime
 ) -> VoiceToolResult:
+    raw = dict(raw)
+    if raw.pop("details_read_back", None) is not True:
+        return tool_error(
+            "read_back_required",
+            "Read the owner's name, the dog's name, and the contact details back to the "
+            "caller, wait for them to say yes, then try again.",
+        )
     request = PrepareBookingRequest.model_validate(raw)
     prepared = prepare_booking(session, business, request, now, voice_session_id=record.id)
     summary = prepared.summary
