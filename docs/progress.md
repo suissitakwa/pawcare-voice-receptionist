@@ -313,3 +313,26 @@ The owner made the first spoken call on the live site. This is one manual observ
 ### Not verified
 
 Whether these changes fix the cut-offs and the repeated greeting. That needs a second real call.
+
+## Second real call (2026-11-05, manual)
+
+After the first round of voice fixes. One manual observation, not a measurement.
+
+| Observation | Assessment |
+|---|---|
+| The longest reply, every Full Groom size and price, finished completely | Cut-offs fixed. This supports the output cap as the cause |
+| Bath and Tidy for a small dog: 60 minutes, $45. Full Groom: small 90 minutes $70, medium 120 minutes $90, large 150 minutes $115 | All correct against the database |
+| Unclear input ("Hmm") got "could you say your dog's size again" instead of a restart | Repeated greeting fixed |
+| A caller line appeared after the reply it caused, for example "Yes" shown after "Awesome!" | Fault in the transcript display. The caller line was added only when transcription finished, which arrives after the reply starts |
+| "This is a demo, so no real booking is made" in most replies | Repetitive |
+| A hesitation was transcribed in Korean script, despite English transcription | Cosmetic. Watch for recurrence |
+
+### Changes made in response
+
+- A caller line is now reserved when speech starts and filled in when transcription completes, so lines stay in speaking order. Empty transcriptions are dropped, and failed ones show "(not transcribed)".
+- Instructions now limit the demonstration notice to once, or when asked, and the booking form to a single mention.
+
+| Check | Result |
+|---|---|
+| Frontend tests | 47 passed. The ordering test fails when the fix is removed |
+| Backend tests | 195 passed |
