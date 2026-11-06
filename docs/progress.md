@@ -270,10 +270,46 @@ Callback requests and assistant session outcomes, which arrive with the voice as
 
 | Item | Why | How to close it |
 |---|---|---|
-| A real spoken conversation | Needs an OpenAI key, which only the owner can add | Follow the voice section of [deployment.md](deployment.md), then talk to it |
 | Microphone permission prompt in real browsers | Automated browsers cannot grant a microphone | Manual check in Chrome and Safari |
 | Latency and cost per session | No live sessions yet | Manual audio testing |
 
 ### What remains
 
 Assistant tools: answering from the API, checking real availability, preparing and confirming bookings, and callback requests.
+
+### Live voice, verified 2026-11-05
+
+| Check | Result |
+|---|---|
+| GitHub Actions on the pull request and `main` | Backend, frontend, and image jobs passed |
+| Migration 0006 on Railway | Applied |
+| Live credential | One session without audio received a 60-second OpenAI credential. The permanent key stayed on the server |
+
+## First real call (2026-11-05, manual)
+
+The owner made the first spoken call on the live site. This is one manual observation, not a measurement.
+
+| Observation | Assessment |
+|---|---|
+| Connected, greeted, understood "bath and tidy" and "small", described the service from database facts, and sent the caller to the booking form | Works as intended |
+| Two longer replies stopped mid-sentence | Fault. Likely cause: the 400-token output cap, which counts audio tokens. Not yet confirmed |
+| The assistant greeted the caller a second time mid-call | Fault |
+| It did not state the duration and price once service and size were known | Weak answer |
+| A short fragment ("E...") was transcribed as caller speech | Possibly noise or hesitation triggering turn detection |
+
+### Changes made in response
+
+- Removed the output token cap. Cost stays bounded by the call time limit and the daily quota.
+- Each reply's final status is now counted, separating replies cut short by a limit from replies the caller interrupted. A cut-short reply also logs its reason, never its content.
+- Switched to semantic turn detection, and set far-field noise reduction for laptop microphones.
+- The browser now requests echo cancellation, noise suppression, and automatic gain control.
+- Instructions now require a single greeting, asking the caller to repeat unclear input, and stating duration and demo price once service and size are known.
+
+| Check | Result |
+|---|---|
+| Backend tests | 195 passed, including the new request shape: semantic turn detection and no output cap |
+| Frontend tests | 45 passed, including counting incomplete and interrupted replies |
+
+### Not verified
+
+Whether these changes fix the cut-offs and the repeated greeting. That needs a second real call.
