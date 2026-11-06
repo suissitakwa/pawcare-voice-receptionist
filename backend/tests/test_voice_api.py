@@ -177,7 +177,11 @@ def test_secret_request_matches_the_documented_shape(monkeypatch) -> None:
     assert body["expires_after"] == {"anchor": "created_at", "seconds": 60}
     assert body["session"]["type"] == "realtime"
     assert body["session"]["instructions"] == "Be brief."
-    assert body["session"]["audio"]["input"]["turn_detection"]["interrupt_response"] is True
+    turn_detection = body["session"]["audio"]["input"]["turn_detection"]
+    assert turn_detection["type"] == "semantic_vad"
+    assert turn_detection["interrupt_response"] is True
+    # Output tokens include audio, so a cap cuts spoken replies off mid-sentence.
+    assert "max_output_tokens" not in body["session"]
     assert body["session"]["audio"]["input"]["transcription"]["model"] == "gpt-4o-mini-transcribe"
 
 
@@ -190,6 +194,8 @@ def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     assert "Which dogs do you groom?" in text
     assert "Never give veterinary or medical advice" in text
     assert "Never say an appointment is booked or confirmed" in text
+    assert "Greet the caller only once" in text
+    assert "tell them its duration and demo price" in text
     assert "@" not in text.replace("hello@pawcare.example", "")
 
 
@@ -200,7 +206,13 @@ def test_ending_records_the_outcome_once(client, db) -> None:
     payload = {
         "session_token": body["session_token"],
         "reason": "user_ended",
-        "usage": {"input_tokens": 120, "output_tokens": 340, "responses": 3},
+        "usage": {
+            "input_tokens": 120,
+            "output_tokens": 340,
+            "responses": 3,
+            "incomplete_responses": 1,
+            "interrupted_responses": 1,
+        },
     }
     assert client.post(url, json=payload).status_code == 204
     assert client.post(url, json={**payload, "reason": "error"}).status_code == 204
@@ -208,7 +220,13 @@ def test_ending_records_the_outcome_once(client, db) -> None:
     db.refresh(record)
     assert record.status == "ended"
     assert record.end_reason == "user_ended"
-    assert record.usage == {"input_tokens": 120, "output_tokens": 340, "responses": 3}
+    assert record.usage == {
+        "input_tokens": 120,
+        "output_tokens": 340,
+        "responses": 3,
+        "incomplete_responses": 1,
+        "interrupted_responses": 1,
+    }
 
 
 def test_ending_needs_the_session_token(client, db) -> None:

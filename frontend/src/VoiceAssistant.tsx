@@ -55,7 +55,10 @@ export interface RealtimeDeps {
 
 export const browserDeps: RealtimeDeps = {
   createPeerConnection: () => new RTCPeerConnection(),
-  getMicrophone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+  getMicrophone: () =>
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    }),
   postOffer: async (sdp, secret) => {
     const response = await fetch(REALTIME_CALLS_URL, {
       method: "POST",
@@ -91,7 +94,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const timers = useRef<number[]>([]);
-  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0 });
+  const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 });
   const ending = useRef(false);
 
   const upsertLine = useCallback((line: TranscriptLine, append = false) => {
@@ -192,11 +195,25 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
         upsertLine({ id: `assistant-${event.item_id}`, speaker: "assistant", text: String(event.transcript ?? ""), final: true });
         break;
       case "response.done": {
-        const responseUsage = (event.response as { usage?: { input_tokens?: number; output_tokens?: number } } | undefined)?.usage;
+        const response = event.response as
+          | {
+              status?: string;
+              status_details?: { reason?: string };
+              usage?: { input_tokens?: number; output_tokens?: number };
+            }
+          | undefined;
+        const reason = response?.status_details?.reason;
+        if (response?.status === "incomplete") {
+          // A reply cut short by a limit or filter. The reason is logged, never the content.
+          console.warn("Voice reply incomplete", reason);
+        }
         usage.current = {
-          input_tokens: usage.current.input_tokens + (responseUsage?.input_tokens ?? 0),
-          output_tokens: usage.current.output_tokens + (responseUsage?.output_tokens ?? 0),
+          input_tokens: usage.current.input_tokens + (response?.usage?.input_tokens ?? 0),
+          output_tokens: usage.current.output_tokens + (response?.usage?.output_tokens ?? 0),
           responses: usage.current.responses + 1,
+          incomplete_responses: usage.current.incomplete_responses + (response?.status === "incomplete" ? 1 : 0),
+          interrupted_responses:
+            usage.current.interrupted_responses + (response?.status === "cancelled" && reason === "turn_detected" ? 1 : 0),
         };
         break;
       }
@@ -259,7 +276,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
 
   async function startCall() {
     ending.current = false;
-    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0 };
+    usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 };
     setLines([]);
     setNotice("");
     setMuted(false);

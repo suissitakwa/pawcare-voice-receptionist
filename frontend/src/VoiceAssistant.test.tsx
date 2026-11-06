@@ -154,14 +154,23 @@ describe("VoiceAssistant", () => {
     await user.click(screen.getByRole("button", { name: "Start talking" }));
     await waitFor(() => expect(peer.setRemoteDescription).toHaveBeenCalled());
     act(() => peer.channel.open());
-    act(() => peer.channel.emit({ type: "response.done", response: { usage: { input_tokens: 50, output_tokens: 80 } } }));
+    act(() => peer.channel.emit({ type: "response.done", response: { status: "completed", usage: { input_tokens: 50, output_tokens: 80 } } }));
+    act(() =>
+      peer.channel.emit({ type: "response.done", response: { status: "incomplete", status_details: { reason: "max_output_tokens" } } }),
+    );
+    act(() =>
+      peer.channel.emit({ type: "response.done", response: { status: "cancelled", status_details: { reason: "turn_detected" } } }),
+    );
 
     await user.click(screen.getByRole("button", { name: "End call" }));
     expect(mic.track.stop).toHaveBeenCalled();
     expect(peer.closed).toBe(true);
     expect(screen.getByText("Call ended")).toBeInTheDocument();
     await waitFor(() => expect(ends).toHaveLength(1));
-    expect(ends[0]).toMatchObject({ reason: "user_ended", usage: { input_tokens: 50, output_tokens: 80, responses: 1 } });
+    expect(ends[0]).toMatchObject({
+      reason: "user_ended",
+      usage: { input_tokens: 50, output_tokens: 80, responses: 3, incomplete_responses: 1, interrupted_responses: 1 },
+    });
   });
 
   it("explains a blocked microphone and offers the booking form", async () => {

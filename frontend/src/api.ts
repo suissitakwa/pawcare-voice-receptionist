@@ -214,6 +214,8 @@ export interface VoiceUsage {
   input_tokens: number;
   output_tokens: number;
   responses: number;
+  incomplete_responses: number;
+  interrupted_responses: number;
 }
 
 export function startVoiceSession(): Promise<VoiceSession> {

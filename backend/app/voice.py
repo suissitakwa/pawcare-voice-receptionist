@@ -88,6 +88,10 @@ def build_instructions(session: Session, business: Business) -> str:
             f"You are the voice receptionist for {business.name}, a fictional dog grooming "
             "business on a demonstration website. If asked, say this is a demonstration.",
             "Speak briefly: one or two short sentences, then ask one question at a time.",
+            "Greet the caller only once, at the very start. If you hear something unclear or "
+            "very short, ask them to repeat it instead of starting over.",
+            "When the caller has named a service and a dog size, tell them its duration and "
+            "demo price from the list below.",
             "Only use the facts below. If something is not covered, say you don't know and "
             "offer to have staff call back. Never invent prices, policies, or appointment times.",
             "You cannot check availability or book appointments yet. For bookings, ask the "
@@ -120,13 +124,16 @@ def mint_client_secret(settings: Settings, instructions: str, safety_id: str) ->
             "type": "realtime",
             "model": settings.voice_model,
             "instructions": instructions,
-            "max_output_tokens": 400,
             "audio": {
                 "input": {
                     "transcription": {"model": TRANSCRIPTION_MODEL, "language": "en"},
-                    "noise_reduction": {"type": "near_field"},
+                    # Most visitors use a laptop microphone, not a headset.
+                    "noise_reduction": {"type": "far_field"},
+                    # Semantic detection waits for a complete phrase, so short noises and
+                    # hesitations do not interrupt the assistant or start a new reply.
                     "turn_detection": {
-                        "type": "server_vad",
+                        "type": "semantic_vad",
+                        "eagerness": "auto",
                         "create_response": True,
                         "interrupt_response": True,
                     },

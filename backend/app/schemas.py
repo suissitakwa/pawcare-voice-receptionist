@@ -346,6 +346,9 @@ class VoiceUsage(BaseModel):
     input_tokens: int = Field(ge=0, le=10_000_000)
     output_tokens: int = Field(ge=0, le=10_000_000)
     responses: int = Field(ge=0, le=10_000)
+    # Replies stopped by a limit or filter, and replies the caller talked over.
+    incomplete_responses: int = Field(default=0, ge=0, le=10_000)
+    interrupted_responses: int = Field(default=0, ge=0, le=10_000)
 
 
 class VoiceEndRequest(BaseModel):
