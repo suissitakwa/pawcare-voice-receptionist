@@ -182,7 +182,7 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `GET /api/v1/staff/blocks` | Current and future blocked periods |
 | `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason}` as wall-clock values in the business time zone. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range |
 | `DELETE /api/v1/staff/blocks/{id}` | Removes a block. `204`, or `404 block_not_found` |
-| `GET /api/v1/staff/metrics` | Upcoming bookings, bookings and cancellations in the last 7 days, voice calls and voice bookings in the last 7 days, open callbacks, and assistant tool failures in the last 7 days |
+| `GET /api/v1/staff/metrics` | Upcoming bookings, bookings and cancellations in the last 7 days, voice calls and voice bookings in the last 7 days, open callbacks, assistant tool failures in the last 7 days, and the median and 90th percentile voice reply time in the last 7 days (null until a call is measured) |
 | `GET /api/v1/staff/callbacks?status=open` | Callback requests, newest first. `status` is `open`, `done`, or `all` |
 | `POST /api/v1/staff/callbacks/{id}/done` | Marks a callback as handled. Repeating it is harmless |
 
@@ -208,7 +208,7 @@ Starts a voice session. The server applies the off switch, a daily quota in the 
 
 ### `POST /api/v1/voice/sessions/{id}/end`
 
-`{session_token, reason, usage}` records how the session ended: `user_ended`, `timeout`, `error`, `disconnected`, `mic_denied`, or `page_closed`. `usage` holds token counts reported by the provider. Repeating it is harmless. Returns `204`.
+`{session_token, reason, usage}` records how the session ended: `user_ended`, `timeout`, `error`, `disconnected`, `mic_denied`, or `page_closed`. `usage` holds token counts reported by the provider, reply counts, and `reply_latency_ms`, the browser-measured time from the end of each caller turn to the start of the reply's audio (at most 200 values, each 0 to 120000). Repeating it is harmless. Returns `204`.
 
 ### `POST /api/v1/voice/sessions/{id}/tools/{name}`
 

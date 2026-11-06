@@ -332,3 +332,37 @@ def test_metrics_count_upcoming_new_and_cancelled_bookings(client, db, staff) ->
     body = client.get(f"{STAFF}/metrics", headers=headers).json()
     assert body["upcoming_bookings"] == 1
     assert body["cancellations_last_7_days"] == 1
+
+
+def test_metrics_report_voice_reply_times_from_recent_calls(client, db, staff) -> None:
+    import uuid
+
+    from app.models import VoiceSession
+
+    def call(started_at, usage) -> None:
+        db.add(
+            VoiceSession(
+                business_id=staff.business_id,
+                mode="live",
+                client_hash="c" * 64,
+                token_hash=uuid.uuid4().hex * 2,
+                usage=usage,
+                started_at=started_at,
+            )
+        )
+
+    call(NOW - timedelta(hours=1), {"reply_latency_ms": [900, 1500, 600]})
+    call(NOW - timedelta(days=1), {"reply_latency_ms": [700, 2400]})
+    call(NOW - timedelta(days=2), None)
+    call(NOW - timedelta(days=9), {"reply_latency_ms": [9000]})
+    db.commit()
+    body = client.get(f"{STAFF}/metrics", headers=token_for(client, staff)).json()
+    assert body["voice_replies_measured"] == 5
+    assert body["voice_reply_median_ms"] == 900
+    assert body["voice_reply_p90_ms"] == 2400
+
+
+def test_metrics_say_nothing_about_reply_times_before_any_call(client, staff) -> None:
+    body = client.get(f"{STAFF}/metrics", headers=token_for(client, staff)).json()
+    assert body["voice_replies_measured"] == 0
+    assert body["voice_reply_median_ms"] is None

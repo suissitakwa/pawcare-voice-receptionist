@@ -60,6 +60,9 @@ export interface StaffMetrics {
   voice_sessions_last_7_days: number;
   open_callbacks: number;
   tool_failures_last_7_days: number;
+  voice_replies_measured: number;
+  voice_reply_median_ms: number | null;
+  voice_reply_p90_ms: number | null;
 }
 
 const BASE = "/api/v1/staff";

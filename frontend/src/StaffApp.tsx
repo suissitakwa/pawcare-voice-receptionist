@@ -385,6 +385,14 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             <dt>Assistant tool failures in the last 7 days</dt>
             <dd>{metrics.tool_failures_last_7_days}</dd>
           </div>
+          <div>
+            <dt>Voice reply time, median (90th percentile)</dt>
+            <dd>
+              {metrics.voice_reply_median_ms === null || metrics.voice_reply_p90_ms === null
+                ? "Not measured yet"
+                : `${seconds(metrics.voice_reply_median_ms)} (${seconds(metrics.voice_reply_p90_ms)}), ${metrics.voice_replies_measured} replies`}
+            </dd>
+          </div>
         </dl>
       )}
       <section aria-labelledby="staff-bookings">
@@ -452,6 +460,10 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
       </section>
     </div>
   );
+}
+
+function seconds(ms: number): string {
+  return `${(ms / 1000).toFixed(1)} s`;
 }
 
 export default function StaffApp() {

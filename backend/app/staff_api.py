@@ -258,6 +258,17 @@ def metrics(context: Staff, db: DbSession, now: Now) -> StaffMetrics:
             VoiceSession.business_id == business_id, VoiceSession.started_at >= week_ago
         )
     ).one()
+    measured = sorted(
+        value
+        for usage in db.scalars(
+            select(VoiceSession.usage).where(
+                VoiceSession.business_id == business_id,
+                VoiceSession.started_at >= week_ago,
+                VoiceSession.usage.is_not(None),
+            )
+        )
+        for value in (usage or {}).get("reply_latency_ms", [])
+    )
     open_callbacks = db.scalar(
         select(func.count())
         .select_from(CallbackRequest)
@@ -275,7 +286,18 @@ def metrics(context: Staff, db: DbSession, now: Now) -> StaffMetrics:
         voice_sessions_last_7_days=sessions[0],
         open_callbacks=open_callbacks,
         tool_failures_last_7_days=sessions[1],
+        voice_replies_measured=len(measured),
+        voice_reply_median_ms=percentile(measured, 50),
+        voice_reply_p90_ms=percentile(measured, 90),
     )
+
+
+def percentile(values: list[int], pct: int) -> int | None:
+    """Nearest-rank percentile of sorted values, so the result is a time that really happened."""
+    if not values:
+        return None
+    rank = max(1, -(-pct * len(values) // 100))
+    return values[rank - 1]
 
 
 @router.get("/callbacks", response_model=list[StaffCallback])

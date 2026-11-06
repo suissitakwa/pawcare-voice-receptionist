@@ -29,6 +29,9 @@ const METRICS = {
   voice_sessions_last_7_days: 3,
   open_callbacks: 1,
   tool_failures_last_7_days: 0,
+  voice_replies_measured: 12,
+  voice_reply_median_ms: 1240,
+  voice_reply_p90_ms: 2100,
 };
 const CALLBACK = {
   id: "c1",
@@ -188,6 +191,9 @@ describe("StaffApp", () => {
     expect(await screen.findByText("Sam")).toBeInTheDocument();
     expect(screen.getByText(/Health question: Skin rash/)).toBeInTheDocument();
     expect(screen.getByText("Voice calls in the last 7 days").nextSibling).toHaveTextContent("3");
+    expect(screen.getByText("Voice reply time, median (90th percentile)").nextSibling).toHaveTextContent(
+      "1.2 s (2.1 s), 12 replies",
+    );
     expect(screen.getByText("Voice")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Mark done" }));
     expect(await screen.findByText("No open callback requests.")).toBeInTheDocument();

@@ -220,6 +220,33 @@ describe("VoiceAssistant", () => {
     await waitFor(() => expect(ends[0]?.usage).toMatchObject({ empty_turns: 1 }));
   });
 
+  it("measures each reply from the end of the caller's turn to the start of its audio", async () => {
+    const ends = mockBackend();
+    const { peer, deps } = setup();
+    const user = userEvent.setup({ delay: null });
+    render(<VoiceAssistant deps={deps} />);
+    await user.click(screen.getByRole("button", { name: "Start talking" }));
+    await waitFor(() => expect(peer.setRemoteDescription).toHaveBeenCalled());
+    act(() => peer.channel.open());
+    const clock = vi.spyOn(performance, "now");
+
+    // The greeting is not a reply to the caller, so it is not measured.
+    act(() => peer.channel.emit({ type: "output_audio_buffer.started" }));
+    clock.mockReturnValue(1000);
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }));
+    clock.mockReturnValue(2250);
+    act(() => peer.channel.emit({ type: "output_audio_buffer.started" }));
+    // The caller starts again before any reply, so that turn has nothing to measure.
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_stopped", item_id: "u2" }));
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_started", item_id: "u3" }));
+    clock.mockReturnValue(5000);
+    act(() => peer.channel.emit({ type: "output_audio_buffer.started" }));
+    clock.mockRestore();
+
+    await user.click(screen.getByRole("button", { name: "End call" }));
+    await waitFor(() => expect(ends[0]?.usage).toMatchObject({ reply_latency_ms: [1250] }));
+  });
+
   it("runs a tool through the backend and returns only the safe result to the model", async () => {
     const bodies: unknown[] = [];
     const { peer } = await connectedCall({
@@ -330,7 +357,7 @@ describe("VoiceAssistant", () => {
     await waitFor(() => expect(ends).toHaveLength(1));
     expect(ends[0]).toMatchObject({
       reason: "user_ended",
-      usage: { input_tokens: 50, output_tokens: 80, responses: 3, incomplete_responses: 1, interrupted_responses: 1, empty_turns: 0 },
+      usage: { input_tokens: 50, output_tokens: 80, responses: 3, incomplete_responses: 1, interrupted_responses: 1, empty_turns: 0, reply_latency_ms: [] },
     });
   });
 
