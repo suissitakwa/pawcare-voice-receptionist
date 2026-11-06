@@ -235,3 +235,27 @@ def test_report_is_labelled_and_built_only_from_results(db: Session) -> None:
     assert "not a voice measurement" in report
     assert "| Scenarios with every check passing | 1 of 1 (100%) |" in report
     assert "| booking | 1 of 1 |" in report
+
+
+def test_a_rejected_key_stops_the_run_instead_of_failing_every_scenario(db: Session) -> None:
+    from pawcare_evals.model import ProviderRejected
+
+    class Rejected(ScriptedModel):
+        async def connect(self, instructions, tools):
+            raise ProviderRejected("OpenAI rejected the request (invalid_api_key).")
+
+    with pytest.raises(ProviderRejected):
+        asyncio.run(run_scenario(db, Rejected([]), SCENARIOS["faq-hours"], TODAY))
+
+
+def test_account_errors_from_the_provider_are_recognised() -> None:
+    from pawcare_evals.model import ProviderRejected, RealtimeTextModel
+
+    class FakeSocket:
+        async def recv(self):
+            return json.dumps({"type": "error", "error": {"code": "invalid_api_key"}})
+
+    model = RealtimeTextModel("x", "m")
+    model.socket = FakeSocket()
+    with pytest.raises(ProviderRejected):
+        asyncio.run(model.receive())

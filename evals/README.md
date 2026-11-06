@@ -12,7 +12,7 @@ Three kinds of evidence are kept apart and are never reported as one another:
 
 ## Scenarios
 
-`scenarios.json` holds 33 scripted conversations. The clock is fixed to Monday 4 January 2027, so availability is the same on every run.
+`scenarios.json` holds 34 scripted conversations. The clock is fixed to Monday 4 January 2027, so availability is the same on every run.
 
 | Category | Covers |
 |---|---|

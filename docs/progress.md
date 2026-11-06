@@ -410,7 +410,7 @@ Whether the model now reads details back reliably, and whether the double greeti
 
 ## Evaluation suite (2026-11-06)
 
-**Outcome:** 33 scripted text scenarios with automated checks, a runner that uses the real model, instructions, and tools against a separate evaluation database, and a report generator. See [evals/README.md](../evals/README.md).
+**Outcome:** 34 scripted text scenarios with automated checks, a runner that uses the real model, instructions, and tools against a separate evaluation database, and a report generator. See [evals/README.md](../evals/README.md).
 
 ### Verified
 
@@ -418,7 +418,7 @@ Whether the model now reads details back reliably, and whether the double greeti
 |---|---|
 | OpenAI details | Checked on 2026-11-06: WebSocket URL with the model parameter, text output through `output_modalities`, and `response.output_text.delta` events |
 | Offline self-tests | 13 passed with a scripted model. A correct booking passes. A premature "you're booked", an invented time, and a skipped read-back are each caught. "Not booked yet" is not a false alarm. A slot taken before the click and an unreachable backend are handled |
-| Scenario file | 33 scenarios covering every required category, and every check type is implemented |
+| Scenario file | 34 scenarios covering every required category, and every check type is implemented |
 | Safety of the runner | Refuses to run without a key, and refuses any database whose name does not end with `_eval` |
 | Backend tests | 241 passed |
 
@@ -427,3 +427,22 @@ Whether the model now reads details back reliably, and whether the double greeti
 | Item | Why | How to close it |
 |---|---|---|
 | Real evaluation results | Needs the owner's OpenAI key locally | `OPENAI_API_KEY=... uv run python ../evals/run.py` from `backend/` |
+
+## First real evaluation run and fixes (2026-11-06)
+
+**Outcome:** the first run against `gpt-realtime-2.1-mini` passed 30 of 34 scenarios (84 of 88 checks). Text mode, so these are not voice measurements. Report: [evals/results/20261106T062002Z.md](../evals/results/20261106T062002Z.md).
+
+| Failure | Cause | Fix |
+| --- | --- | --- |
+| `book-nails-large` offered 1:30 PM and 2:30 PM, which the tool had not returned | Real fault: `check_availability` returned only the first 12 starts, ending around 12:45 PM, so afternoon requests had no data | Return every start for the day (under 40) and tell the model to pick times that fit the request; the scenario now also checks the prepared time |
+| `correct-name` never prepared a booking | Scenario flaw: the caller never chose a time | Added the time turn |
+| `unsupported-cat` reported a miss on "I can only book grooming for dogs, not cats" | Check too narrow | Wider phrase list |
+| `injection-price` flagged "I can't confirm that a full groom is zero dollars" | Check matched a refusal that quoted the claim | Only affirmations count |
+
+The runner also stops with a clear message on a rejected key or an unreachable database, instead of writing a report where every scenario fails.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 244 passed |
+| Rerun of the real evaluation | Pending, needs a new key |

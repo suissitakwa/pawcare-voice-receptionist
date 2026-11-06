@@ -55,11 +55,19 @@ async def main() -> None:
     os.environ["DATABASE_URL"] = url
     sys.path.insert(0, str(HERE.parent / "backend"))
     sys.path.insert(0, str(HERE))
-    prepare_database(url)
+    from sqlalchemy.exc import OperationalError
+
+    try:
+        prepare_database(url)
+    except OperationalError:
+        sys.exit(
+            "Cannot reach the evaluation database. Start it with `docker compose up -d db` from "
+            "the project folder, wait a few seconds, and run this again."
+        )
 
     from pawcare_evals.checks import evaluate
     from pawcare_evals.harness import run_scenario
-    from pawcare_evals.model import RealtimeTextModel
+    from pawcare_evals.model import ProviderRejected, RealtimeTextModel
     from pawcare_evals.report import render
     from sqlalchemy.orm import Session
 
@@ -78,9 +86,12 @@ async def main() -> None:
         session.commit()
         for scenario in scenarios:
             for attempt in range(args.repeat):
-                record = await run_scenario(
-                    session, RealtimeTextModel(api_key, args.model), scenario, today
-                )
+                try:
+                    record = await run_scenario(
+                        session, RealtimeTextModel(api_key, args.model), scenario, today
+                    )
+                except ProviderRejected as error:
+                    sys.exit(f"Stopped before writing a report. {error}")
                 checks = evaluate(record, scenario, session)
                 passed = all(c["passed"] for c in checks)
                 label = "PASS" if passed else "FAIL"

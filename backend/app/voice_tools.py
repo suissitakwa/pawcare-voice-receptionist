@@ -32,7 +32,8 @@ from app.schemas import EMAIL_PATTERN, PHONE_PATTERN, PrepareBookingRequest, Voi
 from app.voice import MAX_TOOL_CALLS, SESSION_GRACE, sha256
 
 logger = logging.getLogger("pawcare.voice")
-MAX_TIMES_RETURNED = 12
+# A full day at 15-minute steps is under 40 starts, so the model can see every one.
+MAX_TIMES_RETURNED = 40
 
 
 class AvailabilityArgs(BaseModel):

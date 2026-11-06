@@ -202,6 +202,14 @@ def check(record, spec: dict, session: Session) -> tuple[bool, str]:
         ]
         return not bad, f"{len(bad)} summary(s) used {spec['value']!r}"
 
+    if kind == "last_prepare_args_starts_at":
+        made = [c for c in prepares(record) if c["ok"]]
+        if not made:
+            return False, "no booking was prepared"
+        local = datetime.fromisoformat(made[-1]["args"]["starts_at"]).astimezone(LA)
+        label = normalize_time(TIME.search(local.strftime("%I:%M %p")))
+        return label == spec["time"], f"prepared for {label}"
+
     if kind == "prepare_count_at_least":
         made = [c for c in prepares(record) if c["ok"]]
         return len(made) >= spec["count"], f"{len(made)} summary(s) prepared"
