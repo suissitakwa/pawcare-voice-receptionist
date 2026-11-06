@@ -187,7 +187,7 @@ def test_secret_request_matches_the_documented_shape(monkeypatch) -> None:
 
 def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     business = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
-    text = build_instructions(db, business)
+    text = build_instructions(db, business, NOW.date())
     assert "PawCare Grooming Studio" in text
     assert "Full Groom" in text and "$90" in text
     assert "Monday: closed" in text and "Tuesday: 9 AM to 5 PM" in text

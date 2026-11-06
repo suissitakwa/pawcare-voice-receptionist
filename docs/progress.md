@@ -336,3 +336,38 @@ After the first round of voice fixes. One manual observation, not a measurement.
 |---|---|
 | Frontend tests | 47 passed. The ordering test fails when the fix is removed |
 | Backend tests | 195 passed |
+
+## Third real call (2026-11-06, manual)
+
+After the transcript-order fix was deployed. One manual observation, not a measurement.
+
+| Observation | Assessment |
+|---|---|
+| Every caller line appeared before the reply it caused | Ordering fix confirmed |
+| The demonstration notice came up once, in answer to "Is that final price?" | Repetition fix confirmed |
+| Prices, durations, and the "final price" answer matched the database and approved FAQ | Correct |
+| It kept the small dog size when asked about the Full Groom, and recapped accurately | Correct |
+| It suggested the booking form in two consecutive replies | Minor. Superseded once the assistant can book |
+
+## Assistant tools (2026-11-06)
+
+**Outcome:** the assistant can check real availability, prepare a booking, and take callback requests. A prepared booking appears on screen with a Confirm booking button, and only that click books. The assistant is then told the backend's result. Staff see callback requests, voice metrics, and whether each booking came from the form or voice.
+
+### Verified
+
+Run locally on PostgreSQL 14.13.
+
+| Check | Result |
+|---|---|
+| Event formats | Checked against OpenAI's documentation on 2026-11-06: `function_call` items in `response.done`, `function_call_output`, and system messages through `conversation.item.create` |
+| Backend tests | 223 passed. Tool tests cover: no confirm tool exists, real availability, staff-assessment and past-date refusals, malformed or extra arguments, prepare booking nothing, the confirmation token never in the model's result, a click creating a voice-attributed booking, callback validation, wrong token, ended and expired sessions, the 40-call budget, and staff callbacks and metrics |
+| Clock consistency | Bookings now take `created_at` from the same clock as the other booking rules. A metrics test exposed the mismatch |
+| Frontend tests | 52 passed. They cover the tool result reaching the model without the token, the summary card, booking only on click with the reference passed to the model, a slot taken before the click, a tool that cannot be reached, and the callbacks section |
+| Browser, local | A callback created through the tool endpoint appeared on the dashboard with its reason and note, and the metrics showed open callbacks and voice calls |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| A real spoken booking | Needs the live deployment | A live call after merging |
+| PostgreSQL 18 | Docker unresponsive | CI on the pull request |

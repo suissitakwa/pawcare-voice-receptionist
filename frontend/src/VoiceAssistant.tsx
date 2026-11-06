@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { longDate, wallClock } from "./BookingForm";
+import { formatDuration, formatPrice } from "./format";
 import {
   ApiRequestError,
+  callVoiceTool,
+  confirmBooking,
   endVoiceSession,
   startVoiceSession,
+  type BookingConfirmation,
+  type PreparedBooking,
   type VoiceEndReason,
   type VoiceSession,
   type VoiceUsage,
@@ -44,7 +50,7 @@ const TEST_SCRIPT: [TranscriptLine["speaker"], string, VoiceStatus][] = [
   ["caller", "How much is a full groom for a medium dog?", "hearing"],
   ["assistant", "A full groom for a medium dog takes two hours and the demo price is 90 dollars.", "speaking"],
   ["caller", "Can I book for Tuesday?", "hearing"],
-  ["assistant", "I can't book by voice yet. Please use the booking form further down this page.", "speaking"],
+  ["assistant", "Yes. I'll check open times, then show you a summary to confirm on screen.", "speaking"],
 ];
 
 export interface RealtimeDeps {
@@ -91,6 +97,12 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
 
   const session = useRef<VoiceSession | null>(null);
   const peer = useRef<RTCPeerConnection | null>(null);
+  const events = useRef<RTCDataChannel | null>(null);
+  const [prepared, setPrepared] = useState<PreparedBooking | null>(null);
+  const [confirmKey, setConfirmKey] = useState("");
+  const [booked, setBooked] = useState<BookingConfirmation | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [bookingNotice, setBookingNotice] = useState("");
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const timers = useRef<number[]>([]);
@@ -168,6 +180,76 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
     tick();
   }
 
+  function send(event: unknown) {
+    if (events.current?.readyState === "open") events.current.send(JSON.stringify(event));
+  }
+
+  /** Tells the assistant something the caller did on screen, then lets it reply. */
+  function tellAssistant(text: string) {
+    send({ type: "conversation.item.create", item: { type: "message", role: "system", content: [{ type: "input_text", text }] } });
+    send({ type: "response.create" });
+  }
+
+  async function runTools(calls: { name: string; call_id: string; arguments: string }[]) {
+    const current = session.current;
+    if (!current) return;
+    setStatus("thinking");
+    for (const toolCall of calls) {
+      let output: Record<string, unknown>;
+      try {
+        const outcome = await callVoiceTool(current, toolCall.name, toolCall.arguments ?? "");
+        output = outcome.result;
+        if (outcome.prepared) {
+          setPrepared(outcome.prepared);
+          setBooked(null);
+          setBookingNotice("");
+          // A new key per summary, so a retried click can never book twice.
+          setConfirmKey(crypto.randomUUID());
+        }
+      } catch (error) {
+        output = {
+          error: error instanceof ApiRequestError && error.code !== "network" ? error.code : "tool_unavailable",
+          message: "The booking system could not be reached. Offer a callback instead.",
+        };
+      }
+      send({ type: "conversation.item.create", item: { type: "function_call_output", call_id: toolCall.call_id, output: JSON.stringify(output) } });
+    }
+    send({ type: "response.create" });
+  }
+
+  async function confirmPrepared() {
+    if (!prepared) return;
+    setConfirming(true);
+    setBookingNotice("");
+    try {
+      const result = await confirmBooking(prepared, confirmKey);
+      setBooked(result);
+      setPrepared(null);
+      tellAssistant(
+        `The caller pressed Confirm booking and the booking system confirmed it. Reference ${result.reference}. Tell them it is booked and read the reference out clearly.`,
+      );
+    } catch (error) {
+      const code = error instanceof ApiRequestError ? error.code : "network";
+      if (code === "network") {
+        setBookingNotice("We couldn't confirm whether it was booked. Pressing Confirm again is safe and won't book twice.");
+        return;
+      }
+      setPrepared(null);
+      if (code === "slot_unavailable") {
+        setBookingNotice("Sorry, that time was just taken.");
+        tellAssistant("The caller pressed Confirm, but that time was just booked by someone else. Apologise briefly and offer to check other times.");
+      } else if (code === "confirmation_expired") {
+        setBookingNotice("That summary expired.");
+        tellAssistant("The caller pressed Confirm, but the summary had expired. Offer to prepare it again.");
+      } else {
+        setBookingNotice(error instanceof ApiRequestError ? error.message : "Something went wrong.");
+        tellAssistant("The caller pressed Confirm, but the booking failed. Offer a callback instead.");
+      }
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   function handleEvent(raw: string) {
     let event: { type?: string; [key: string]: unknown };
     try {
@@ -213,8 +295,14 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
               status?: string;
               status_details?: { reason?: string };
               usage?: { input_tokens?: number; output_tokens?: number };
+              output?: { type?: string; name?: string; call_id?: string; arguments?: string }[];
             }
           | undefined;
+        const calls = (response?.output ?? []).filter(
+          (item): item is { type: string; name: string; call_id: string; arguments: string } =>
+            item.type === "function_call" && typeof item.name === "string" && typeof item.call_id === "string",
+        );
+        if (calls.length > 0) void runTools(calls);
         const reason = response?.status_details?.reason;
         if (response?.status === "incomplete") {
           // A reply cut short by a limit or filter. The reason is logged, never the content.
@@ -259,6 +347,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
     };
     microphone.getTracks().forEach((track) => connection.addTrack(track, microphone));
     const channel = connection.createDataChannel("oai-events");
+    events.current = channel;
     channel.addEventListener("message", (event) => handleEvent(String(event.data)));
     channel.addEventListener("open", () => {
       setStatus("listening");
@@ -291,6 +380,9 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
     ending.current = false;
     usage.current = { input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 };
     setLines([]);
+    setPrepared(null);
+    setBooked(null);
+    setBookingNotice("");
     setNotice("");
     setMuted(false);
     setStatus("starting");
@@ -368,6 +460,47 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
           {notice}
         </p>
       )}
+      {prepared && (
+        <div className="voice-summary" role="region" aria-label="Booking summary">
+          <h3>Check your booking</h3>
+          <dl className="summary-list">
+            {(
+              [
+                ["Service", `${prepared.summary.service}, ${prepared.summary.size.toLowerCase()} dog`],
+                ["Dog", prepared.summary.pet_name],
+                ["Date", longDate(prepared.summary.local_start.slice(0, 10))],
+                ["Time", `${wallClock(prepared.summary.local_start)} to ${wallClock(prepared.summary.local_end)}`],
+                ["Length", formatDuration(prepared.summary.duration_minutes)],
+                ["Price", `${formatPrice(prepared.summary.price_cents)} (demo price)`],
+                ["Name", prepared.summary.owner_name],
+                ["Contact", [prepared.summary.owner_email, prepared.summary.owner_phone].filter(Boolean).join(", ")],
+              ] as const
+            ).map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="muted">Nothing is booked until you press Confirm. If anything is wrong, tell the assistant.</p>
+          <div className="actions">
+            <button type="button" className="button button-primary" onClick={confirmPrepared} disabled={confirming}>
+              {confirming ? "Confirming…" : "Confirm booking"}
+            </button>
+          </div>
+        </div>
+      )}
+      {booked && (
+        <p className="form-info" role="status">
+          Booked. Reference <strong>{booked.reference}</strong>: {booked.summary.service} for {booked.summary.pet_name} on{" "}
+          {longDate(booked.summary.local_start.slice(0, 10))} at {wallClock(booked.summary.local_start)}.
+        </p>
+      )}
+      {bookingNotice && (
+        <p className="form-alert" role="alert">
+          {bookingNotice}
+        </p>
+      )}
       {lines.length > 0 && (
         <ol className="transcript" aria-label="Conversation transcript" aria-live="polite">
           {lines.map((line) => (
@@ -379,9 +512,9 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
         </ol>
       )}
       <p className="muted voice-fineprint">
-        The assistant answers from this demo business's details and can't book yet, so please use
-        the booking form for appointments. Audio is not recorded. The transcript stays in your
-        browser and disappears when you leave.
+        The assistant answers from this demo business's details and can book appointments. A
+        booking is made only when you press Confirm. Audio is not recorded. The transcript stays
+        in your browser and disappears when you leave.
       </p>
     </div>
   );

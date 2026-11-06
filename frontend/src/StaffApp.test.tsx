@@ -19,8 +19,28 @@ const BOOKING = {
   price_cents: 7000,
   created_at: "2027-01-04T16:00:00Z",
   cancelled_at: null,
+  source: "voice",
 };
-const METRICS = { upcoming_bookings: 1, bookings_last_7_days: 1, cancellations_last_7_days: 0 };
+const METRICS = {
+  upcoming_bookings: 1,
+  bookings_last_7_days: 1,
+  cancellations_last_7_days: 0,
+  voice_bookings_last_7_days: 1,
+  voice_sessions_last_7_days: 3,
+  open_callbacks: 1,
+  tool_failures_last_7_days: 0,
+};
+const CALLBACK = {
+  id: "c1",
+  name: "Sam",
+  phone: "(323) 555-0101",
+  email: null,
+  reason: "health",
+  note: "Skin rash",
+  status: "open",
+  created_at: "2027-01-04T18:00:00Z",
+  resolved_at: null,
+};
 
 type Reply = { status: number; body?: unknown };
 type Route = (init?: RequestInit) => Reply;
@@ -49,6 +69,7 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     "GET /api/v1/staff/bookings": () => ({ status: 200, body: [BOOKING] }),
     "GET /api/v1/staff/blocks": () => ({ status: 200, body: [] }),
     "GET /api/v1/staff/metrics": () => ({ status: 200, body: METRICS }),
+    "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK] }),
     ...overrides,
   };
 }
@@ -149,6 +170,28 @@ describe("StaffApp", () => {
     await user.type(from, "2027-01-05");
     await user.click(screen.getByRole("button", { name: "Block this time" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("1 existing booking overlaps it: PC-ABCD2345");
+  });
+
+  it("shows callback requests and voice figures, and marks a callback done", async () => {
+    let done = false;
+    const calls = mockApi(
+      dashboardRoutes({
+        "GET /api/v1/staff/callbacks": () => ({ status: 200, body: done ? [] : [CALLBACK] }),
+        "POST /api/v1/staff/callbacks/c1/done": () => {
+          done = true;
+          return { status: 200, body: { ...CALLBACK, status: "done" } };
+        },
+      }),
+    );
+    render(<StaffApp />);
+    const user = await signIn();
+    expect(await screen.findByText("Sam")).toBeInTheDocument();
+    expect(screen.getByText(/Health question: Skin rash/)).toBeInTheDocument();
+    expect(screen.getByText("Voice calls in the last 7 days").nextSibling).toHaveTextContent("3");
+    expect(screen.getByText("Voice")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Mark done" }));
+    expect(await screen.findByText("No open callback requests.")).toBeInTheDocument();
+    expect(calls.some((c) => c.key === "POST /api/v1/staff/callbacks/c1/done")).toBe(true);
   });
 
   it("resumes a stored session without asking to sign in again", async () => {

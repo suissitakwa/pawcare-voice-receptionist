@@ -55,9 +55,10 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Non-voice booking form
 - [x] Browser voice session with short-lived credentials, quota, and disable switch
 - [x] Voice interface states, transcript, and error handling
-- [ ] Assistant tools backed by the API, including full voice booking
+- [x] Assistant tools backed by the API, including full voice booking
 - [x] Protected staff dashboard: bookings, cancellation, blocked time, booking metrics
-- [ ] Callback requests and assistant session outcomes on the dashboard
+- [x] Callback requests and voice activity metrics on the dashboard
+- [ ] Per-session summaries on the dashboard
 - [ ] Local test mode and scripted evaluations
 - [ ] Hardening, accessibility review, and data retention
 - [ ] Manual audio testing and latency measurement

@@ -1,6 +1,6 @@
 # 0001: Voice architecture
 
-**Status:** Connection flow implemented in migration 0006, `app/voice.py`, and `VoiceAssistant.tsx`. Tool transport is still provisional.
+**Status:** Implemented. Connection in migration 0006 and `app/voice.py`. Tools in migration 0007 and `app/voice_tools.py`, relayed by the browser as decided below.
 
 ## Context
 
@@ -47,3 +47,6 @@ The relay is safe here because a forged call gains nothing: each tool can do no 
 - Caller speech is transcribed with `gpt-4o-mini-transcribe` so the visitor sees a transcript. Transcripts are not sent to the backend or stored.
 - Voice activity detection lets the caller interrupt the assistant mid-sentence.
 - Only session outcomes and token counts are stored, never audio or transcripts. Visitor addresses are stored only as hashes.
+- Tools are `check_availability`, `prepare_booking`, and `create_callback_request`. There is deliberately no confirm tool: only the visitor's click on Confirm booking can book, and the browser then tells the model the backend's result in a system message. A misheard "yes" cannot create a booking.
+- Each tool call is authenticated with the voice session token, refused after the session ends or passes its time limit, and limited to 40 calls per session. Failures are returned to the model so it can explain them, and counted for the dashboard.
+- The prepared booking's confirmation token goes to the screen only, never into the model's context.

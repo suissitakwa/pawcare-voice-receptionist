@@ -22,7 +22,7 @@ Readiness.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0006"}` | Safe to serve |
+| 200 | `{"status": "ready", "database": "ok", "schema_revision": "0007"}` | Safe to serve |
 | 503 | `{"status": "unavailable", "database": "unreachable", "schema_revision": null}` | Database cannot be reached |
 | 503 | `{"status": "unavailable", "database": "ok", "schema_revision": "<found>"}` | Migrations have not been applied for this build |
 
@@ -177,12 +177,14 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `POST /api/v1/staff/login` | `{email, password}` returns `token`, `expires_at` (8 hours), and `staff`. Wrong details return `401 invalid_credentials`. Five failures return `429 too_many_attempts` for 15 minutes |
 | `POST /api/v1/staff/logout` | Revokes the token. `204` |
 | `GET /api/v1/staff/me` | The signed-in staff member |
-| `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details. `scope=past` lists finished bookings, most recent first |
+| `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details and `source` (`form` or `voice`). `scope=past` lists finished bookings, most recent first |
 | `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
 | `GET /api/v1/staff/blocks` | Current and future blocked periods |
 | `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason}` as wall-clock values in the business time zone. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range |
 | `DELETE /api/v1/staff/blocks/{id}` | Removes a block. `204`, or `404 block_not_found` |
-| `GET /api/v1/staff/metrics` | Upcoming bookings, bookings made in the last 7 days, and cancellations in the last 7 days |
+| `GET /api/v1/staff/metrics` | Upcoming bookings, bookings and cancellations in the last 7 days, voice calls and voice bookings in the last 7 days, open callbacks, and assistant tool failures in the last 7 days |
+| `GET /api/v1/staff/callbacks?status=open` | Callback requests, newest first. `status` is `open`, `done`, or `all` |
+| `POST /api/v1/staff/callbacks/{id}/done` | Marks a callback as handled. Repeating it is harmless |
 
 ## Voice
 
@@ -207,3 +209,23 @@ Starts a voice session. The server applies the off switch, a daily quota in the 
 ### `POST /api/v1/voice/sessions/{id}/end`
 
 `{session_token, reason, usage}` records how the session ended: `user_ended`, `timeout`, `error`, `disconnected`, `mic_denied`, or `page_closed`. `usage` holds token counts reported by the provider. Repeating it is harmless. Returns `204`.
+
+### `POST /api/v1/voice/sessions/{id}/tools/{name}`
+
+Runs one assistant tool. The browser relays the model's request: `{session_token, arguments}`, where `arguments` is the model's raw JSON string. The backend parses and validates it as untrusted input.
+
+| Tool | Does |
+|---|---|
+| `check_availability` | `service`, `size`, `date`. Returns up to 12 open times with labels and `starts_at`, plus duration and demo price |
+| `prepare_booking` | `service`, `size`, `starts_at`, `owner_name`, `pet_name`, and a phone or email. Returns a summary for the model and, separately, the prepared booking for the screen. The confirmation token is never in the model's part |
+| `create_callback_request` | `name`, a phone or email, `reason`, optional `note`. Saves a request for staff |
+
+The model has no confirm tool. A booking is made only when the visitor presses Confirm booking, which calls `POST /api/v1/bookings/confirm`. The browser then tells the model the result.
+
+| Response | Meaning |
+|---|---|
+| `200` with `ok: true` | The tool ran. `result` goes to the model |
+| `200` with `ok: false` | The tool ran but the request was refused, for example `slot_unavailable` or `invalid_arguments`. Counted as a tool failure |
+| `403 voice_session_closed` | The session ended or passed its time limit plus a 60-second grace period |
+| `404 voice_session_not_found` | Wrong session or token |
+| `429 too_many_tool_calls` | The session used its budget of 40 tool calls |
