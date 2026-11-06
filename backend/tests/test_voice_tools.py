@@ -94,6 +94,20 @@ def test_availability_returns_real_times_with_labels(client, voice) -> None:
     assert "12:30 PM" in [t["label"] for t in result["times"]]
 
 
+def test_availability_includes_the_whole_day_so_the_model_never_guesses(client, voice) -> None:
+    body = call(
+        client,
+        voice,
+        "check_availability",
+        {"service": "nail-and-paw", "size": "large", "date": "2027-01-07"},
+    ).json()
+    labels = [t["label"] for t in body["result"]["times"]]
+    assert labels[0] == "9 AM"
+    assert "2:30 PM" in labels
+    assert labels[-1] == "4:30 PM"
+    assert body["result"]["more_times_available"] is False
+
+
 def test_availability_reports_closed_days(client, voice) -> None:
     result = call(
         client,

@@ -8,7 +8,13 @@ from dataclasses import dataclass, field
 import websockets
 
 REALTIME_URL = "wss://api.openai.com/v1/realtime?model={model}"
+# Errors that would fail every scenario the same way, so the run stops instead.
+ACCOUNT_ERRORS = {"invalid_api_key", "insufficient_quota", "model_not_found", "account_deactivated"}
 EVENT_TIMEOUT_SECONDS = 60
+
+
+class ProviderRejected(Exception):
+    """OpenAI refused the connection, so no scenario can run. Stops the whole run."""
 
 
 @dataclass
@@ -28,11 +34,18 @@ class RealtimeTextModel:
         self.socket = None
 
     async def connect(self, instructions: str, tools: list[dict]) -> None:
-        self.socket = await websockets.connect(
-            REALTIME_URL.format(model=self.model),
-            additional_headers={"Authorization": f"Bearer {self.api_key}"},
-            max_size=2**22,
-        )
+        try:
+            self.socket = await websockets.connect(
+                REALTIME_URL.format(model=self.model),
+                additional_headers={"Authorization": f"Bearer {self.api_key}"},
+                max_size=2**22,
+            )
+        except websockets.exceptions.InvalidStatus as error:
+            status = error.response.status_code
+            raise ProviderRejected(
+                f"OpenAI refused the connection with HTTP {status}. Check the API key, the "
+                "model name, and that the account has credit."
+            ) from None
         await self.wait_for("session.created")
         await self.send(
             {
@@ -59,7 +72,13 @@ class RealtimeTextModel:
         raw = await asyncio.wait_for(self.socket.recv(), timeout=EVENT_TIMEOUT_SECONDS)
         event = json.loads(raw)
         if event.get("type") == "error":
-            raise RuntimeError(f"Realtime error: {event.get('error', {}).get('code')}")
+            code = event.get("error", {}).get("code")
+            if code in ACCOUNT_ERRORS:
+                raise ProviderRejected(
+                    f"OpenAI rejected the request ({code}). Check the API key, the model name, "
+                    "and that the account has credit."
+                )
+            raise RuntimeError(f"Realtime error: {code}")
         return event
 
     async def wait_for(self, event_type: str) -> dict:

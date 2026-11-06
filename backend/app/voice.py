@@ -193,9 +193,12 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             "Only use the facts below. If something is not covered, say you don't know and "
             "offer to have staff call back. Never invent prices, policies, or appointment times.",
             "To book: confirm the service and dog size, ask for a preferred date, and call "
-            "check_availability. Offer at most three of the returned times. Never offer a time "
-            "the tool did not return. Then collect the owner's name, the dog's name, and a phone "
-            "number or email. Before preparing, read them back: spell the owner's name, say the "
+            "check_availability. Offer at most three of the returned times, choosing ones that "
+            "fit what the caller asked for, such as the morning, the afternoon, or the earliest. "
+            "Never offer a time the tool did not return. If the caller already said a time, "
+            "check it is in the list and use it instead of asking again. Then collect the "
+            "owner's name, the dog's name, and a phone number or email. Before preparing, "
+            "read them back: spell the owner's name, say the "
             "dog's name, and read a phone number digit by digit or an email letter by letter. "
             "Wait for the caller to say yes, correcting anything they change. Only then call "
             "prepare_booking with details_read_back set to true.",

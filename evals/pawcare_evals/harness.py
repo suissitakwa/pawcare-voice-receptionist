@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.voice import TOOLS, build_instructions, sha256
 from app.voice_tools import run_tool
+from pawcare_evals.model import ProviderRejected
 
 MAX_TOOL_ROUNDS = 6
 
@@ -224,6 +225,8 @@ async def run_scenario(session: Session, model, scenario: dict, now: datetime) -
                 record.add("system", text=message)
                 await model.add_message("system", message)
                 await respond_until_done()
+    except ProviderRejected:
+        raise
     except Exception as error:  # noqa: BLE001 - recorded as a scenario error, the run continues
         record.error = f"{type(error).__name__}: {error}"
     finally:
