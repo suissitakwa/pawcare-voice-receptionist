@@ -342,6 +342,8 @@ export default function App() {
           </p>
           <p className="footer-links">
             <a href="/staff">Staff sign in</a>
+            {" · "}
+            <a href="/get-started">Set up a receptionist for your business</a>
           </p>
         </div>
       </footer>

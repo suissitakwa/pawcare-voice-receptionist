@@ -59,6 +59,9 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Protected staff dashboard: bookings, cancellation, blocked time, booking metrics
 - [x] Callback requests and voice activity metrics on the dashboard
 - [ ] Per-session summaries on the dashboard
+- [x] Subscriber sign-up and business profile for groomers, hair salons, and barbershops (collected, not yet driving calls)
+- [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
+- [ ] Website import, document reading, calendar connection, phone line, and billing
 - [x] Local test mode and scripted evaluation suite
 - [x] Results from a real evaluation run
 - [ ] Hardening, accessibility review, and data retention

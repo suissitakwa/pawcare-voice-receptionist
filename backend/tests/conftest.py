@@ -27,6 +27,7 @@ from app.models import (  # noqa: E402
     CallbackRequest,
     StaffSession,
     StaffUser,
+    SubscriberAccount,
     VoiceSession,
 )
 from app.seed import seed_business  # noqa: E402
@@ -68,6 +69,7 @@ def db() -> Iterator[Session]:
         session.execute(delete(CallbackRequest))
         session.execute(delete(VoiceSession))
         session.execute(delete(StaffUser))
+        session.execute(delete(SubscriberAccount))
         seed_business(session)
         session.commit()
         yield session
