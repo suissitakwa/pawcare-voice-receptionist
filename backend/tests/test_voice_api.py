@@ -195,6 +195,7 @@ def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     assert "Never give veterinary or medical advice" in text
     assert "Never say an appointment is booked or confirmed" in text
     assert "Greet the caller only once" in text
+    assert "at most once" in text
     assert "tell them its duration and demo price" in text
     assert "@" not in text.replace("hello@pawcare.example", "")
 

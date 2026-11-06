@@ -97,6 +97,10 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
   const usage = useRef<VoiceUsage>({ input_tokens: 0, output_tokens: 0, responses: 0, incomplete_responses: 0, interrupted_responses: 0 });
   const ending = useRef(false);
 
+  const removeLine = useCallback((id: string) => {
+    setLines((current) => current.filter((line) => line.id !== id));
+  }, []);
+
   const upsertLine = useCallback((line: TranscriptLine, append = false) => {
     setLines((current) => {
       const index = current.findIndex((item) => item.id === line.id);
@@ -174,6 +178,9 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
     switch (event.type) {
       case "input_audio_buffer.speech_started":
         setStatus("hearing");
+        // Reserve the caller's place now. Transcription finishes after the reply has started,
+        // so adding the line only then would show it after the answer.
+        upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text: "…", final: false });
         break;
       case "input_audio_buffer.speech_stopped":
         setStatus("thinking");
@@ -185,8 +192,14 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
       case "output_audio_buffer.cleared":
         setStatus("listening");
         break;
-      case "conversation.item.input_audio_transcription.completed":
-        upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text: String(event.transcript ?? "").trim(), final: true });
+      case "conversation.item.input_audio_transcription.completed": {
+        const text = String(event.transcript ?? "").trim();
+        if (text) upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text, final: true });
+        else removeLine(`caller-${event.item_id}`);
+        break;
+      }
+      case "conversation.item.input_audio_transcription.failed":
+        upsertLine({ id: `caller-${event.item_id}`, speaker: "caller", text: "(not transcribed)", final: true });
         break;
       case "response.output_audio_transcript.delta":
         upsertLine({ id: `assistant-${event.item_id}`, speaker: "assistant", text: String(event.delta ?? ""), final: false }, true);

@@ -129,6 +129,43 @@ describe("VoiceAssistant", () => {
     expect(screen.getByText("What are your hours?")).toBeInTheDocument();
   });
 
+  it("keeps the caller's words before the reply they triggered", async () => {
+    mockBackend();
+    const { peer, deps } = setup();
+    const user = userEvent.setup({ delay: null });
+    render(<VoiceAssistant deps={deps} />);
+    await user.click(screen.getByRole("button", { name: "Start talking" }));
+    await waitFor(() => expect(peer.setRemoteDescription).toHaveBeenCalled());
+    act(() => peer.channel.open());
+
+    // The order the events really arrive in: the reply starts before transcription finishes.
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_started", item_id: "u1" }));
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }));
+    act(() => peer.channel.emit({ type: "response.output_audio_transcript.delta", item_id: "a1", delta: "Awesome!" }));
+    act(() => peer.channel.emit({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "Yes." }));
+
+    const items = screen.getAllByRole("listitem").map((item) => item.textContent);
+    expect(items).toEqual(["YouYes.", "AssistantAwesome!"]);
+  });
+
+  it("drops empty transcriptions and marks failed ones", async () => {
+    mockBackend();
+    const { peer, deps } = setup();
+    const user = userEvent.setup({ delay: null });
+    render(<VoiceAssistant deps={deps} />);
+    await user.click(screen.getByRole("button", { name: "Start talking" }));
+    await waitFor(() => expect(peer.setRemoteDescription).toHaveBeenCalled());
+    act(() => peer.channel.open());
+
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_started", item_id: "u1" }));
+    act(() => peer.channel.emit({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "  " }));
+    act(() => peer.channel.emit({ type: "input_audio_buffer.speech_started", item_id: "u2" }));
+    act(() => peer.channel.emit({ type: "conversation.item.input_audio_transcription.failed", item_id: "u2", error: {} }));
+
+    const items = screen.getAllByRole("listitem").map((item) => item.textContent);
+    expect(items).toEqual(["You(not transcribed)"]);
+  });
+
   it("mutes the microphone track without ending the call", async () => {
     mockBackend();
     const { peer, mic, deps } = setup();

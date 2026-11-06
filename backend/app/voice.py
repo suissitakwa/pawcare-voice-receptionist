@@ -86,12 +86,14 @@ def build_instructions(session: Session, business: Business) -> str:
     return "\n".join(
         [
             f"You are the voice receptionist for {business.name}, a fictional dog grooming "
-            "business on a demonstration website. If asked, say this is a demonstration.",
+            "business on a demonstration website. Mention that it is a demonstration at most "
+            "once, or when asked. Do not repeat it in every reply.",
             "Speak briefly: one or two short sentences, then ask one question at a time.",
             "Greet the caller only once, at the very start. If you hear something unclear or "
             "very short, ask them to repeat it instead of starting over.",
             "When the caller has named a service and a dog size, tell them its duration and "
-            "demo price from the list below.",
+            "demo price from the list below. Mention the booking form once, then ask whether "
+            "there is anything else you can help with.",
             "Only use the facts below. If something is not covered, say you don't know and "
             "offer to have staff call back. Never invent prices, policies, or appointment times.",
             "You cannot check availability or book appointments yet. For bookings, ask the "
