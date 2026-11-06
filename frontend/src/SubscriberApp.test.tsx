@@ -10,44 +10,21 @@ const OPTIONS = {
     { value: "barbershop", label: "Barbershop" },
   ],
   voices: [
-    { value: "marin", label: "Marin", sounds: "female" },
-    { value: "cedar", label: "Cedar", sounds: "male" },
+    { value: "marin", label: "Female voice", sounds: "female" },
+    { value: "cedar", label: "Male voice", sounds: "male" },
   ],
   calendar_providers: [{ value: "google", label: "Google Calendar" }],
-  languages: [{ value: "en", label: "English" }],
-  tasks: [{ value: "answer_questions", label: "Answer questions" }],
-  plans: [{ value: "starter", label: "Starter" }],
-  timezones: ["America/Los_Angeles"],
   document_types: ["application/pdf"],
   max_document_bytes: 5 * 1024 * 1024,
 };
 const EMPTY_DETAILS = {
-  owner_phone: null,
-  website_url: null,
-  address: null,
-  timezone: null,
-  languages: [],
   business_phone: null,
-  phone_setup: null,
-  hours: [],
+  website_url: null,
   calendar_provider: null,
   calendar_other: null,
-  booking_notice_hours: null,
-  services: [],
   knowledge_urls: [],
   faqs: [],
-  policies: null,
   voice: null,
-  assistant_name: null,
-  greeting: null,
-  tone: null,
-  tasks: [],
-  transfer_phone: null,
-  after_hours: null,
-  avoid_topics: null,
-  notify_email: null,
-  notify_sms: null,
-  plan: null,
   ai_disclosure_ack: false,
 };
 const PROFILE = {
@@ -149,20 +126,20 @@ describe("SubscriberApp", () => {
     const user = await signUp();
     await user.type(await screen.findByLabelText("Business name"), "Fade Factory");
     await user.click(screen.getByLabelText("Barbershop"));
-    await user.selectOptions(screen.getByLabelText("Time zone"), "America/Los_Angeles");
+    await user.type(screen.getByLabelText("Business phone number"), "  (415) 555-0134 ");
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
 
-    expect(await screen.findByRole("heading", { name: "Phone, hours, and calendar" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Your calendar" })).toBeInTheDocument();
     expect(saved.business_name).toBe("Fade Factory");
     expect(saved.business_type).toBe("barbershop");
     const details = saved.details as Record<string, unknown>;
-    expect(details.timezone).toBe("America/Los_Angeles");
+    expect(details.business_phone).toBe("(415) 555-0134");
     expect(details.website_url).toBeNull();
     const patch = calls.find((c) => c.key === "PATCH /api/v1/subscribers/profile");
     expect((patch?.init?.headers as Record<string, string>).Authorization).toBe("Bearer s-1");
   });
 
-  it("offers female and male voices and sends the chosen one", async () => {
+  it("offers a female and a male voice and sends the chosen one", async () => {
     let saved: Record<string, unknown> = {};
     mockApi(
       routes({
@@ -174,10 +151,10 @@ describe("SubscriberApp", () => {
     );
     render(<SubscriberApp />);
     const user = await signUp();
-    await user.click(await screen.findByRole("button", { name: "Your receptionist" }));
-    const voices = screen.getByRole("group", { name: "Voice" });
-    expect(within(voices).getByLabelText("Marin (female voice)")).toBeInTheDocument();
-    await user.click(within(voices).getByLabelText("Cedar (male voice)"));
+    await user.click(await screen.findByRole("button", { name: "Voice" }));
+    const voices = screen.getByRole("group", { name: "How should your receptionist sound?" });
+    expect(within(voices).getByLabelText("Female voice")).toBeInTheDocument();
+    await user.click(within(voices).getByLabelText("Male voice"));
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
     expect((saved.details as Record<string, unknown>).voice).toBe("cedar");
@@ -190,8 +167,35 @@ describe("SubscriberApp", () => {
     await user.click(await screen.findByRole("button", { name: "Review and submit" }));
     expect(screen.getByRole("button", { name: "Business name" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit profile" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Voice" }));
-    expect(screen.getByRole("heading", { name: "Your receptionist" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Choose a voice" }));
+    expect(screen.getByRole("heading", { name: "Voice" })).toBeInTheDocument();
+  });
+
+  it("submits only after the AI disclosure is accepted, saving that agreement first", async () => {
+    const order: string[] = [];
+    const complete = { ...PROFILE, missing: ["ai_disclosure_ack"] };
+    mockApi(
+      routes({
+        "GET /api/v1/subscribers/profile": () => ({ status: 200, body: complete }),
+        "PATCH /api/v1/subscribers/profile": (init) => {
+          order.push(`save ${init?.body}`);
+          return { status: 200, body: { ...complete, missing: [] } };
+        },
+        "POST /api/v1/subscribers/profile/submit": () => {
+          order.push("submit");
+          return { status: 200, body: { ...complete, missing: [], status: "submitted" } };
+        },
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.click(await screen.findByRole("button", { name: "Review and submit" }));
+    const submit = screen.getByRole("button", { name: "Submit profile" });
+    expect(submit).toBeDisabled();
+    await user.click(screen.getByLabelText(/speaking with an AI assistant/));
+    await user.click(submit);
+    expect(await screen.findByText(/Submitted\./)).toBeInTheDocument();
+    expect(order).toEqual(['save {"details":{"ai_disclosure_ack":true}}', "submit"]);
   });
 
   it("uploads a document as the raw file with its type", async () => {

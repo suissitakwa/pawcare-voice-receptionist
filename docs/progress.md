@@ -514,3 +514,15 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Deployed | Not yet |
 
 **Not done yet:** connecting a profile to a live receptionist, reading websites and documents, calendar connection, phone numbers, billing, email verification and password reset, and the terms and privacy policy the sign-up refers to.
+
+## Shorter business profile (2026-11-06)
+
+**Outcome:** the profile is now five short steps: business (name, type, phone, optional website), calendar, knowledge (web pages, documents, or questions and answers), voice (female or male), and review with AI disclosure agreement. Hours, services, greeting, tasks, notifications, and plans were removed until businesses ask for them.
+
+- Profiles saved with the earlier fields still open: fields this version no longer has, or values it no longer accepts, are dropped on load and on the next save.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 280 passed |
+| Frontend | Node 22: typecheck clean, 61 tests passed (two booking-form tests first ran past the 15-second limit under load, then passed), build succeeded |

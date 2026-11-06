@@ -25,10 +25,6 @@ from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME
 from app.subscriber_schemas import (
     BUSINESS_TYPE_LABELS,
     CALENDAR_LABELS,
-    LANGUAGE_LABELS,
-    PLAN_LABELS,
-    TASK_LABELS,
-    TIMEZONES,
     VOICES,
     AccountPublic,
     DocumentPublic,
@@ -123,40 +119,20 @@ def load_profile(db: Session, account_id: uuid.UUID) -> BusinessProfile:
 
 def missing_fields(profile: BusinessProfile, details: ProfileDetails, documents: int) -> list[str]:
     """What still has to be filled in before the profile can be submitted."""
-    missing = []
-    if not profile.business_name:
-        missing.append("business_name")
-    if not profile.business_type:
-        missing.append("business_type")
-    if not details.business_phone:
-        missing.append("business_phone")
-    if not details.timezone:
-        missing.append("timezone")
-    if not details.hours:
-        missing.append("hours")
-    if not details.services:
-        missing.append("services")
-    if not (details.knowledge_urls or details.faqs or details.policies or documents):
-        missing.append("knowledge")
-    if not details.voice:
-        missing.append("voice")
-    if not details.tasks:
-        missing.append("tasks")
-    if "transfer_calls" in details.tasks and not details.transfer_phone:
-        missing.append("transfer_phone")
-    if details.calendar_provider is None:
-        missing.append("calendar_provider")
-    if not details.notify_email:
-        missing.append("notify_email")
-    if not details.plan:
-        missing.append("plan")
-    if not details.ai_disclosure_ack:
-        missing.append("ai_disclosure_ack")
-    return missing
+    checks = {
+        "business_name": bool(profile.business_name),
+        "business_type": bool(profile.business_type),
+        "business_phone": bool(details.business_phone),
+        "calendar_provider": details.calendar_provider is not None,
+        "knowledge": bool(details.knowledge_urls or details.faqs or documents),
+        "voice": bool(details.voice),
+        "ai_disclosure_ack": details.ai_disclosure_ack,
+    }
+    return [name for name, done in checks.items() if not done]
 
 
 def to_public(db: Session, profile: BusinessProfile) -> ProfilePublic:
-    details = ProfileDetails.model_validate(profile.details)
+    details = ProfileDetails.from_stored(profile.details)
     documents = db.scalars(
         select(ProfileDocument)
         .where(ProfileDocument.profile_id == profile.id)
@@ -183,10 +159,6 @@ def options() -> ProfileOptions:
         business_types=listed(BUSINESS_TYPE_LABELS),
         voices=[VoiceOption(value=k, label=v[0], sounds=v[1]) for k, v in VOICES.items()],
         calendar_providers=listed(CALENDAR_LABELS),
-        languages=listed(LANGUAGE_LABELS),
-        tasks=listed(TASK_LABELS),
-        plans=listed(PLAN_LABELS),
-        timezones=sorted(t for t in TIMEZONES if "/" in t and not t.startswith("Etc/")),
         document_types=list(DOCUMENT_TYPES),
         max_document_bytes=MAX_DOCUMENT_BYTES,
     )
@@ -292,7 +264,10 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession) -> Prof
     if "business_type" in sent:
         profile.business_type = body.business_type
     if body.details is not None:
-        merged = {**profile.details, **body.details}
+        merged = {
+            **ProfileDetails.from_stored(profile.details).model_dump(mode="json"),
+            **body.details,
+        }
         try:
             details = ProfileDetails.model_validate(merged)
         except ValidationError as error:
@@ -302,7 +277,7 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession) -> Prof
             ) from None
         profile.details = details.model_dump(mode="json")
     if profile.status == "submitted" and missing_fields(
-        profile, ProfileDetails.model_validate(profile.details), count_documents(db, profile)
+        profile, ProfileDetails.from_stored(profile.details), count_documents(db, profile)
     ):
         # Editing a submitted profile is allowed, but it cannot become incomplete.
         db.rollback()
@@ -322,7 +297,7 @@ def count_documents(db: Session, profile: BusinessProfile) -> int:
 @router.post("/profile/submit", response_model=ProfilePublic)
 def submit_profile(context: Account, db: DbSession, now: Now) -> ProfilePublic:
     profile = load_profile(db, context[0].id)
-    details = ProfileDetails.model_validate(profile.details)
+    details = ProfileDetails.from_stored(profile.details)
     missing = missing_fields(profile, details, count_documents(db, profile))
     if missing:
         raise ApiError(
@@ -411,7 +386,7 @@ def delete_document(document_id: uuid.UUID, context: Account, db: DbSession) -> 
     db.delete(document)
     db.flush()
     if profile.status == "submitted" and missing_fields(
-        profile, ProfileDetails.model_validate(profile.details), count_documents(db, profile)
+        profile, ProfileDetails.from_stored(profile.details), count_documents(db, profile)
     ):
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
