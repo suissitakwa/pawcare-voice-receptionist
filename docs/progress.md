@@ -493,3 +493,24 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 251 passed |
 | Frontend | Node 22: typecheck clean, 53 tests passed, build succeeded |
 | Real calls with the script | Not run yet |
+
+## Subscriber sign-up and business profile (2026-11-06)
+
+**Outcome:** a business owner can create an account at `/get-started` and fill in a seven-step profile that will configure their receptionist: their business, phone, hours and calendar, services, knowledge sources, the receptionist's voice and behaviour, and notifications and plan. Pet groomers, hair salons, and barbershops are supported first. The profile is stored and validated, but does not yet drive calls. See [decision 0005](decisions/0005-subscriber-profiles.md).
+
+| Area | What was built |
+| --- | --- |
+| Accounts | Sign-up, sign-in, sign-out; Argon2id; lockout after 5 failures; 5 sign-ups per address per hour |
+| Profile | Draft saved per step, merged and validated as a whole; `missing` lists what blocks submission; a submitted profile cannot become incomplete |
+| Voice choice | Six voices, three that sound female and three male |
+| Knowledge | Up to 10 web addresses, FAQ pairs, a policies text, and up to 10 documents (PDF, .docx, text; 5 MB; type checked against the file's bytes) |
+| Database | Migration `0008`: accounts, sessions, profiles, documents, with checks on business type, status, and document size |
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 281 passed, 30 of them new |
+| Frontend | Node 22: typecheck clean, 60 tests passed (7 new), build succeeded |
+| Deployed | Not yet |
+
+**Not done yet:** connecting a profile to a live receptionist, reading websites and documents, calendar connection, phone numbers, billing, email verification and password reset, and the terms and privacy policy the sign-up refers to.

@@ -300,3 +300,22 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .voice-summary { margin-top: 20px; padding: 18px; border: 2px solid var(--brand); border-radius: var(--radius); }
 .voice-summary h3 { margin-bottom: 4px; }
+
+/* Subscriber profile */
+.check-field { grid-template-columns: auto 1fr; align-items: start; gap: 10px; }
+.check-field input { margin-top: 4px; }
+.choice-group { margin: 20px 0 0; padding: 0; border: 0; }
+.choice-group legend { margin-bottom: 8px; font-weight: 600; }
+.check-option { display: flex; align-items: center; gap: 8px; padding-block: 4px; }
+.hours-editor { display: grid; gap: 8px; }
+.hours-row { display: grid; grid-template-columns: minmax(130px, auto) 1fr; align-items: center; gap: 12px; }
+.profile-layout { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 24px; }
+.step-list { display: grid; gap: 10px; margin: 0; padding-left: 20px; }
+.step-list [aria-current="step"] { font-weight: 700; text-decoration: none; }
+.file-button { position: relative; justify-self: start; }
+.file-button:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
+.field-label { font-weight: 600; }
+@media (max-width: 720px) {
+  .profile-layout { grid-template-columns: 1fr; }
+  .hours-row { grid-template-columns: 1fr; }
+}

@@ -186,6 +186,25 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `GET /api/v1/staff/callbacks?status=open` | Callback requests, newest first. `status` is `open`, `done`, or `all` |
 | `POST /api/v1/staff/callbacks/{id}/done` | Marks a callback as handled. Repeating it is harmless |
 
+## Subscribers
+
+Business owners sign up and fill in the profile that will configure their receptionist. Pet grooming, hair salon, and barbershop businesses are supported. See [decision 0005](decisions/0005-subscriber-profiles.md).
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/subscribers/options` | Business types, voices (with whether each sounds female or male), calendars, languages, tasks, plans, time zones, and document limits |
+| `POST /api/v1/subscribers/signup` | `{full_name, email, password, accept_terms}` creates an account and an empty draft profile, and returns a session token. Passwords need 12 characters. `409 email_taken` if the email is registered; `429` after 5 sign-ups from one address in an hour |
+| `POST /api/v1/subscribers/login` | `{email, password}` returns a token. Five failures lock the account for 15 minutes |
+| `POST /api/v1/subscribers/logout` | Ends the session |
+| `GET /api/v1/subscribers/me` | The signed-in account |
+| `GET /api/v1/subscribers/profile` | The profile, its documents, and `missing`: what must be filled in before submitting |
+| `PATCH /api/v1/subscribers/profile` | `{business_name?, business_type?, details?}`. Detail fields sent replace the stored ones; others are kept. The merged result is validated, and errors name the fields |
+| `POST /api/v1/subscribers/profile/submit` | Marks the profile submitted, or `422 profile_incomplete` listing the missing sections |
+| `POST /api/v1/subscribers/profile/documents?filename=…` | The body is the raw file, with its `Content-Type`: PDF, .docx, plain text, or Markdown, up to 5 MB, 10 per profile |
+| `DELETE /api/v1/subscribers/profile/documents/{id}` | Removes a document |
+
+Every profile endpoint needs `Authorization: Bearer <token>` and only reaches the signed-in account's profile.
+
 ## Voice
 
 ### `POST /api/v1/voice/sessions`

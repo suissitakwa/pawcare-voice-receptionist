@@ -51,6 +51,7 @@ from app.schemas import (
     VoiceToolResult,
 )
 from app.staff_api import router as staff_router
+from app.subscriber_api import router as subscriber_router
 from app.voice import end_voice_session, start_voice_session
 from app.voice_tools import run_tool
 
@@ -291,6 +292,7 @@ def confirm(
 
 
 app.include_router(staff_router)
+app.include_router(subscriber_router)
 
 
 def client_ip(request: Request) -> str:

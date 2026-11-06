@@ -5,6 +5,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    LargeBinary,
     SmallInteger,
     String,
     Text,
@@ -362,3 +363,73 @@ class CallbackRequest(Base):
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("staff_users.id", ondelete="SET NULL")
     )
+
+
+class SubscriberAccount(Base):
+    """A business owner who signed up to configure their own receptionist."""
+
+    __tablename__ = "subscriber_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    full_name: Mapped[str] = mapped_column(String(80))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    failed_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terms_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    client_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SubscriberSession(Base):
+    __tablename__ = "subscriber_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("subscriber_accounts.id", ondelete="CASCADE")
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BusinessProfile(Base):
+    __tablename__ = "business_profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("subscriber_accounts.id", ondelete="CASCADE"), unique=True
+    )
+    status: Mapped[str] = mapped_column(String(16), server_default="draft")
+    business_name: Mapped[str | None] = mapped_column(String(120))
+    business_type: Mapped[str | None] = mapped_column(String(32))
+    details: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ProfileDocument(Base):
+    __tablename__ = "profile_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("business_profiles.id", ondelete="CASCADE")
+    )
+    filename: Mapped[str] = mapped_column(String(120))
+    content_type: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int]
+    sha256: Mapped[str] = mapped_column(String(64))
+    content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
