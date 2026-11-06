@@ -446,3 +446,20 @@ The runner also stops with a clear message on a rejected key or an unreachable d
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 244 passed |
 | Rerun of the real evaluation | Pending, needs a new key |
+
+## Second evaluation run and named times (2026-11-06)
+
+**Outcome:** after the fixes above, the rerun passed 32 of 34 scenarios (86 of 89 checks). Text mode, not voice measurements. Report: [evals/results/20261106T185406Z.md](../evals/results/20261106T185406Z.md).
+
+| Failure | Cause | Fix |
+| --- | --- | --- |
+| `change-after-summary` never prepared a booking | Real fault: the caller asked for 9 AM, but the model read it as "around 9" and kept offering 9:00, 9:15 and 9:30 | `check_availability` takes an optional `preferred_time` and answers it directly with `requested_time`; the instructions say 9 AM means exactly 9:00 |
+| `correct-email` never prepared a booking | Two availability calls were rejected with "Some details were missing or not valid", which gave the model nothing to correct | Rejections now name the invalid fields (never their values); the named time is now a real argument |
+
+Each run now saves a tool log (name, arguments, error code) for every scenario, because the first report kept only counts and the rejected arguments could not be recovered.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 248 passed |
+| Rerun of the real evaluation | Pending |

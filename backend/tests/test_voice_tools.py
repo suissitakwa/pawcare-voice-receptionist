@@ -106,6 +106,26 @@ def test_availability_includes_the_whole_day_so_the_model_never_guesses(client, 
     assert "2:30 PM" in labels
     assert labels[-1] == "4:30 PM"
     assert body["result"]["more_times_available"] is False
+    assert "requested_time" not in body["result"]
+
+
+@pytest.mark.parametrize(
+    ("preferred", "available"), [("09:00", True), ("14:30", True), ("08:00", False)]
+)
+def test_a_named_time_is_answered_directly(client, voice, preferred, available) -> None:
+    args = {"service": "nail-and-paw", "size": "large", "date": "2027-01-07"}
+    body = call(client, voice, "check_availability", {**args, "preferred_time": preferred})
+    requested = body.json()["result"]["requested_time"]
+    assert requested["available"] is available
+    assert (requested["starts_at"] is not None) is available
+
+
+def test_invalid_arguments_name_the_field_but_not_the_value(client, voice) -> None:
+    args = {"service": "full-groom", "size": "medium", "date": "2027-01-07", "time": "9 AM"}
+    result = call(client, voice, "check_availability", args).json()["result"]
+    assert result["error"] == "invalid_arguments"
+    assert "time" in result["message"]
+    assert "9 AM" not in result["message"]
 
 
 def test_availability_reports_closed_days(client, voice) -> None:

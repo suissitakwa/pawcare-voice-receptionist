@@ -197,7 +197,7 @@ def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     assert "Greet the caller only once" in text
     assert "at most once" in text
     assert "Never guess a time, date, name, or number" in text
-    assert "If the caller already said a time" in text
+    assert "pass it as preferred_time" in text
     assert "such as the morning, the afternoon, or the earliest" in text
     assert "spell the owner's name" in text
     assert "If you hear only noise" in text
