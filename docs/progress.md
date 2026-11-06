@@ -407,3 +407,23 @@ The owner booked a Full Groom for a medium dog by voice on the live site. One ma
 ### Not verified
 
 Whether the model now reads details back reliably, and whether the double greeting stops. The read-back is a check that the model claims to have done: the backend can require the claim but cannot hear the conversation. The on-screen summary remains the final safeguard.
+
+## Evaluation suite (2026-11-06)
+
+**Outcome:** 33 scripted text scenarios with automated checks, a runner that uses the real model, instructions, and tools against a separate evaluation database, and a report generator. See [evals/README.md](../evals/README.md).
+
+### Verified
+
+| Check | Result |
+|---|---|
+| OpenAI details | Checked on 2026-11-06: WebSocket URL with the model parameter, text output through `output_modalities`, and `response.output_text.delta` events |
+| Offline self-tests | 13 passed with a scripted model. A correct booking passes. A premature "you're booked", an invented time, and a skipped read-back are each caught. "Not booked yet" is not a false alarm. A slot taken before the click and an unreachable backend are handled |
+| Scenario file | 33 scenarios covering every required category, and every check type is implemented |
+| Safety of the runner | Refuses to run without a key, and refuses any database whose name does not end with `_eval` |
+| Backend tests | 241 passed |
+
+### Not verified
+
+| Item | Why | How to close it |
+|---|---|---|
+| Real evaluation results | Needs the owner's OpenAI key locally | `OPENAI_API_KEY=... uv run python ../evals/run.py` from `backend/` |
