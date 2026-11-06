@@ -2,11 +2,10 @@
 
 import re
 import uuid
-from datetime import datetime, time
+from datetime import datetime
 from typing import Annotated, Literal
-from zoneinfo import available_timezones
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.schemas import EMAIL_PATTERN, PHONE_PATTERN
 
@@ -18,16 +17,10 @@ BUSINESS_TYPE_LABELS = {
     "hair_salon": "Hair salon",
     "barbershop": "Barbershop",
 }
-# OpenAI Realtime voices offered to subscribers, with how they usually sound.
-VOICES = {
-    "marin": ("Marin", "female"),
-    "coral": ("Coral", "female"),
-    "shimmer": ("Shimmer", "female"),
-    "cedar": ("Cedar", "male"),
-    "ash": ("Ash", "male"),
-    "echo": ("Echo", "male"),
-}
-Voice = Literal["marin", "coral", "shimmer", "cedar", "ash", "echo"]
+# One voice that sounds female and one that sounds male, from the OpenAI Realtime voices.
+# More can be offered later; stored values outside this list are dropped on load.
+VOICES = {"marin": ("Female voice", "female"), "cedar": ("Male voice", "male")}
+Voice = Literal["marin", "cedar"]
 CalendarProvider = Literal[
     "google", "outlook", "apple", "square", "moego", "vagaro", "fresha", "other", "none"
 ]
@@ -42,30 +35,6 @@ CALENDAR_LABELS = {
     "other": "Another system",
     "none": "No calendar yet (use the receptionist's own)",
 }
-Language = Literal["en", "es", "fr", "pt", "zh", "vi", "ar"]
-LANGUAGE_LABELS = {
-    "en": "English",
-    "es": "Spanish",
-    "fr": "French",
-    "pt": "Portuguese",
-    "zh": "Chinese",
-    "vi": "Vietnamese",
-    "ar": "Arabic",
-}
-Task = Literal["answer_questions", "book_appointments", "take_messages", "transfer_calls"]
-TASK_LABELS = {
-    "answer_questions": "Answer questions",
-    "book_appointments": "Book appointments",
-    "take_messages": "Take messages and callback requests",
-    "transfer_calls": "Transfer calls to a person",
-}
-Plan = Literal["starter", "growth", "pro"]
-PLAN_LABELS = {
-    "starter": "Starter",
-    "growth": "Growth",
-    "pro": "Pro",
-}
-TIMEZONES = available_timezones()
 URL_PATTERN = re.compile(r"^https?://[^\s/$.?#][^\s]*$", re.IGNORECASE)
 MIN_PASSWORD_LENGTH = 12
 
@@ -133,26 +102,6 @@ class SessionResult(BaseModel):
     account: AccountPublic
 
 
-class OpeningHours(Strict):
-    # 0 is Monday, matching Python's date.weekday().
-    weekday: int = Field(ge=0, le=6)
-    opens: time
-    closes: time
-
-    @model_validator(mode="after")
-    def closes_after_opens(self) -> "OpeningHours":
-        if self.closes <= self.opens:
-            raise ValueError("Closing time must be after opening time.")
-        return self
-
-
-class ServiceItem(Strict):
-    name: str = Field(min_length=1, max_length=80)
-    duration_minutes: int | None = Field(default=None, ge=5, le=600)
-    price: str | None = Field(default=None, max_length=40)
-    description: str | None = Field(default=None, max_length=300)
-
-
 class FaqItem(Strict):
     question: str = Field(min_length=3, max_length=200)
     answer: str = Field(min_length=1, max_length=1000)
@@ -162,45 +111,16 @@ class ProfileDetails(Strict):
     """Everything about the business beyond its name and type. Every field is optional while
     the profile is a draft; submitting checks the required ones."""
 
-    owner_phone: str | None = None
-    website_url: str | None = None
-    address: str | None = Field(default=None, max_length=200)
-    timezone: str | None = None
-    languages: list[Language] = Field(default_factory=list, max_length=7)
-
     business_phone: str | None = None
-    phone_setup: Literal["forward_existing", "new_number", "undecided"] | None = None
-
-    hours: list[OpeningHours] = Field(default_factory=list, max_length=7)
+    website_url: str | None = None
     calendar_provider: CalendarProvider | None = None
     calendar_other: str | None = Field(default=None, max_length=60)
-    booking_notice_hours: int | None = Field(default=None, ge=0, le=168)
-
-    services: list[ServiceItem] = Field(default_factory=list, max_length=50)
-
     knowledge_urls: list[str] = Field(default_factory=list, max_length=10)
     faqs: list[FaqItem] = Field(default_factory=list, max_length=100)
-    policies: str | None = Field(default=None, max_length=3000)
-
     voice: Voice | None = None
-    assistant_name: str | None = Field(default=None, max_length=40)
-    greeting: str | None = Field(default=None, max_length=300)
-    tone: Literal["friendly", "professional", "calm", "upbeat"] | None = None
-    tasks: list[Task] = Field(default_factory=list, max_length=4)
-    transfer_phone: str | None = None
-    after_hours: Literal["take_message", "offer_booking"] | None = None
-    avoid_topics: str | None = Field(default=None, max_length=1000)
-
-    notify_email: str | None = None
-    notify_sms: str | None = None
-
-    plan: Plan | None = None
     ai_disclosure_ack: bool = False
 
-    _phones = field_validator("owner_phone", "business_phone", "transfer_phone", "notify_sms")(
-        clean_phone
-    )
-    _email = field_validator("notify_email")(clean_email)
+    _phone = field_validator("business_phone")(clean_phone)
 
     @field_validator("website_url")
     @classmethod
@@ -213,25 +133,18 @@ class ProfileDetails(Strict):
         cleaned = [clean_url(url) for url in value]
         return list(dict.fromkeys(cleaned))
 
-    @field_validator("timezone")
     @classmethod
-    def known_timezone(cls, value: str | None) -> str | None:
-        if value is not None and value not in TIMEZONES:
-            raise ValueError("Choose a time zone from the list.")
-        return value
-
-    @field_validator("languages", "tasks")
-    @classmethod
-    def unique(cls, value: list) -> list:
-        return list(dict.fromkeys(value))
-
-    @field_validator("hours")
-    @classmethod
-    def one_range_per_day(cls, value: list[OpeningHours]) -> list[OpeningHours]:
-        days = [h.weekday for h in value]
-        if len(days) != len(set(days)):
-            raise ValueError("Give each day at most one opening time.")
-        return sorted(value, key=lambda h: h.weekday)
+    def from_stored(cls, stored: dict) -> "ProfileDetails":
+        """Loads saved details, dropping fields this version no longer has or no longer
+        accepts, so a profile saved by an earlier version still opens."""
+        known = {k: v for k, v in stored.items() if k in cls.model_fields}
+        for _ in range(len(known) + 1):
+            try:
+                return cls.model_validate(known)
+            except ValidationError as error:
+                bad = {str(e["loc"][0]) for e in error.errors() if e["loc"]}
+                known = {k: v for k, v in known.items() if k not in bad}
+        return cls()
 
 
 class ProfileUpdate(Strict):
@@ -276,9 +189,5 @@ class ProfileOptions(BaseModel):
     business_types: list[Option]
     voices: list[VoiceOption]
     calendar_providers: list[Option]
-    languages: list[Option]
-    tasks: list[Option]
-    plans: list[Option]
-    timezones: list[str]
     document_types: list[str]
     max_document_bytes: int

@@ -9,10 +9,6 @@ export interface ProfileOptions {
   business_types: Option[];
   voices: (Option & { sounds: "female" | "male" })[];
   calendar_providers: Option[];
-  languages: Option[];
-  tasks: Option[];
-  plans: Option[];
-  timezones: string[];
   document_types: string[];
   max_document_bytes: number;
 }
@@ -28,51 +24,19 @@ export interface SessionResult {
   account: Account;
 }
 
-export interface OpeningHours {
-  weekday: number;
-  opens: string;
-  closes: string;
-}
-
-export interface ServiceItem {
-  name: string;
-  duration_minutes: number | null;
-  price: string | null;
-  description: string | null;
-}
-
 export interface FaqItem {
   question: string;
   answer: string;
 }
 
 export interface ProfileDetails {
-  owner_phone: string | null;
-  website_url: string | null;
-  address: string | null;
-  timezone: string | null;
-  languages: string[];
   business_phone: string | null;
-  phone_setup: string | null;
-  hours: OpeningHours[];
+  website_url: string | null;
   calendar_provider: string | null;
   calendar_other: string | null;
-  booking_notice_hours: number | null;
-  services: ServiceItem[];
   knowledge_urls: string[];
   faqs: FaqItem[];
-  policies: string | null;
   voice: string | null;
-  assistant_name: string | null;
-  greeting: string | null;
-  tone: string | null;
-  tasks: string[];
-  transfer_phone: string | null;
-  after_hours: string | null;
-  avoid_topics: string | null;
-  notify_email: string | null;
-  notify_sms: string | null;
-  plan: string | null;
   ai_disclosure_ack: boolean;
 }
 

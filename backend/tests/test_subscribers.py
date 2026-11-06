@@ -20,15 +20,9 @@ PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
 
 COMPLETE_DETAILS = {
     "business_phone": "(415) 555-0134",
-    "timezone": "America/Los_Angeles",
-    "hours": [{"weekday": 1, "opens": "09:00", "closes": "17:00"}],
-    "services": [{"name": "Full groom", "duration_minutes": 120, "price": "from $90"}],
+    "calendar_provider": "google",
     "faqs": [{"question": "Do you groom cats?", "answer": "Dogs only."}],
     "voice": "cedar",
-    "tasks": ["answer_questions", "book_appointments"],
-    "calendar_provider": "google",
-    "notify_email": "Owner@Example.com",
-    "plan": "starter",
     "ai_disclosure_ack": True,
 }
 
@@ -70,15 +64,17 @@ def complete(client: TestClient, headers: dict) -> None:
     assert response.status_code == 200, response.text
 
 
-def test_options_offer_grooming_and_hair_businesses_and_both_voice_kinds(client) -> None:
+def test_options_offer_grooming_and_hair_businesses_and_a_female_and_male_voice(client) -> None:
     body = client.get(f"{API}/options").json()
     assert [t["value"] for t in body["business_types"]] == [
         "pet_grooming",
         "hair_salon",
         "barbershop",
     ]
-    assert {v["sounds"] for v in body["voices"]} == {"female", "male"}
-    assert "America/Los_Angeles" in body["timezones"]
+    assert [(v["value"], v["sounds"]) for v in body["voices"]] == [
+        ("marin", "female"),
+        ("cedar", "male"),
+    ]
     assert body["max_document_bytes"] == 5 * 1024 * 1024
 
 
@@ -162,15 +158,17 @@ def test_saving_sections_merges_them_and_reports_what_is_missing(client) -> None
     response = client.patch(
         f"{API}/profile",
         headers=headers,
-        json={"business_type": "barbershop", "details": {"voice": "marin", "plan": "growth"}},
+        json={"business_type": "barbershop", "details": {"voice": "marin"}},
     )
     body = response.json()
     assert body["business_name"] == "Fade Factory"
     assert body["details"]["voice"] == "marin"
-    later = client.patch(f"{API}/profile", headers=headers, json={"details": {"plan": "pro"}})
+    later = client.patch(
+        f"{API}/profile", headers=headers, json={"details": {"calendar_provider": "square"}}
+    )
     assert later.json()["details"]["voice"] == "marin"
-    assert later.json()["details"]["plan"] == "pro"
-    assert "hours" in later.json()["missing"]
+    assert later.json()["details"]["calendar_provider"] == "square"
+    assert "business_phone" in later.json()["missing"]
     assert "business_name" not in later.json()["missing"]
 
 
@@ -178,19 +176,10 @@ def test_saving_sections_merges_them_and_reports_what_is_missing(client) -> None
     ("details", "field"),
     [
         ({"business_phone": "call me"}, "business_phone"),
-        ({"timezone": "Mars/Olympus"}, "timezone"),
-        ({"hours": [{"weekday": 1, "opens": "17:00", "closes": "09:00"}]}, "hours"),
-        (
-            {
-                "hours": [
-                    {"weekday": 2, "opens": "09:00", "closes": "12:00"},
-                    {"weekday": 2, "opens": "13:00", "closes": "17:00"},
-                ]
-            },
-            "hours",
-        ),
+        ({"calendar_provider": "fax"}, "calendar_provider"),
+        ({"faqs": [{"question": "?", "answer": ""}]}, "faqs"),
         ({"knowledge_urls": ["javascript:alert(1)"]}, "knowledge_urls"),
-        ({"voice": "robot"}, "voice"),
+        ({"voice": "coral"}, "voice"),
         ({"unknown_field": 1}, "unknown_field"),
     ],
 )
@@ -218,26 +207,40 @@ def test_submit_requires_every_section_then_marks_it_submitted(client, db: Sessi
     body = response.json()
     assert body["status"] == "submitted"
     assert body["missing"] == []
-    assert body["details"]["notify_email"] == "owner@example.com"
     assert db.scalar(select(BusinessProfile.status)) == "submitted"
 
 
-def test_transferring_calls_needs_a_number_to_transfer_to(client) -> None:
+def test_a_profile_saved_with_older_fields_still_opens_and_keeps_what_is_valid(
+    client, db: Session
+) -> None:
     headers = auth(client)
-    complete(client, headers)
-    tasks = {"details": {"tasks": ["transfer_calls"]}}
-    body = client.patch(f"{API}/profile", headers=headers, json=tasks).json()
-    assert "transfer_phone" in body["missing"]
+    profile = db.scalar(select(BusinessProfile))
+    profile.details = {
+        "business_phone": "(415) 555-0134",
+        "voice": "coral",
+        "hours": [{"weekday": 1, "opens": "09:00", "closes": "17:00"}],
+        "plan": "growth",
+    }
+    db.commit()
+    body = client.get(f"{API}/profile", headers=headers).json()
+    assert body["details"]["business_phone"] == "(415) 555-0134"
+    assert body["details"]["voice"] is None
+    assert "hours" not in body["details"]
+    saved = client.patch(f"{API}/profile", headers=headers, json={"details": {"voice": "marin"}})
+    assert saved.status_code == 200
+    db.refresh(profile)
+    assert profile.details["voice"] == "marin"
+    assert "plan" not in profile.details
 
 
 def test_a_submitted_profile_cannot_be_made_incomplete(client) -> None:
     headers = auth(client)
     complete(client, headers)
     client.post(f"{API}/profile/submit", headers=headers)
-    response = client.patch(f"{API}/profile", headers=headers, json={"details": {"hours": []}})
+    response = client.patch(f"{API}/profile", headers=headers, json={"details": {"faqs": []}})
     assert response.status_code == 422
     still = client.get(f"{API}/profile", headers=headers).json()
-    assert len(still["details"]["hours"]) == 1
+    assert len(still["details"]["faqs"]) == 1
 
 
 def test_each_account_sees_only_its_own_profile(client) -> None:

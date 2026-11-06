@@ -192,7 +192,7 @@ Business owners sign up and fill in the profile that will configure their recept
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/v1/subscribers/options` | Business types, voices (with whether each sounds female or male), calendars, languages, tasks, plans, time zones, and document limits |
+| `GET /api/v1/subscribers/options` | Business types, the two voices (one female, one male), calendars, and document limits |
 | `POST /api/v1/subscribers/signup` | `{full_name, email, password, accept_terms}` creates an account and an empty draft profile, and returns a session token. Passwords need 12 characters. `409 email_taken` if the email is registered; `429` after 5 sign-ups from one address in an hour |
 | `POST /api/v1/subscribers/login` | `{email, password}` returns a token. Five failures lock the account for 15 minutes |
 | `POST /api/v1/subscribers/logout` | Ends the session |
