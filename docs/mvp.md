@@ -59,7 +59,8 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Protected staff dashboard: bookings, cancellation, blocked time, booking metrics
 - [x] Callback requests and voice activity metrics on the dashboard
 - [ ] Per-session summaries on the dashboard
-- [ ] Local test mode and scripted evaluations
+- [x] Local test mode and scripted evaluation suite
+- [ ] Results from a real evaluation run
 - [ ] Hardening, accessibility review, and data retention
 - [ ] Manual audio testing and latency measurement
 - [ ] Evaluation report, demo script, and customer demonstration checklist

@@ -21,6 +21,8 @@ dev = [
     "httpx2==2.16.0",
     "pytest==9.2.0",
     "ruff==0.17.3",
+    # Used only by the evaluation runner in evals/.
+    "websockets==17.4",
 ]
 
 [tool.uv]
