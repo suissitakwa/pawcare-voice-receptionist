@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     voice_sessions_per_client_per_hour: int = 6
     voice_max_session_seconds: int = 300
 
+    # Automation webhook, for example an n8n Webhook node. Events are signed with the
+    # secret. Empty URL: events are kept for a while but not sent.
+    webhook_url: str = ""
+    webhook_secret: str = Field(default="", repr=False)
+    # Off in tests, which deliver events explicitly.
+    webhook_worker_enabled: bool = True
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

@@ -17,6 +17,9 @@ TEST_DATABASE_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:5173"
 os.environ["BUSINESS_SLUG"] = "pawcare-demo"
+# Tests deliver webhook events explicitly instead of from a background worker.
+os.environ["WEBHOOK_WORKER_ENABLED"] = "false"
+os.environ["WEBHOOK_URL"] = ""
 
 from app.db import get_db, get_engine  # noqa: E402
 from app.main import app  # noqa: E402
@@ -29,6 +32,7 @@ from app.models import (  # noqa: E402
     StaffUser,
     SubscriberAccount,
     VoiceSession,
+    WebhookEvent,
 )
 from app.seed import seed_business  # noqa: E402
 
@@ -62,6 +66,7 @@ def migrated_database() -> Iterator[None]:
 @pytest.fixture
 def db() -> Iterator[Session]:
     with Session(get_engine()) as session:
+        session.execute(delete(WebhookEvent))
         session.execute(delete(Booking))
         session.execute(delete(BookingDraft))
         session.execute(delete(BlockedPeriod))

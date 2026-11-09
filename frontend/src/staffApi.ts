@@ -89,6 +89,16 @@ export function login(email: string, password: string) {
   );
 }
 
+export interface WebhookStatus {
+  configured: boolean;
+  problem: string | null;
+  pending: number;
+  delivered_last_7_days: number;
+  failed_last_7_days: number;
+  last_delivered_at: string | null;
+  last_error: string | null;
+}
+
 export const staffApi = {
   logout: (token: string) => authed<void>(token, "/logout", { method: "POST" }),
   me: (token: string) => authed<StaffUser>(token, "/me"),
@@ -107,4 +117,6 @@ export const staffApi = {
   callbacks: (token: string) => authed<StaffCallback[]>(token, "/callbacks?status=open"),
   completeCallback: (token: string, id: string) =>
     authed<StaffCallback>(token, `/callbacks/${encodeURIComponent(id)}/done`, { method: "POST" }),
+  webhooks: (token: string) => authed<WebhookStatus>(token, "/webhooks"),
+  sendTestEvent: (token: string) => authed<{ event_id: string }>(token, "/webhooks/test", { method: "POST" }),
 };

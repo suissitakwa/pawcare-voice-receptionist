@@ -11,6 +11,7 @@ import {
   type StaffCallback,
   type StaffMetrics,
   type StaffUser,
+  type WebhookStatus,
 } from "./staffApi";
 
 // Session storage keeps the token for this tab only, and it is cleared when the tab closes.
@@ -458,7 +459,75 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
         )}
         <BlockForm onAdd={addBlock} />
       </section>
+      <AutomationPanel token={token} />
     </div>
+  );
+}
+
+// Delivery of booking and callback events to an automation tool such as n8n.
+function AutomationPanel({ token }: { token: string }) {
+  const [status, setStatus] = useState<WebhookStatus | null>(null);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    staffApi.webhooks(token).then(setStatus, () => setMessage("Automation status is unavailable."));
+  }, [token]);
+
+  useEffect(refresh, [refresh]);
+
+  async function sendTest() {
+    setBusy(true);
+    setMessage("");
+    try {
+      await staffApi.sendTestEvent(token);
+      setMessage("Test event queued. It is sent within a few seconds.");
+      refresh();
+    } catch (err) {
+      setMessage(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby="staff-automations">
+      <h2 id="staff-automations">Automations</h2>
+      <p className="muted">New bookings, cancellations, and callback requests are sent to your automation webhook, for example n8n.</p>
+      {status && (
+        <dl className="metric-grid">
+          <div>
+            <dt>Webhook</dt>
+            <dd>{status.configured ? "Connected" : `Off: ${status.problem}`}</dd>
+          </div>
+          <div>
+            <dt>Waiting to send</dt>
+            <dd>{status.pending}</dd>
+          </div>
+          <div>
+            <dt>Sent in the last 7 days</dt>
+            <dd>{status.delivered_last_7_days}</dd>
+          </div>
+          <div>
+            <dt>Failed in the last 7 days</dt>
+            <dd>
+              {status.failed_last_7_days}
+              {status.last_error && <span className="size-note">Last error: {status.last_error}</span>}
+            </dd>
+          </div>
+        </dl>
+      )}
+      <div className="actions">
+        <button type="button" className="button button-secondary" disabled={busy} onClick={() => void sendTest()}>
+          {busy ? "Queuing…" : "Send test event"}
+        </button>
+      </div>
+      {message && (
+        <p className="muted" role="status">
+          {message}
+        </p>
+      )}
+    </section>
   );
 }
 

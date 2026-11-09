@@ -403,3 +403,17 @@ class VoiceToolResult(BaseModel):
     result: dict
     # Shown on screen only. Holds the confirmation token, which the model never sees.
     prepared: PreparedBooking | None = None
+
+
+class WebhookStatus(BaseModel):
+    configured: bool
+    problem: str | None
+    pending: int
+    delivered_last_7_days: int
+    failed_last_7_days: int
+    last_delivered_at: datetime | None
+    last_error: str | None
+
+
+class WebhookTestQueued(BaseModel):
+    event_id: uuid.UUID

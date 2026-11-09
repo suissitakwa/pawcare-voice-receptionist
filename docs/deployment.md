@@ -112,3 +112,7 @@ To go live:
 To stop all voice spending at once, set `VOICE_MODE=off` and deploy. Calls already in progress continue until they end or reach their time limit.
 
 The browser enforces the session time limit. A visitor who modifies the page could keep a call open longer, so the daily quota, the per-visitor limit, and the OpenAI spending limit are what cap cost.
+
+## Automation webhook (optional)
+
+Bookings, cancellations, and callback requests can be sent to an n8n workflow or any other webhook. Set `WEBHOOK_URL` (https) and `WEBHOOK_SECRET` (at least 32 characters) on the backend service, deploy, then press **Send test event** in the staff dashboard. Without them, events are kept for 30 days and not sent. Full guide: [automations.md](automations.md).

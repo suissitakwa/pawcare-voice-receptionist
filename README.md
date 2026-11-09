@@ -104,7 +104,8 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 - [API](docs/api.md)
 - [Deployment](docs/deployment.md)
 - [Manual voice testing](docs/voice-testing.md)
-- Decisions: [voice](docs/decisions/0001-voice-architecture.md), [booking consistency](docs/decisions/0002-booking-consistency.md), [scope](docs/decisions/0003-scope.md), [staff authentication](docs/decisions/0004-staff-authentication.md), [subscriber profiles](docs/decisions/0005-subscriber-profiles.md)
+- [Automations with n8n](docs/automations.md)
+- Decisions: [voice](docs/decisions/0001-voice-architecture.md), [booking consistency](docs/decisions/0002-booking-consistency.md), [scope](docs/decisions/0003-scope.md), [staff authentication](docs/decisions/0004-staff-authentication.md), [subscriber profiles](docs/decisions/0005-subscriber-profiles.md), [automation webhooks](docs/decisions/0006-automation-webhooks.md)
 - [Evaluations: scenarios, checks, and how to run them](evals/README.md)
 
 ## Current limitations
