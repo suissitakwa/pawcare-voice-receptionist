@@ -526,3 +526,21 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 280 passed |
 | Frontend | Node 22: typecheck clean, 61 tests passed (two booking-form tests first ran past the 15-second limit under load, then passed), build succeeded |
+
+## Automation webhooks for n8n (2026-11-06)
+
+**Outcome:** bookings, cancellations, and callback requests now produce signed events that an n8n workflow can turn into emails and texts. The staff dashboard shows delivery status and can send a test event. Setup guide: [automations.md](automations.md). Decision: [0006](decisions/0006-automation-webhooks.md).
+
+| Area | What was built |
+| --- | --- |
+| Outbox | Migration `0009`: `webhook_events`, written in the same transaction as the booking, cancellation, or callback |
+| Delivery | Worker every 5 s; HMAC-SHA256 signature; retries at 30 s doubling to 1 h, 8 attempts; stale after 24 h; deleted after 30 days |
+| Exactly one event per change | Confirmation retries and repeated cancels send nothing extra; failed confirmations send nothing |
+| Dashboard | Automations section: configured or why not, waiting, sent and failed in 7 days, last error, Send test event |
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 299 passed, 19 of them new |
+| Frontend | Node 22: typecheck clean, 62 tests passed (1 new), build succeeded. Three tests first timed out while the machine was overloaded and passed on a rerun |
+| Real n8n workflow | Not connected yet; needs the owner's n8n URL and a secret in Railway |

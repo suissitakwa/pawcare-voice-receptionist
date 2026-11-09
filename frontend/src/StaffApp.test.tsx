@@ -33,6 +33,15 @@ const METRICS = {
   voice_reply_median_ms: 1240,
   voice_reply_p90_ms: 2100,
 };
+const WEBHOOKS = {
+  configured: true,
+  problem: null,
+  pending: 0,
+  delivered_last_7_days: 4,
+  failed_last_7_days: 1,
+  last_delivered_at: "2027-01-04T16:00:00Z",
+  last_error: "HTTP 503",
+};
 const CALLBACK = {
   id: "c1",
   name: "Sam",
@@ -73,6 +82,7 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     "GET /api/v1/staff/blocks": () => ({ status: 200, body: [] }),
     "GET /api/v1/staff/metrics": () => ({ status: 200, body: METRICS }),
     "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK] }),
+    "GET /api/v1/staff/webhooks": () => ({ status: 200, body: WEBHOOKS }),
     ...overrides,
   };
 }
@@ -206,5 +216,25 @@ describe("StaffApp", () => {
     render(<StaffApp />);
     expect(await screen.findByText("PC-ABCD2345")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Staff sign in" })).not.toBeInTheDocument();
+  });
+
+  it("shows automation delivery and queues a test event", async () => {
+    let queued = false;
+    mockApi(
+      dashboardRoutes({
+        "POST /api/v1/staff/webhooks/test": () => {
+          queued = true;
+          return { status: 202, body: { event_id: "e1" } };
+        },
+      }),
+    );
+    render(<StaffApp />);
+    const user = await signIn();
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("Sent in the last 7 days").nextSibling).toHaveTextContent("4");
+    expect(screen.getByText("Last error: HTTP 503")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Send test event" }));
+    expect(await screen.findByText(/Test event queued/)).toBeInTheDocument();
+    expect(queued).toBe(true);
   });
 });

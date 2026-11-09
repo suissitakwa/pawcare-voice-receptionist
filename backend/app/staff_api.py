@@ -23,6 +23,7 @@ from app.models import (
     Service,
     SizeCategory,
     VoiceSession,
+    WebhookEvent,
 )
 from app.schemas import (
     BlockCreated,
@@ -34,8 +35,11 @@ from app.schemas import (
     StaffLoginResult,
     StaffMetrics,
     StaffPublic,
+    WebhookStatus,
+    WebhookTestQueued,
 )
 from app.staff import StaffContext, authenticate, sign_in
+from app.webhooks import booking_data, configuration_problem, enqueue
 
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 
@@ -152,7 +156,7 @@ def list_bookings(context: Staff, db: DbSession, now: Now, scope: str = "upcomin
 def cancel_booking(reference: str, context: Staff, db: DbSession, now: Now) -> StaffBooking:
     """Cancels a booking and frees its time. Cancelling twice is harmless."""
     business_id = context.staff.business_id
-    db.execute(
+    cancelled = db.execute(
         update(Booking)
         .where(
             Booking.business_id == business_id,
@@ -160,7 +164,13 @@ def cancel_booking(reference: str, context: Staff, db: DbSession, now: Now) -> S
             Booking.status == "confirmed",
         )
         .values(status="cancelled", cancelled_at=now, cancelled_by=context.staff.id)
-    )
+        .returning(Booking.id)
+    ).scalar_one_or_none()
+    if cancelled is not None:
+        # Only the request that actually cancelled it sends the event.
+        booking = db.get(Booking, cancelled)
+        business = db.get(Business, business_id)
+        enqueue(db, business_id, "booking.cancelled", booking_data(booking, business), now)
     db.commit()
     rows = booking_rows(db, business_id, Booking.reference == reference, order=Booking.starts_at)
     if not rows:
@@ -328,3 +338,53 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
         callback.resolved_by = context.staff.id
         db.commit()
     return callback
+
+
+@router.get("/webhooks", response_model=WebhookStatus)
+def webhook_status(
+    context: Staff, db: DbSession, now: Now, settings: Annotated[Settings, Depends(get_settings)]
+) -> WebhookStatus:
+    """Whether automation events are being delivered. Never returns the URL or secret."""
+    business_id = context.staff.business_id
+    week_ago = now - timedelta(days=7)
+    mine = WebhookEvent.business_id == business_id
+
+    def count(*conditions) -> int:
+        return db.scalar(select(func.count()).select_from(WebhookEvent).where(mine, *conditions))
+
+    last = db.execute(
+        select(WebhookEvent.delivered_at)
+        .where(mine, WebhookEvent.delivered_at.is_not(None))
+        .order_by(WebhookEvent.delivered_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    last_error = db.execute(
+        select(WebhookEvent.last_error)
+        .where(mine, WebhookEvent.last_error.is_not(None), WebhookEvent.created_at >= week_ago)
+        .order_by(WebhookEvent.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    problem = configuration_problem(settings)
+    return WebhookStatus(
+        configured=problem is None,
+        problem=problem,
+        pending=count(WebhookEvent.delivered_at.is_(None), WebhookEvent.failed_at.is_(None)),
+        delivered_last_7_days=count(WebhookEvent.delivered_at >= week_ago),
+        failed_last_7_days=count(WebhookEvent.failed_at >= week_ago),
+        last_delivered_at=last,
+        last_error=last_error,
+    )
+
+
+@router.post("/webhooks/test", response_model=WebhookTestQueued, status_code=202)
+def send_test_event(context: Staff, db: DbSession, now: Now) -> WebhookTestQueued:
+    """Queues a webhook.test event, for checking an n8n workflow end to end."""
+    event = enqueue(
+        db,
+        context.staff.business_id,
+        "webhook.test",
+        {"message": "Test event from the staff dashboard.", "sent_by": context.staff.email},
+        now,
+    )
+    db.commit()
+    return WebhookTestQueued(event_id=event.id)

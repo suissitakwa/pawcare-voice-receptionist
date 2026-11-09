@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager, suppress
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -27,7 +29,7 @@ from app.availability import (
 from app.booking import confirm_booking, prepare_booking
 from app.clock import get_now
 from app.config import Settings, get_settings
-from app.db import get_db
+from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
 from app.schemas import (
@@ -54,6 +56,7 @@ from app.staff_api import router as staff_router
 from app.subscriber_api import router as subscriber_router
 from app.voice import end_voice_session, start_voice_session
 from app.voice_tools import run_tool
+from app.webhooks import run_worker
 
 logger = logging.getLogger("pawcare")
 
@@ -86,7 +89,20 @@ def expected_revision() -> str | None:
     return ScriptDirectory.from_config(Config(str(ALEMBIC_INI))).get_current_head()
 
 
-app = FastAPI(title="PawCare Voice Receptionist API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    worker = None
+    if settings.webhook_worker_enabled:
+        worker = asyncio.create_task(run_worker(settings, get_engine, get_now))
+    yield
+    if worker is not None:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
+
+
+app = FastAPI(title="PawCare Voice Receptionist API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

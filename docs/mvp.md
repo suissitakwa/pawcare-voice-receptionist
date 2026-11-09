@@ -62,6 +62,7 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Subscriber sign-up and business profile for groomers, hair salons, and barbershops (collected, not yet driving calls)
 - [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
 - [ ] Website import, document reading, calendar connection, phone line, and billing
+- [x] Signed automation webhook for bookings, cancellations, and callbacks, for n8n notifications
 - [x] Local test mode and scripted evaluation suite
 - [x] Results from a real evaluation run
 - [ ] Hardening, accessibility review, and data retention

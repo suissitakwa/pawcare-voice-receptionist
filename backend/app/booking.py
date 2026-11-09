@@ -26,6 +26,7 @@ from app.availability import (
 from app.errors import ApiError
 from app.models import Booking, BookingDraft, Business, VoiceSession
 from app.schemas import BookingConfirmation, BookingSummary, PrepareBookingRequest, PreparedBooking
+from app.webhooks import booking_data, enqueue
 
 DRAFT_LIFETIME = timedelta(minutes=10)
 # No 0, O, 1, I, or L, so a reference can be read aloud and typed back without confusion.
@@ -226,5 +227,6 @@ def confirm_booking(
                 .where(VoiceSession.id == draft.voice_session_id)
                 .values(booking_reference=booking.reference)
             )
+        enqueue(session, business.id, "booking.confirmed", booking_data(booking, business), now)
         return to_confirmation(booking), True
     raise ApiError(503, "reference_unavailable", "Please try confirming again.")

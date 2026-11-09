@@ -185,6 +185,8 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `GET /api/v1/staff/metrics` | Upcoming bookings, bookings and cancellations in the last 7 days, voice calls and voice bookings in the last 7 days, open callbacks, assistant tool failures in the last 7 days, and the median and 90th percentile voice reply time in the last 7 days (null until a call is measured) |
 | `GET /api/v1/staff/callbacks?status=open` | Callback requests, newest first. `status` is `open`, `done`, or `all` |
 | `POST /api/v1/staff/callbacks/{id}/done` | Marks a callback as handled. Repeating it is harmless |
+| `GET /api/v1/staff/webhooks` | Whether the automation webhook is configured (and if not, why), events waiting, sent and failed in the last 7 days, and the last error. Never returns the URL or secret |
+| `POST /api/v1/staff/webhooks/test` | Queues a `webhook.test` event and returns its id. See [automations.md](automations.md) |
 
 ## Subscribers
 

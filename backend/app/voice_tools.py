@@ -30,6 +30,7 @@ from app.format_text import format_time
 from app.models import CallbackRequest, VoiceSession
 from app.schemas import EMAIL_PATTERN, PHONE_PATTERN, PrepareBookingRequest, VoiceToolResult
 from app.voice import MAX_TOOL_CALLS, SESSION_GRACE, sha256
+from app.webhooks import callback_data, enqueue
 
 logger = logging.getLogger("pawcare.voice")
 # A full day at 15-minute steps is under 40 starts, so the model can see every one.
@@ -157,7 +158,9 @@ def prepare(
     )
 
 
-def create_callback(session: Session, business, record: VoiceSession, raw: dict) -> VoiceToolResult:
+def create_callback(
+    session: Session, business, record: VoiceSession, raw: dict, now: datetime
+) -> VoiceToolResult:
     args = CallbackArgs.model_validate(raw)
     phone = args.phone or None
     email = (args.email or "").lower() or None
@@ -167,17 +170,18 @@ def create_callback(session: Session, business, record: VoiceSession, raw: dict)
         return tool_error("invalid_email", "That email address does not look right.")
     if not phone and not email:
         return tool_error("contact_required", "A phone number or email address is needed.")
-    session.add(
-        CallbackRequest(
-            business_id=business.id,
-            voice_session_id=record.id,
-            name=args.name,
-            phone=phone,
-            email=email,
-            reason=args.reason,
-            note=args.note,
-        )
+    callback = CallbackRequest(
+        business_id=business.id,
+        voice_session_id=record.id,
+        name=args.name,
+        phone=phone,
+        email=email,
+        reason=args.reason,
+        note=args.note,
     )
+    session.add(callback)
+    session.flush()
+    enqueue(session, business.id, "callback.requested", callback_data(callback), now)
     return VoiceToolResult(
         ok=True,
         result={"status": "callback_requested", "message": "Staff will contact the caller."},
@@ -206,7 +210,7 @@ def run_tool(
         elif name == "prepare_booking":
             outcome = prepare(session, business, record, raw, now)
         elif name == "create_callback_request":
-            outcome = create_callback(session, business, record, raw)
+            outcome = create_callback(session, business, record, raw, now)
         else:
             outcome = tool_error("unknown_tool", "That tool does not exist.")
     except ValidationError as error:
