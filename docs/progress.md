@@ -563,3 +563,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 319 passed, 20 of them new (fake OpenAI and scripted call events). A first full run hung in the existing concurrency test while the machine was overloaded; it passed alone and in the full rerun |
 | Frontend | Node 22: typecheck clean, 62 tests passed, build succeeded |
 | Real phone call | Not made yet; needs the OpenAI webhook, Railway variables and a Twilio number |
+
+## Call button on the website (2026-11-10)
+
+**Outcome:** visitors can call the receptionist from the website. With `PHONE_NUMBER` set and the phone line answering, `GET /api/v1/business` returns `assistant_phone`, and the site shows **Call our assistant** in the hero and a `tel:` link above the browser assistant. When calls would be declined (phone off, voice not live, no number), the field is `null` and nothing is shown.
+
+| Check | Result |
+| --- | --- |
+| Backend | `ruff check` and `ruff format --check` clean; 322 passed, 3 of them new (shown, hidden in each off state, E.164 validation) |
+| Frontend | Node 22: typecheck clean, 64 tests passed (2 new), build succeeded |

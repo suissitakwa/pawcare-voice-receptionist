@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatPrice, formatTime, weekdayName } from "./format";
+import { formatDuration, formatPhone, formatPrice, formatTime, weekdayName } from "./format";
 
 describe("format", () => {
+  it("formats North American numbers and leaves others as given", () => {
+    expect(formatPhone("+12605550123")).toBe("(260) 555-0123");
+    expect(formatPhone("+442071234567")).toBe("+442071234567");
+  });
+
   it("formats prices without inventing cents", () => {
     expect(formatPrice(4500)).toBe("$45");
     expect(formatPrice(4550)).toBe("$45.50");

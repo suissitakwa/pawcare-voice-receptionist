@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { type Business, type Catalog, type Faq } from "./api";
-import { formatDuration, formatPrice, formatTime, weekdayName } from "./format";
+import { formatDuration, formatPhone, formatPrice, formatTime, weekdayName } from "./format";
 import BookingForm from "./BookingForm";
 import VoiceAssistant from "./VoiceAssistant";
 import { useSiteData } from "./useSiteData";
@@ -25,12 +25,21 @@ function PawMark() {
   );
 }
 
-function Actions() {
+function CallButton({ phone, className }: { phone: string; className: string }) {
+  return (
+    <a className={className} href={`tel:${phone}`}>
+      Call our assistant: {formatPhone(phone)}
+    </a>
+  );
+}
+
+function Actions({ phone }: { phone?: string | null }) {
   return (
     <div className="actions">
       <a className="button button-primary" href="#assistant">
         Talk to our assistant
       </a>
+      {phone && <CallButton phone={phone} className="button button-secondary" />}
       <a className="button button-secondary" href="#booking">
         Book an appointment
       </a>
@@ -38,14 +47,14 @@ function Actions() {
   );
 }
 
-function Hero({ tagline }: { tagline?: string }) {
+function Hero({ tagline, phone }: { tagline?: string; phone?: string | null }) {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="container hero-grid">
         <div>
           <p className="eyebrow">Dog grooming, by appointment</p>
           <h1 id="hero-title">{tagline ?? "One groomer. One dog at a time."}</h1>
-          <Actions />
+          <Actions phone={phone} />
         </div>
         <div className="hero-art" aria-hidden="true">
           <PawMark />
@@ -292,13 +301,19 @@ export default function App() {
           </div>
         )}
 
-        <Hero tagline={business?.tagline} />
+        <Hero tagline={business?.tagline} phone={business?.assistant_phone} />
 
         <Section id="video" title="See the idea in one minute">
           <ExplainerVideo />
         </Section>
 
         <Section id="assistant" title="Talk to our assistant" tone="tint">
+          {business?.assistant_phone && (
+            <p className="lead">
+              Talk in your browser below, or call the same assistant from any phone:{" "}
+              <a href={`tel:${business.assistant_phone}`}>{formatPhone(business.assistant_phone)}</a>.
+            </p>
+          )}
           <VoiceAssistant />
         </Section>
 

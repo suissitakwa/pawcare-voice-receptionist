@@ -32,6 +32,7 @@ from app.config import Settings, get_settings
 from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
+from app.phone import answer_problem
 from app.phone_api import router as phone_router
 from app.phone_api import stop_running_calls
 from app.schemas import (
@@ -176,11 +177,17 @@ CurrentBusinessId = Annotated[uuid.UUID, Depends(current_business_id)]
 
 
 @app.get("/api/v1/business", response_model=BusinessPublic, tags=["business"])
-def get_business(db: DbSession, business_id: CurrentBusinessId) -> Business:
+def get_business(
+    db: DbSession, business_id: CurrentBusinessId, settings: AppSettings
+) -> BusinessPublic:
     """Public profile of the business this deployment serves, chosen by the server."""
-    return db.scalar(
+    business = db.scalar(
         select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
     )
+    profile = BusinessPublic.model_validate(business)
+    if settings.phone_number and answer_problem(settings) is None:
+        profile.assistant_phone = settings.phone_number
+    return profile
 
 
 @app.get("/api/v1/services", response_model=CatalogPublic, tags=["business"])

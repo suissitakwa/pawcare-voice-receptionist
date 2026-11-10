@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
     phone_max_call_seconds: int = 600
     phone_daily_call_limit: int = 50
     phone_calls_per_caller_per_hour: int = 4
+    # The number callers dial, in E.164 form (+12605550123). Public: the website shows a
+    # call button for it while the phone line is on.
+    phone_number: str = ""
 
     # Automation webhook, for example an n8n Webhook node. Events are signed with the
     # secret. Empty URL: events are kept for a while but not sent.
@@ -50,6 +54,14 @@ class Settings(BaseSettings):
         for prefix in ("postgres://", "postgresql://"):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value.removeprefix(prefix)
+        return value
+
+    @field_validator("phone_number")
+    @classmethod
+    def e164_number(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(r"\+[1-9]\d{6,14}", value):
+            raise ValueError("phone_number must be in E.164 form, for example +12605550123")
         return value
 
     @property

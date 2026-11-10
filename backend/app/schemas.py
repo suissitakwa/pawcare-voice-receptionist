@@ -123,6 +123,8 @@ class BusinessPublic(BaseModel):
     address: str
     is_demo: bool
     hours: list[HoursPublic]
+    # The receptionist's phone number, only while the phone line can answer.
+    assistant_phone: str | None = None
 
 
 class SizeCategoryPublic(BaseModel):

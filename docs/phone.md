@@ -33,6 +33,7 @@ Confirming twice returns the same booking. A browser session can't use `confirm_
 | Setting | Default | Effect |
 | --- | --- | --- |
 | `PHONE_ENABLED` | `false` | Off: every call is declined (SIP 603) |
+| `PHONE_NUMBER` | empty | The number callers dial, in E.164 (`+12605550123`). While calls are answered, the website shows a **Call our assistant** button for it |
 | `PHONE_MAX_CALL_SECONDS` | `600` | The backend hangs up after this |
 | `PHONE_DAILY_CALL_LIMIT` | `50` | Calls answered per business day; later calls get busy (486) |
 | `PHONE_CALLS_PER_CALLER_PER_HOUR` | `4` | Per calling number; later calls get busy (486) |
@@ -60,6 +61,7 @@ On the backend service, set:
 
 - `OPENAI_WEBHOOK_SECRET`: the signing secret
 - `PHONE_ENABLED`: `true`
+- `PHONE_NUMBER`: the Twilio number in E.164, for the website's call button (optional)
 
 Redeploy. Until the secret is set, the endpoint returns 404.
 
