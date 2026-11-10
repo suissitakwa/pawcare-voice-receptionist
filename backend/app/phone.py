@@ -105,7 +105,7 @@ def call_token(call_id: str) -> str:
 def accept_body(settings: Settings, instructions: str) -> dict:
     return {
         "type": "realtime",
-        "model": settings.voice_model,
+        "model": settings.phone_model_name,
         "instructions": instructions,
         "tools": phone_tools(),
         "tool_choice": "auto",
@@ -116,12 +116,12 @@ def accept_body(settings: Settings, instructions: str) -> dict:
                 "noise_reduction": {"type": "near_field"},
                 "turn_detection": {
                     "type": "semantic_vad",
-                    "eagerness": "auto",
+                    "eagerness": settings.phone_vad_eagerness,
                     "create_response": True,
                     "interrupt_response": True,
                 },
             },
-            "output": {"voice": settings.voice_name},
+            "output": {"voice": settings.phone_voice_name},
         },
     }
 
@@ -237,7 +237,7 @@ def handle_incoming(
         business_id=business.id,
         mode="live",
         channel="phone",
-        model=settings.voice_model,
+        model=settings.phone_model_name,
         client_hash=caller_hash,
         token_hash=token_hash,
         started_at=now,

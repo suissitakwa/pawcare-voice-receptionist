@@ -81,6 +81,18 @@ A business can keep its own number and forward calls to this one, for example af
 
 If nothing answers, check that the webhook endpoint shows a delivery in the OpenAI dashboard, then the backend logs for `pawcare.phone`. A delivery with a 400 status means the signature failed (wrong secret). If the call is accepted but the WebSocket won't connect, check the OpenAI account has credit.
 
+## Making calls sound natural
+
+The phone instructions ask for a warm, relaxed front-desk style: contractions, short varied acknowledgements, one question at a time, prices and times said as words, and no more than two times offered at once. Three settings change how it sounds without touching the website assistant:
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `PHONE_VOICE` | empty (website voice) | For example `cedar` or `marin` |
+| `PHONE_MODEL` | empty (`VOICE_MODEL`) | For example the full `gpt-realtime` model instead of `-mini`: more natural, but costs more per minute |
+| `PHONE_VAD_EAGERNESS` | `low` | How quickly the assistant takes its turn. `low` lets callers pause mid-sentence; `medium` or `high` reply faster but interrupt more |
+
+Change one at a time in Railway, call, and compare.
+
 ## Not done yet
 
 - One number per deployment: calls are answered for `BUSINESS_SLUG`. Routing each subscriber's number to their own profile comes with profile-driven receptionists.

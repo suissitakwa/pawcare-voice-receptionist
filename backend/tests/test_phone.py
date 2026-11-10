@@ -179,6 +179,7 @@ def test_an_incoming_call_is_answered_with_phone_tools(
     assert call_id == "rtc_abc123"
     assert body["type"] == "realtime" and body["model"] == "gpt-realtime-2.1-mini"
     assert body["audio"]["output"]["voice"] == "marin"
+    assert body["audio"]["input"]["turn_detection"]["eagerness"] == "low"
     names = [tool["name"] for tool in body["tools"]]
     assert names == [
         "check_availability",
@@ -194,6 +195,26 @@ def test_an_incoming_call_is_answered_with_phone_tools(
     # Only a hash of the caller's number is stored.
     assert CALLER not in record.client_hash
     assert phone["started"] == [("rtc_abc123", record.id, record.business_id)]
+
+
+def test_phone_overrides_set_model_voice_and_turn_taking(
+    client: TestClient, phone: dict, db: Session
+) -> None:
+    phone["settings"] = phone_settings(
+        phone_model="gpt-realtime-2.1", phone_voice="cedar", phone_vad_eagerness="medium"
+    )
+    post_event(client, incoming())
+    [(_, body)] = phone["calls"].accepted
+    assert body["model"] == "gpt-realtime-2.1"
+    assert body["audio"]["output"]["voice"] == "cedar"
+    assert body["audio"]["input"]["turn_detection"]["eagerness"] == "medium"
+    [record] = phone_sessions(db)
+    assert record.model == "gpt-realtime-2.1"
+
+
+def test_phone_overrides_leave_the_website_voice_alone() -> None:
+    settings = phone_settings(phone_model="gpt-realtime-2.1", phone_voice="cedar")
+    assert (settings.voice_model, settings.voice_name) == ("gpt-realtime-2.1-mini", "marin")
 
 
 def test_a_retried_webhook_does_not_answer_twice(
