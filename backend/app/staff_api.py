@@ -264,9 +264,11 @@ def metrics(context: Staff, db: DbSession, now: Now) -> StaffMetrics:
         )
 
     sessions = db.execute(
-        select(func.count(), func.coalesce(func.sum(VoiceSession.tool_failures), 0)).where(
-            VoiceSession.business_id == business_id, VoiceSession.started_at >= week_ago
-        )
+        select(
+            func.count(),
+            func.coalesce(func.sum(VoiceSession.tool_failures), 0),
+            func.count().filter(VoiceSession.channel == "phone"),
+        ).where(VoiceSession.business_id == business_id, VoiceSession.started_at >= week_ago)
     ).one()
     measured = sorted(
         value
@@ -294,6 +296,7 @@ def metrics(context: Staff, db: DbSession, now: Now) -> StaffMetrics:
             Booking.created_at >= week_ago, Booking.voice_session_id.is_not(None)
         ),
         voice_sessions_last_7_days=sessions[0],
+        phone_calls_last_7_days=sessions[2],
         open_callbacks=open_callbacks,
         tool_failures_last_7_days=sessions[1],
         voice_replies_measured=len(measured),

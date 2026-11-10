@@ -318,6 +318,7 @@ class VoiceSession(Base):
     __table_args__ = (
         CheckConstraint("mode IN ('test', 'live')", name="voice_mode_known"),
         CheckConstraint("status IN ('started', 'ended')", name="voice_status_known"),
+        CheckConstraint("channel IN ('web', 'phone')", name="voice_channel_known"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -325,6 +326,7 @@ class VoiceSession(Base):
     )
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
     mode: Mapped[str] = mapped_column(String(8))
+    channel: Mapped[str] = mapped_column(String(8), server_default="web")
     model: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), server_default="started")
     end_reason: Mapped[str | None] = mapped_column(String(32))

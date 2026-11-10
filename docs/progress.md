@@ -544,3 +544,22 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 299 passed, 19 of them new |
 | Frontend | Node 22: typecheck clean, 62 tests passed (1 new), build succeeded. Three tests first timed out while the machine was overloaded and passed on a rerun |
 | Real n8n workflow | Not connected yet; needs the owner's n8n URL and a secret in Railway |
+
+## Phone line through OpenAI SIP (2026-11-09)
+
+**Outcome:** the receptionist can answer a real phone number. A Twilio number forwards calls to OpenAI Realtime over SIP, the backend accepts each call through OpenAI's signed webhook, and it runs the same tools server-side. Callers confirm bookings out loud. Setup guide: [phone.md](phone.md). Decision: [0007](decisions/0007-phone-line.md).
+
+| Area | What was built |
+| --- | --- |
+| Incoming calls | `POST /api/v1/phone/openai-events`: Standard Webhooks signature check (5-minute window), accept with phone instructions, voice and tools, or decline (603 when off, 486 when a limit is reached). Retried deliveries don't answer twice |
+| Tools on the server | A server-side WebSocket per call runs `check_availability`, `prepare_booking`, `confirm_booking` and `create_callback_request` with the existing validation and budget |
+| Spoken confirmation | `confirm_booking` books only the summary the server prepared; the confirmation token never reaches the model. Phone sessions only |
+| Limits | Off by default; 600 s per call (then hung up); 50 calls a day; 4 per caller per hour; separate from the website quota. Only a hash of the caller's number is stored |
+| Records | Migration `0010`: `voice_sessions.channel` (`web` or `phone`). Dashboard shows phone calls in the last 7 days |
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 319 passed, 20 of them new (fake OpenAI and scripted call events). A first full run hung in the existing concurrency test while the machine was overloaded; it passed alone and in the full rerun |
+| Frontend | Node 22: typecheck clean, 62 tests passed, build succeeded |
+| Real phone call | Not made yet; needs the OpenAI webhook, Railway variables and a Twilio number |

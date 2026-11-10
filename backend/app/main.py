@@ -32,6 +32,8 @@ from app.config import Settings, get_settings
 from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
+from app.phone_api import router as phone_router
+from app.phone_api import stop_running_calls
 from app.schemas import (
     AvailabilityPublic,
     BookingConfirmation,
@@ -96,6 +98,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.webhook_worker_enabled:
         worker = asyncio.create_task(run_worker(settings, get_engine, get_now))
     yield
+    await stop_running_calls()
     if worker is not None:
         worker.cancel()
         with suppress(asyncio.CancelledError):
@@ -309,6 +312,7 @@ def confirm(
 
 app.include_router(staff_router)
 app.include_router(subscriber_router)
+app.include_router(phone_router)
 
 
 def client_ip(request: Request) -> str:

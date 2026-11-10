@@ -250,3 +250,15 @@ The model has no confirm tool. A booking is made only when the visitor presses C
 | `403 voice_session_closed` | The session ended or passed its time limit plus a 60-second grace period |
 | `404 voice_session_not_found` | Wrong session or token |
 | `429 too_many_tool_calls` | The session used its budget of 40 tool calls |
+
+## Phone
+
+### `POST /api/v1/phone/openai-events`
+
+OpenAI's webhook for phone calls, verified with `OPENAI_WEBHOOK_SECRET` (Standard Webhooks signature; deliveries older than 5 minutes are refused). Returns 404 until the secret is set, and 400 for a bad signature.
+
+- `realtime.call.incoming`: the call is answered (`{"status": "answered"}`) or declined (`{"status": "declined"}`: phone off, voice not live, a limit reached, a retried delivery, or accept failed).
+- Any other event: `{"status": "ignored"}`.
+
+Phone sessions get one extra tool, `confirm_booking` (`{"caller_confirmed": true}`), which books the summary from the session's last successful `prepare_booking`. See [phone.md](phone.md).
+

@@ -58,6 +58,7 @@ export interface StaffMetrics {
   cancellations_last_7_days: number;
   voice_bookings_last_7_days: number;
   voice_sessions_last_7_days: number;
+  phone_calls_last_7_days: number;
   open_callbacks: number;
   tool_failures_last_7_days: number;
   voice_replies_measured: number;

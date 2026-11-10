@@ -27,6 +27,7 @@ const METRICS = {
   cancellations_last_7_days: 0,
   voice_bookings_last_7_days: 1,
   voice_sessions_last_7_days: 3,
+  phone_calls_last_7_days: 2,
   open_callbacks: 1,
   tool_failures_last_7_days: 0,
   voice_replies_measured: 12,
@@ -201,6 +202,7 @@ describe("StaffApp", () => {
     expect(await screen.findByText("Sam")).toBeInTheDocument();
     expect(screen.getByText(/Health question: Skin rash/)).toBeInTheDocument();
     expect(screen.getByText("Voice calls in the last 7 days").nextSibling).toHaveTextContent("3");
+    expect(screen.getByText("Phone calls in the last 7 days").nextSibling).toHaveTextContent("2");
     expect(screen.getByText("Voice reply time, median (90th percentile)").nextSibling).toHaveTextContent(
       "1.2 s (2.1 s), 12 replies",
     );
