@@ -58,3 +58,35 @@ def test_cors_allows_configured_origin_only(client: TestClient) -> None:
     assert allowed.headers["access-control-allow-origin"] == "http://localhost:5173"
     denied = client.get("/health", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in denied.headers
+
+
+def phone_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "phone_enabled": True,
+        "voice_mode": "live",
+        "openai_api_key": "test-key-not-real",
+        "phone_number": "+12605550123",
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+def test_assistant_phone_shown_while_phone_line_answers(client: TestClient) -> None:
+    app.dependency_overrides[get_settings] = lambda: phone_settings()
+    assert client.get("/api/v1/business").json()["assistant_phone"] == "+12605550123"
+
+
+def test_assistant_phone_hidden_when_calls_would_be_declined(client: TestClient) -> None:
+    assert client.get("/api/v1/business").json()["assistant_phone"] is None
+    for overrides in ({"phone_enabled": False}, {"voice_mode": "test"}, {"phone_number": ""}):
+        app.dependency_overrides[get_settings] = lambda o=overrides: phone_settings(**o)
+        assert client.get("/api/v1/business").json()["assistant_phone"] is None
+
+
+def test_phone_number_must_be_e164() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(phone_number="(260) 555-0123")
+    assert Settings(phone_number=" +12605550123 ").phone_number == "+12605550123"

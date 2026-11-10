@@ -32,7 +32,7 @@ Public profile of the business this deployment serves. The record is chosen by s
 
 | Status | Meaning |
 |---|---|
-| 200 | `name`, `tagline`, `about`, `timezone`, `contact_email`, `contact_phone`, `address`, `is_demo`, `hours` |
+| 200 | `name`, `tagline`, `about`, `timezone`, `contact_email`, `contact_phone`, `address`, `is_demo`, `hours`, `assistant_phone` (the receptionist's number in E.164, or `null` unless the phone line is answering) |
 | 404 | `business_not_configured`: the demo seed has not been run |
 | 503 | `database_unavailable` |
 

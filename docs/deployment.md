@@ -119,4 +119,4 @@ Bookings, cancellations, and callback requests can be sent to an n8n workflow or
 
 ### Phone line
 
-To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's webhook for `realtime.call.incoming`) and `PHONE_ENABLED=true`, with `VOICE_MODE=live`. Then point a Twilio Elastic SIP Trunk at `sip:<project id>@sip.api.openai.com;transport=tls`. Limits: `PHONE_MAX_CALL_SECONDS` (600), `PHONE_DAILY_CALL_LIMIT` (50), `PHONE_CALLS_PER_CALLER_PER_HOUR` (4). Full guide: [phone.md](phone.md).
+To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's webhook for `realtime.call.incoming`) and `PHONE_ENABLED=true`, with `VOICE_MODE=live`. Set `PHONE_NUMBER` (E.164) to show a call button on the website. Then point a Twilio Elastic SIP Trunk at `sip:<project id>@sip.api.openai.com;transport=tls`. Limits: `PHONE_MAX_CALL_SECONDS` (600), `PHONE_DAILY_CALL_LIMIT` (50), `PHONE_CALLS_PER_CALLER_PER_HOUR` (4). Full guide: [phone.md](phone.md).

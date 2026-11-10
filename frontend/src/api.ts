@@ -16,6 +16,8 @@ export interface Business {
   address: string;
   is_demo: boolean;
   hours: BusinessHours[];
+  /** The receptionist's number (E.164), only while the phone line answers. */
+  assistant_phone?: string | null;
 }
 
 export interface SizeCategory {

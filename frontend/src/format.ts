@@ -28,3 +28,9 @@ export function formatTime(value: string): string {
     ? `${displayHour} ${suffix}`
     : `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
+
+/** "+12605550123" -> "(260) 555-0123"; other countries are shown as given. */
+export function formatPhone(e164: string): string {
+  const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164);
+  return us ? `(${us[1]}) ${us[2]}-${us[3]}` : e164;
+}

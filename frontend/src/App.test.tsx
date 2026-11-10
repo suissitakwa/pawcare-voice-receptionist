@@ -50,6 +50,23 @@ function mockFetchOk(overrides: Record<string, unknown> = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("App", () => {
+  it("shows a call button only when the API gives the assistant's number", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetchOk({ "/api/v1/business": { ...BUSINESS, assistant_phone: "+12605550123" } }),
+    );
+    const { unmount } = render(<App />);
+    const call = await screen.findByRole("link", { name: "Call our assistant: (260) 555-0123" });
+    expect(call).toHaveAttribute("href", "tel:+12605550123");
+    expect(screen.getByRole("link", { name: "(260) 555-0123" })).toHaveAttribute("href", "tel:+12605550123");
+    unmount();
+
+    vi.stubGlobal("fetch", mockFetchOk());
+    render(<App />);
+    expect(await screen.findByText("Record From Database")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Call our assistant/ })).not.toBeInTheDocument();
+  });
+
   it("renders branding from the API, not from hardcoded values", async () => {
     vi.stubGlobal("fetch", mockFetchOk());
     render(<App />);
