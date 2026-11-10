@@ -576,3 +576,5 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 ## More natural phone calls (2026-11-10)
 
 **Outcome:** phone calls use warmer, more conversational instructions (varied acknowledgements, one question at a time, prices and times as words, two times offered at once) and wait longer before taking their turn (`semantic_vad` eagerness `low` instead of `auto`). `PHONE_VOICE`, `PHONE_MODEL` and `PHONE_VAD_EAGERNESS` let the phone line try another voice or the full model without changing the website assistant. Checks: `ruff check` and `ruff format --check` clean; phone and voice tests 75 passed, 2 of them new (overrides used, website voice unchanged). Whether calls sound more natural has not been judged on a real call yet.
+| Production deploy | Readiness reports schema `0010`; the webhook endpoint returned 404 before the secret was set and 400 `invalid_signature` for an unsigned request after |
+| Real phone call | 2026-11-10: a call to the Twilio number was answered by the receptionist and an appointment was booked by spoken confirmation. Answer time and reply times were not measured |

@@ -98,4 +98,4 @@ Change one at a time in Railway, call, and compare.
 - One number per deployment: calls are answered for `BUSINESS_SLUG`. Routing each subscriber's number to their own profile comes with profile-driven receptionists.
 - No transfer to a person (OpenAI's `refer` endpoint supports it).
 - No phone reply-time measurement. Browser calls measure it; the server-side WebSocket doesn't get the audio playback events used for that.
-- Not yet tested with a real phone call. The flow is covered by automated tests with a fake OpenAI only.
+- Tested with one real call (a booking made by phone). Latency and audio quality have not been measured; the rest of the flow is covered by automated tests with a fake OpenAI.
