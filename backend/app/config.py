@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # The number callers dial, in E.164 form (+12605550123). Public: the website shows a
     # call button for it while the phone line is on.
     phone_number: str = ""
+    # Phone overrides; empty means the same model and voice as the website. "low" eagerness
+    # lets callers pause mid-sentence without being cut off.
+    phone_model: str = ""
+    phone_voice: str = ""
+    phone_vad_eagerness: Literal["low", "medium", "high", "auto"] = "low"
 
     # Automation webhook, for example an n8n Webhook node. Events are signed with the
     # secret. Empty URL: events are kept for a while but not sent.
@@ -63,6 +68,14 @@ class Settings(BaseSettings):
         if value and not re.fullmatch(r"\+[1-9]\d{6,14}", value):
             raise ValueError("phone_number must be in E.164 form, for example +12605550123")
         return value
+
+    @property
+    def phone_model_name(self) -> str:
+        return self.phone_model or self.voice_model
+
+    @property
+    def phone_voice_name(self) -> str:
+        return self.phone_voice or self.voice_name
 
     @property
     def cors_origins(self) -> list[str]:
