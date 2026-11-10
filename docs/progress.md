@@ -562,4 +562,5 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 319 passed, 20 of them new (fake OpenAI and scripted call events). A first full run hung in the existing concurrency test while the machine was overloaded; it passed alone and in the full rerun |
 | Frontend | Node 22: typecheck clean, 62 tests passed, build succeeded |
-| Real phone call | Not made yet; needs the OpenAI webhook, Railway variables and a Twilio number |
+| Production deploy | Readiness reports schema `0010`; the webhook endpoint returned 404 before the secret was set and 400 `invalid_signature` for an unsigned request after |
+| Real phone call | 2026-11-10: a call to the Twilio number was answered by the receptionist and an appointment was booked by spoken confirmation. Answer time and reply times were not measured |
