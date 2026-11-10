@@ -562,13 +562,5 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 319 passed, 20 of them new (fake OpenAI and scripted call events). A first full run hung in the existing concurrency test while the machine was overloaded; it passed alone and in the full rerun |
 | Frontend | Node 22: typecheck clean, 62 tests passed, build succeeded |
-| Real phone call | Not made yet; needs the OpenAI webhook, Railway variables and a Twilio number |
-
-## Call button on the website (2026-11-10)
-
-**Outcome:** visitors can call the receptionist from the website. With `PHONE_NUMBER` set and the phone line answering, `GET /api/v1/business` returns `assistant_phone`, and the site shows **Call our assistant** in the hero and a `tel:` link above the browser assistant. When calls would be declined (phone off, voice not live, no number), the field is `null` and nothing is shown.
-
-| Check | Result |
-| --- | --- |
-| Backend | `ruff check` and `ruff format --check` clean; 322 passed, 3 of them new (shown, hidden in each off state, E.164 validation) |
-| Frontend | Node 22: typecheck clean, 64 tests passed (2 new), build succeeded |
+| Production deploy | Readiness reports schema `0010`; the webhook endpoint returned 404 before the secret was set and 400 `invalid_signature` for an unsigned request after |
+| Real phone call | 2026-11-10: a call to the Twilio number was answered by the receptionist and an appointment was booked by spoken confirmation. Answer time and reply times were not measured |
