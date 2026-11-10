@@ -332,6 +332,7 @@ class StaffMetrics(BaseModel):
     cancellations_last_7_days: int
     voice_bookings_last_7_days: int
     voice_sessions_last_7_days: int
+    phone_calls_last_7_days: int
     open_callbacks: int
     tool_failures_last_7_days: int
     # Voice reply time over the last 7 days. None until a call has been measured.
@@ -379,6 +380,10 @@ class VoiceUsage(BaseModel):
     reply_latency_ms: list[Annotated[int, Field(ge=0, le=120_000)]] = Field(
         default_factory=list, max_length=200
     )
+
+
+class PhoneEventReceived(BaseModel):
+    status: Literal["answered", "declined", "ignored"]
 
 
 class VoiceEndRequest(BaseModel):

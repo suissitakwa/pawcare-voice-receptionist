@@ -379,6 +379,10 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             <dd>{metrics.voice_sessions_last_7_days}</dd>
           </div>
           <div>
+            <dt>Phone calls in the last 7 days</dt>
+            <dd>{metrics.phone_calls_last_7_days}</dd>
+          </div>
+          <div>
             <dt>Booked by voice in the last 7 days</dt>
             <dd>{metrics.voice_bookings_last_7_days}</dd>
           </div>

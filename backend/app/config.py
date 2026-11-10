@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     voice_sessions_per_client_per_hour: int = 6
     voice_max_session_seconds: int = 300
 
+    # Phone calls through OpenAI's SIP connection. Off until a number is connected. The
+    # secret verifies OpenAI's webhook for incoming calls; voice_mode must be "live".
+    phone_enabled: bool = False
+    openai_webhook_secret: str = Field(default="", repr=False)
+    phone_max_call_seconds: int = 600
+    phone_daily_call_limit: int = 50
+    phone_calls_per_caller_per_hour: int = 4
+
     # Automation webhook, for example an n8n Webhook node. Events are signed with the
     # secret. Empty URL: events are kept for a while but not sent.
     webhook_url: str = ""

@@ -23,12 +23,19 @@ from app.availability import (
     resolve_option,
     working_window,
 )
-from app.booking import prepare_booking
+from app.booking import confirm_booking, prepare_booking
+from app.booking import sha256 as booking_sha256
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time
 from app.models import CallbackRequest, VoiceSession
-from app.schemas import EMAIL_PATTERN, PHONE_PATTERN, PrepareBookingRequest, VoiceToolResult
+from app.schemas import (
+    EMAIL_PATTERN,
+    PHONE_PATTERN,
+    PrepareBookingRequest,
+    PreparedBooking,
+    VoiceToolResult,
+)
 from app.voice import MAX_TOOL_CALLS, SESSION_GRACE, sha256
 from app.webhooks import callback_data, enqueue
 
@@ -63,6 +70,7 @@ def authorize(
     token: str,
     settings: Settings,
     now: datetime,
+    max_seconds: int | None = None,
 ) -> VoiceSession:
     record = session.scalar(
         select(VoiceSession)
@@ -75,9 +83,8 @@ def authorize(
     )
     if record is None:
         raise ApiError(404, "voice_session_not_found", "That voice session was not found.")
-    expires = (
-        record.started_at + timedelta(seconds=settings.voice_max_session_seconds) + SESSION_GRACE
-    )
+    limit = max_seconds if max_seconds is not None else settings.voice_max_session_seconds
+    expires = record.started_at + timedelta(seconds=limit) + SESSION_GRACE
     if record.status != "started" or now > expires:
         raise ApiError(403, "voice_session_closed", "This voice session has ended.")
     if record.tool_calls >= MAX_TOOL_CALLS:
@@ -188,6 +195,40 @@ def create_callback(
     )
 
 
+def confirm_spoken(
+    session: Session, business, pending: PreparedBooking | None, raw: dict, now: datetime
+) -> VoiceToolResult:
+    """Phone calls only. Books the summary the server prepared, never one the model describes.
+
+    The confirmation token stays on the server, so the model can only say whether the caller
+    agreed. Without a pending summary there is nothing to book.
+    """
+    if raw.get("caller_confirmed") is not True or set(raw) - {"caller_confirmed"}:
+        return tool_error(
+            "caller_confirmation_required",
+            "Read the summary to the caller and ask whether to book it. Call again only if they "
+            "say yes.",
+        )
+    if pending is None:
+        return tool_error(
+            "nothing_to_confirm", "Prepare the booking first, then read its summary to the caller."
+        )
+    # One key per summary, so a repeated confirmation returns the same booking.
+    key = "phone-" + booking_sha256(pending.confirmation_token)[:40]
+    confirmation, _ = confirm_booking(
+        session, business, pending.confirmation_token, pending.summary_hash, key, now
+    )
+    return VoiceToolResult(
+        ok=True,
+        result={
+            "status": "booked",
+            "reference": confirmation.reference,
+            "next_step": "Tell the caller it is booked and read the reference one character at "
+            "a time.",
+        },
+    )
+
+
 def run_tool(
     session: Session,
     business_id: uuid.UUID,
@@ -197,8 +238,12 @@ def run_tool(
     arguments: str,
     settings: Settings,
     now: datetime,
+    max_seconds: int | None = None,
+    pending: PreparedBooking | None = None,
 ) -> VoiceToolResult:
-    record = authorize(session, business_id, session_id, token, settings, now)
+    """`max_seconds` and `pending` are set by phone calls. The browser can never pass `pending`,
+    so a browser session cannot book through confirm_booking."""
+    record = authorize(session, business_id, session_id, token, settings, now, max_seconds)
     business = load_business(session, business_id)
     record.tool_calls += 1
     try:
@@ -209,6 +254,8 @@ def run_tool(
             outcome = check_availability(session, business, raw, now)
         elif name == "prepare_booking":
             outcome = prepare(session, business, record, raw, now)
+        elif name == "confirm_booking" and record.channel == "phone":
+            outcome = confirm_spoken(session, business, pending, raw, now)
         elif name == "create_callback_request":
             outcome = create_callback(session, business, record, raw, now)
         else:

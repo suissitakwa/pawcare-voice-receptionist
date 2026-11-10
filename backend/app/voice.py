@@ -131,6 +131,45 @@ TOOLS = [
 ]
 
 
+def phone_tools() -> list[dict]:
+    """The phone version: no screen, so the caller confirms out loud and the server books."""
+    tools = []
+    for tool in TOOLS:
+        if tool["name"] == "prepare_booking":
+            tool = {
+                **tool,
+                "description": (
+                    "Check that a booking can be made and get its summary to read to the caller. "
+                    "Books nothing."
+                ),
+            }
+        tools.append(tool)
+        if tool["name"] == "prepare_booking":
+            tools.append(CONFIRM_BOOKING_TOOL)
+    return tools
+
+
+CONFIRM_BOOKING_TOOL = {
+    "type": "function",
+    "name": "confirm_booking",
+    "description": (
+        "Book the summary from the last successful prepare_booking. Call it only after you "
+        "read that summary to the caller and they clearly said yes to booking it."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "caller_confirmed": {
+                "type": "boolean",
+                "description": "True only if the caller said yes to the summary you read out",
+            },
+        },
+        "required": ["caller_confirmed"],
+        "additionalProperties": False,
+    },
+}
+
+
 def sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -139,7 +178,13 @@ def price(cents: int) -> str:
     return f"${cents // 100}" if cents % 100 == 0 else f"${cents / 100:.2f}"
 
 
-def build_instructions(session: Session, business: Business, today: date) -> str:
+def build_instructions(
+    session: Session,
+    business: Business,
+    today: date,
+    channel: str = "web",
+    caller_number: str | None = None,
+) -> str:
     """Facts come only from database records, so the assistant has nothing else to quote."""
     business = session.scalar(
         select(Business).where(Business.id == business.id).options(selectinload(Business.hours))
@@ -183,9 +228,7 @@ def build_instructions(session: Session, business: Business, today: date) -> str
 
     return "\n".join(
         [
-            f"You are the voice receptionist for {business.name}, a fictional dog grooming "
-            "business on a demonstration website. Mention that it is a demonstration at most "
-            "once, or when asked. Do not repeat it in every reply.",
+            *(intro_lines(business, channel, caller_number)),
             "Speak briefly: one or two short sentences, then ask one question at a time.",
             "Greet the caller only once, at the very start. If you hear something unclear or "
             "very short, ask them to repeat it instead of starting over. If you hear only noise "
@@ -208,10 +251,7 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             "dog's name, and read a phone number digit by digit or an email letter by letter. "
             "Wait for the caller to say yes, correcting anything they change. Only then call "
             "prepare_booking with details_read_back set to true.",
-            "After prepare_booking succeeds, tell the caller the summary is on their screen and "
-            "that they must press Confirm booking to book it. You cannot confirm bookings. Never "
-            "say an appointment is booked or confirmed unless a system message says the caller "
-            "confirmed it and gives the reference. Then read the reference out.",
+            confirm_line(channel),
             "If the caller changes the service, size, time, or details, call prepare_booking "
             "again. If a tool reports an error, explain it briefly and offer another time or a "
             "callback. Dates are in the business time zone. "
@@ -233,8 +273,57 @@ def build_instructions(session: Session, business: Business, today: date) -> str
             *service_lines,
             "Approved answers:",
             *faq_lines,
-            "Start by greeting the caller in one sentence and asking how you can help.",
+            greeting_line(channel),
         ]
+    )
+
+
+def intro_lines(business: Business, channel: str, caller_number: str | None) -> list[str]:
+    if channel != "phone":
+        return [
+            f"You are the voice receptionist for {business.name}, a fictional dog grooming "
+            "business on a demonstration website. Mention that it is a demonstration at most "
+            "once, or when asked. Do not repeat it in every reply."
+        ]
+    lines = [
+        f"You are answering the phone for {business.name}, a fictional dog grooming business "
+        "on a demonstration phone line. You are an AI assistant, and you never claim to be a "
+        "person. Mention that it is a demonstration at most once, or when asked.",
+        "The caller hears you over a phone line, so say times as words, like nine thirty AM, "
+        "and never read out web addresses or long lists.",
+    ]
+    if caller_number:
+        lines.append(
+            f"The caller is calling from {caller_number}. When you need a phone number, you may "
+            "offer to use this one, and read it back digit by digit before using it."
+        )
+    return lines
+
+
+def confirm_line(channel: str) -> str:
+    if channel != "phone":
+        return (
+            "After prepare_booking succeeds, tell the caller the summary is on their screen and "
+            "that they must press Confirm booking to book it. You cannot confirm bookings. Never "
+            "say an appointment is booked or confirmed unless a system message says the caller "
+            "confirmed it and gives the reference. Then read the reference out."
+        )
+    return (
+        "After prepare_booking succeeds, read its summary to the caller: the service, the "
+        "date, the time, and the price. Then ask whether to book it. Only if they clearly say "
+        "yes, call confirm_booking with caller_confirmed set to true. If they hesitate or "
+        "change anything, do not confirm. Never say an appointment is booked unless "
+        "confirm_booking returned a reference. Then read the reference out one character at a "
+        "time."
+    )
+
+
+def greeting_line(channel: str) -> str:
+    if channel != "phone":
+        return "Start by greeting the caller in one sentence and asking how you can help."
+    return (
+        "Start by greeting the caller in one sentence, saying you are the AI assistant, and "
+        "asking how you can help."
     )
 
 
@@ -312,6 +401,7 @@ def start_voice_session(
         .select_from(VoiceSession)
         .where(
             VoiceSession.business_id == business.id,
+            VoiceSession.channel == "web",
             VoiceSession.started_at >= local_day_start(today, timezone),
         )
     )
