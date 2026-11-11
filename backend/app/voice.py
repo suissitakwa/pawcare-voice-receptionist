@@ -146,7 +146,7 @@ def phone_tools() -> list[dict]:
         tools.append(tool)
         if tool["name"] == "prepare_booking":
             tools.append(CONFIRM_BOOKING_TOOL)
-    return tools
+    return [*tools, *MANAGE_TOOLS]
 
 
 CONFIRM_BOOKING_TOOL = {
@@ -168,6 +168,78 @@ CONFIRM_BOOKING_TOOL = {
         "additionalProperties": False,
     },
 }
+
+
+CALLER_CONFIRMED = {
+    "type": "object",
+    "properties": {
+        "caller_confirmed": {
+            "type": "boolean",
+            "description": "True only if the caller said yes to the details you read out",
+        },
+    },
+    "required": ["caller_confirmed"],
+    "additionalProperties": False,
+}
+
+MANAGE_TOOLS = [
+    {
+        "type": "function",
+        "name": "find_booking",
+        "description": (
+            "Find the caller's existing booking so it can be changed or cancelled. Needs the "
+            "booking reference and the phone number or email on the booking."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reference": {"type": "string", "description": "For example PC-77PFQNW8"},
+                "contact": {
+                    "type": "string",
+                    "description": "The phone number or email address on the booking",
+                },
+            },
+            "required": ["reference", "contact"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "prepare_change",
+        "description": (
+            "Check a new time, and optionally a new service or dog size, for the booking found "
+            "with find_booking. Changes nothing. Use a starts_at from check_availability."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "starts_at": {"type": "string", "description": "ISO start time"},
+                "service": {"type": "string", "description": "Service slug, if it changes"},
+                "size": {"type": "string", "description": "Dog size slug, if it changes"},
+            },
+            "required": ["starts_at"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "confirm_change",
+        "description": (
+            "Apply the change from the last successful prepare_change. Call it only after you "
+            "read the new details to the caller and they clearly said yes."
+        ),
+        "parameters": CALLER_CONFIRMED,
+    },
+    {
+        "type": "function",
+        "name": "cancel_booking",
+        "description": (
+            "Cancel the booking found with find_booking. Call it only after you read the "
+            "booking to the caller, asked whether to cancel it, and they clearly said yes."
+        ),
+        "parameters": CALLER_CONFIRMED,
+    },
+]
 
 
 def sha256(value: str) -> str:
@@ -301,6 +373,14 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "Offer two times at once, not more.",
         "If the caller interrupts you, stop and answer what they said. If there is a pause, "
         "wait; don't fill silence.",
+        "Callers can also change or cancel a booking. Ask for the booking reference and the "
+        "phone number or email on the booking, read them back, then call find_booking. To "
+        "move it, call check_availability for the new day, offer times, then call "
+        "prepare_change, read the new details and ask whether to make the change; call "
+        "confirm_change only on a clear yes. To cancel, read the booking back, ask whether "
+        "to cancel it, and call cancel_booking only on a clear yes. Never say anything was "
+        "changed or cancelled unless the tool said so. If find_booking can't find it twice, "
+        "offer a callback instead.",
     ]
     if caller_number:
         lines.append(

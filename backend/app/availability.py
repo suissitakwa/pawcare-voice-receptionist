@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.orm import Session, selectinload
 
 from app.errors import ApiError
@@ -115,7 +115,10 @@ def active_groomer_id(session: Session, business_id: uuid.UUID) -> uuid.UUID | N
     )
 
 
-def load_day_rules(session: Session, business: Business, day: date) -> DayRules:
+def load_day_rules(
+    session: Session, business: Business, day: date, ignore_booking: uuid.UUID | None = None
+) -> DayRules:
+    """`ignore_booking` leaves one booking out of the busy times, so it can be moved."""
     timezone = ZoneInfo(business.timezone)
     weekday = day.weekday()
     business_hours = next(
@@ -163,6 +166,7 @@ def load_day_rules(session: Session, business: Business, day: date) -> DayRules:
                     Booking.status == "confirmed",
                     Booking.starts_at < range_end,
                     Booking.occupied_until > range_start,
+                    Booking.id != ignore_booking if ignore_booking else true(),
                 )
             )
         )
@@ -231,9 +235,14 @@ def check_booking_window(business: Business, day: date, now: datetime) -> None:
 
 
 def slot_is_open(
-    session: Session, business: Business, starts_at: datetime, duration: timedelta, now: datetime
+    session: Session,
+    business: Business,
+    starts_at: datetime,
+    duration: timedelta,
+    now: datetime,
+    ignore_booking: uuid.UUID | None = None,
 ) -> bool:
     """Whether this exact start would be offered right now, under every scheduling rule."""
     day = starts_at.astimezone(ZoneInfo(business.timezone)).date()
-    rules = load_day_rules(session, business, day)
+    rules = load_day_rules(session, business, day, ignore_booking)
     return any(slot.starts_at == starts_at for slot in compute_slots(day, duration, rules, now))

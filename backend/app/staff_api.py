@@ -163,7 +163,12 @@ def cancel_booking(reference: str, context: Staff, db: DbSession, now: Now) -> S
             Booking.reference == reference,
             Booking.status == "confirmed",
         )
-        .values(status="cancelled", cancelled_at=now, cancelled_by=context.staff.id)
+        .values(
+            status="cancelled",
+            cancelled_at=now,
+            cancelled_by=context.staff.id,
+            cancelled_via="staff",
+        )
         .returning(Booking.id)
     ).scalar_one_or_none()
     if cancelled is not None:

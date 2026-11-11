@@ -28,6 +28,7 @@ from app.booking import sha256 as booking_sha256
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time
+from app.manage import cancel, confirm_change, find_booking, prepare_change
 from app.models import CallbackRequest, VoiceSession
 from app.schemas import (
     EMAIL_PATTERN,
@@ -40,6 +41,13 @@ from app.voice import MAX_TOOL_CALLS, SESSION_GRACE, sha256
 from app.webhooks import callback_data, enqueue
 
 logger = logging.getLogger("pawcare.voice")
+# Managing existing bookings needs a spoken yes, so it is phone only.
+PHONE_MANAGE_TOOLS = {
+    "find_booking": find_booking,
+    "prepare_change": prepare_change,
+    "confirm_change": confirm_change,
+    "cancel_booking": cancel,
+}
 # A full day at 15-minute steps is under 40 starts, so the model can see every one.
 MAX_TIMES_RETURNED = 40
 
@@ -158,8 +166,12 @@ def prepare(
             "time": format_time(summary.local_start.astimezone(timezone).time()),
             "duration_minutes": summary.duration_minutes,
             "price_dollars": summary.price_cents / 100,
-            "next_step": "Ask the caller to check the summary on screen and press Confirm "
-            "booking. It is not booked yet.",
+            "next_step": (
+                "Read this summary to the caller and ask whether to book it. It is not booked yet."
+                if record.channel == "phone"
+                else "Ask the caller to check the summary on screen and press Confirm booking. "
+                "It is not booked yet."
+            ),
         },
         prepared=prepared,
     )
@@ -256,6 +268,8 @@ def run_tool(
             outcome = prepare(session, business, record, raw, now)
         elif name == "confirm_booking" and record.channel == "phone":
             outcome = confirm_spoken(session, business, pending, raw, now)
+        elif name in PHONE_MANAGE_TOOLS and record.channel == "phone":
+            outcome = PHONE_MANAGE_TOOLS[name](session, business, record, raw, now)
         elif name == "create_callback_request":
             outcome = create_callback(session, business, record, raw, now)
         else:
@@ -277,6 +291,12 @@ def run_tool(
     session.execute(
         update(VoiceSession)
         .where(VoiceSession.id == record.id)
-        .values(tool_calls=record.tool_calls, tool_failures=record.tool_failures)
+        .values(
+            tool_calls=record.tool_calls,
+            tool_failures=record.tool_failures,
+            managed_booking_id=record.managed_booking_id,
+            pending_change=record.pending_change,
+            lookup_failures=record.lookup_failures,
+        )
     )
     return outcome

@@ -186,6 +186,10 @@ def test_an_incoming_call_is_answered_with_phone_tools(
         "prepare_booking",
         "confirm_booking",
         "create_callback_request",
+        "find_booking",
+        "prepare_change",
+        "confirm_change",
+        "cancel_booking",
     ]
     assert "AI assistant" in body["instructions"]
     assert CALLER in body["instructions"]

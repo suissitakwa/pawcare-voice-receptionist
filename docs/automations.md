@@ -7,7 +7,8 @@ The backend sends an event to one webhook URL whenever something happens that a 
 | Event | When |
 | --- | --- |
 | `booking.confirmed` | A booking is confirmed, from the form or by voice. Sent once, even if the confirmation is retried |
-| `booking.cancelled` | Staff cancel a booking. Sent once, even if cancel is pressed twice |
+| `booking.cancelled` | Staff cancel a booking, or a caller cancels on a phone call. Sent once, even if cancel is repeated |
+| `booking.changed` | A caller moves a booking or changes its service on a phone call. Same reference, new details |
 | `callback.requested` | The voice assistant takes a callback request |
 | `webhook.test` | Staff press **Send test event** on the dashboard |
 
