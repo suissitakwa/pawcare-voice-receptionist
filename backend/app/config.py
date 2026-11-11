@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     phone_voice: str = ""
     phone_vad_eagerness: Literal["low", "medium", "high", "auto"] = "low"
 
+    # Phone calls through Vapi, with its voices and turn-taking. Vapi asks this backend for
+    # the assistant on every call and sends tool calls back here, signed with the secret.
+    vapi_enabled: bool = False
+    vapi_secret: str = Field(default="", repr=False)
+    vapi_model: str = "gpt-4.1-mini"
+    vapi_voice_provider: str = "11labs"
+    # ElevenLabs "Rachel", a stock voice every account can use.
+    vapi_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
+    vapi_transcriber_model: str = "nova-3"
+    # Optional JSON merged into the assistant, to tune Vapi settings without a deploy.
+    vapi_assistant_overrides: str = ""
+
     # Google Calendar, through a service account the calendar is shared with. The JSON key
     # may be pasted as is or base64-encoded. Both empty: no calendar.
     google_calendar_id: str = ""

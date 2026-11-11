@@ -262,3 +262,14 @@ OpenAI's webhook for phone calls, verified with `OPENAI_WEBHOOK_SECRET` (Standar
 
 Phone sessions get one extra tool, `confirm_booking` (`{"caller_confirmed": true}`), which books the summary from the session's last successful `prepare_booking`. See [phone.md](phone.md).
 
+
+### `POST /api/v1/vapi/events`
+
+The server URL for calls answered by Vapi. Every request must carry `VAPI_SECRET`, as `Authorization: Bearer <secret>` or `X-Vapi-Secret: <secret>`. Returns 404 until the secret is set, and 401 without it.
+
+- `assistant-request`: `{"assistant": {...}}` with the phone instructions, tools, voice and transcriber, or `{"error": "..."}` (spoken to the caller) when Vapi calls are off or a phone limit is reached.
+- `tool-calls`: `{"results": [{"toolCallId", "name", "result"}]}`, where `result` is the tool's JSON output as a string.
+- `end-of-call-report`, and `status-update` with status `ended`: ends the session and stores Vapi's reported cost and duration.
+- Anything else: `{}`.
+
+Phone tools on both providers also include `find_booking`, `prepare_change`, `confirm_change` and `cancel_booking`. See [vapi.md](vapi.md).

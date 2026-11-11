@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Business, VoiceSession
-from app.schemas import PreparedBooking, VoiceToolResult, VoiceUsage
+from app.schemas import VoiceToolResult, VoiceUsage
 from app.voice import (
     TRANSCRIPTION_MODEL,
     build_instructions,
@@ -172,6 +172,41 @@ def answer_problem(settings: Settings) -> str | None:
     return None
 
 
+def hash_caller(business: Business, number: str | None) -> str:
+    # Only a hash of the number is kept, to limit repeat calls from one caller.
+    return sha256(f"{business.id}:phone:{number or 'withheld'}")
+
+
+def limit_problem(
+    session: Session, business: Business, settings: Settings, caller_hash: str, now: datetime
+) -> str | None:
+    """The phone limits, shared by every phone provider. None when the call may be answered."""
+    timezone = ZoneInfo(business.timezone)
+    today = now.astimezone(timezone).date()
+    calls_today = session.scalar(
+        select(func.count())
+        .select_from(VoiceSession)
+        .where(
+            VoiceSession.business_id == business.id,
+            VoiceSession.channel == "phone",
+            VoiceSession.started_at >= local_day_start(today, timezone),
+        )
+    )
+    if calls_today >= settings.phone_daily_call_limit:
+        return "daily call limit reached"
+    recent = session.scalar(
+        select(func.count())
+        .select_from(VoiceSession)
+        .where(
+            VoiceSession.client_hash == caller_hash,
+            VoiceSession.started_at >= now - timedelta(hours=1),
+        )
+    )
+    if recent >= settings.phone_calls_per_caller_per_hour:
+        return "too many calls from one caller"
+    return None
+
+
 def handle_incoming(
     session: Session,
     business: Business,
@@ -202,34 +237,13 @@ def handle_incoming(
         decline(DECLINE, problem)
         return None
 
-    timezone = ZoneInfo(business.timezone)
-    today = now.astimezone(timezone).date()
-    calls_today = session.scalar(
-        select(func.count())
-        .select_from(VoiceSession)
-        .where(
-            VoiceSession.business_id == business.id,
-            VoiceSession.channel == "phone",
-            VoiceSession.started_at >= local_day_start(today, timezone),
-        )
-    )
-    if calls_today >= settings.phone_daily_call_limit:
-        decline(BUSY, "daily call limit reached")
-        return None
+    today = now.astimezone(ZoneInfo(business.timezone)).date()
     sip_headers = data.get("sip_headers")
     number = caller_number(sip_headers if isinstance(sip_headers, list) else [])
-    # Only a hash of the number is kept, to limit repeat calls from one caller.
-    caller_hash = sha256(f"{business.id}:phone:{number or 'withheld'}")
-    recent = session.scalar(
-        select(func.count())
-        .select_from(VoiceSession)
-        .where(
-            VoiceSession.client_hash == caller_hash,
-            VoiceSession.started_at >= now - timedelta(hours=1),
-        )
-    )
-    if recent >= settings.phone_calls_per_caller_per_hour:
-        decline(BUSY, "too many calls from one caller")
+    caller_hash = hash_caller(business, number)
+    limited = limit_problem(session, business, settings, caller_hash, now)
+    if limited is not None:
+        decline(BUSY, limited)
         return None
 
     record = VoiceSession(
@@ -260,7 +274,6 @@ class CallState:
     """What one call keeps in memory while it runs."""
 
     def __init__(self) -> None:
-        self.pending: PreparedBooking | None = None
         self.usage = VoiceUsage(input_tokens=0, output_tokens=0, responses=0)
 
     def count_response(self, response: dict) -> None:
@@ -314,7 +327,6 @@ async def run_call(
                     settings,
                     clock(),
                     max_seconds=settings.phone_max_call_seconds,
-                    pending=state.pending,
                 )
                 session.commit()
                 return outcome
@@ -351,8 +363,6 @@ async def run_call(
                         outcome = await asyncio.to_thread(
                             run_one, item["name"], item.get("arguments") or ""
                         )
-                        if outcome.prepared is not None:
-                            state.pending = outcome.prepared
                         # Only the result reaches the model, never the confirmation token.
                         output = {"ok": outcome.ok, **outcome.result}
                         await socket.send(

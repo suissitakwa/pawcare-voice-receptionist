@@ -140,7 +140,20 @@ def confirm_booking(
     now: datetime,
 ) -> tuple[BookingConfirmation, bool]:
     """Returns the confirmation and whether this call created the booking."""
-    request_hash = sha256(token)
+    return confirm_prepared(
+        session, business, sha256(token), expected_summary_hash, idempotency_key, now
+    )
+
+
+def confirm_prepared(
+    session: Session,
+    business: Business,
+    request_hash: str,
+    expected_summary_hash: str,
+    idempotency_key: str,
+    now: datetime,
+) -> tuple[BookingConfirmation, bool]:
+    """Confirms by the token's hash. Only the server holds that pairing for phone calls."""
 
     def booking_for_key() -> Booking | None:
         return session.scalar(
