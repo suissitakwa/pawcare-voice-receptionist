@@ -106,6 +106,7 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 - [Manual voice testing](docs/voice-testing.md)
 - [Automations with n8n](docs/automations.md)
 - [Phone line](docs/phone.md)
+- [Google Calendar](docs/calendar.md)
 - Decisions: [voice](docs/decisions/0001-voice-architecture.md), [booking consistency](docs/decisions/0002-booking-consistency.md), [scope](docs/decisions/0003-scope.md), [staff authentication](docs/decisions/0004-staff-authentication.md), [subscriber profiles](docs/decisions/0005-subscriber-profiles.md), [automation webhooks](docs/decisions/0006-automation-webhooks.md), [phone line](docs/decisions/0007-phone-line.md)
 - [Evaluations: scenarios, checks, and how to run them](evals/README.md)
 
