@@ -28,6 +28,18 @@ There is no screen, so the caller confirms out loud:
 
 Confirming twice returns the same booking. A browser session can't use `confirm_booking`: there it is an unknown tool.
 
+## Changing or cancelling by phone
+
+Callers can move, change or cancel a booking they made earlier:
+
+1. The assistant asks for the **booking reference** and the **phone number or email on the booking**, reads them back, and calls `find_booking`. Both must match. An unknown reference and a wrong contact get the same answer, and after 3 failed lookups on one call the assistant offers a callback instead.
+2. The server remembers which booking the caller proved they own. Later tools never take a reference from the model.
+3. **To move it:** `check_availability` for the new day, then `prepare_change` with the new start (and a new service or dog size if wanted). The booking's own time doesn't count as busy, so it can shift by half an hour. The assistant reads the old and new details and asks; only a clear yes calls `confirm_change`. The reference stays the same.
+4. **To cancel:** the assistant reads the booking back and asks; only a clear yes calls `cancel_booking`.
+5. Bookings that have started or are already cancelled can't be changed. The booking records who cancelled it (`staff` or `caller`), and n8n gets `booking.changed` or `booking.cancelled`.
+
+These tools exist only on phone calls. The website assistant can't use them.
+
 ## Limits and privacy
 
 | Setting | Default | Effect |

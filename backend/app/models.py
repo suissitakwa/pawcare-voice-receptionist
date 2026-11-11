@@ -206,6 +206,10 @@ class Booking(Base):
         CheckConstraint("occupied_until >= ends_at", name="booking_buffer_after_end"),
         CheckConstraint("status IN ('confirmed', 'cancelled')", name="booking_status_known"),
         CheckConstraint(
+            "cancelled_via IS NULL OR cancelled_via IN ('staff', 'caller')",
+            name="booking_cancelled_via_known",
+        ),
+        CheckConstraint(
             "owner_email IS NOT NULL OR owner_phone IS NOT NULL", name="booking_has_contact"
         ),
         UniqueConstraint("reference", name="uq_bookings_reference"),
@@ -242,6 +246,10 @@ class Booking(Base):
     cancelled_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("staff_users.id", ondelete="SET NULL")
     )
+    # Who cancelled: staff in the dashboard, or the caller on a phone call.
+    cancelled_via: Mapped[str | None] = mapped_column(String(8))
+    # Set when a caller moved the booking or changed its service.
+    changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("voice_sessions.id", ondelete="SET NULL")
     )
@@ -338,6 +346,13 @@ class VoiceSession(Base):
     tool_calls: Mapped[int] = mapped_column(server_default=text("0"))
     tool_failures: Mapped[int] = mapped_column(server_default=text("0"))
     booking_reference: Mapped[str | None] = mapped_column(String(16))
+    # Managing an existing booking on a call: the booking the caller proved they own, the
+    # change waiting for their spoken yes, and failed lookups (to stop guessing references).
+    managed_booking_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bookings.id", ondelete="SET NULL")
+    )
+    pending_change: Mapped[dict | None] = mapped_column(JSONB)
+    lookup_failures: Mapped[int] = mapped_column(server_default=text("0"))
 
 
 class CallbackRequest(Base):
