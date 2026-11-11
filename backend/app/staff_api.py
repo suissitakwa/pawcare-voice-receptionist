@@ -168,6 +168,8 @@ def cancel_booking(reference: str, context: Staff, db: DbSession, now: Now) -> S
             cancelled_at=now,
             cancelled_by=context.staff.id,
             cancelled_via="staff",
+            calendar_dirty=True,
+            calendar_next_attempt_at=None,
         )
         .returning(Booking.id)
     ).scalar_one_or_none()

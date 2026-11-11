@@ -14,6 +14,7 @@ from sqlalchemy import select, true
 from sqlalchemy.orm import Session, selectinload
 
 from app.errors import ApiError
+from app.google_calendar import busy_between
 from app.models import (
     BlockedPeriod,
     Booking,
@@ -157,6 +158,10 @@ def load_day_rules(
                     BlockedPeriod.ends_at > range_start,
                 )
             )
+        )
+        # Busy times in the owner's Google Calendar, if one is connected.
+        blocked += tuple(
+            Interval(busy.start, busy.end) for busy in busy_between(range_start, range_end)
         )
         booked = tuple(
             Interval(start, end)

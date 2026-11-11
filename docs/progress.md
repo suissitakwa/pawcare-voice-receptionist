@@ -588,3 +588,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 333 passed, 9 of them new (find with reference and contact, move, move within its own time, refused overlap, no change without a yes, cancel, no guessing, cancelled booking, browser can't use them). Run against a local PostgreSQL 14 because Docker would not start; migrations `0001`–`0011` upgrade and downgrade cleanly there |
 | Real call | Not tried yet |
+
+## Two-way Google Calendar sync (2026-11-10)
+
+**Outcome:** with a calendar connected, busy times in the owner's Google Calendar block booking times everywhere (phone, browser voice, form), and every booking, change and cancellation is written to the calendar by a background worker. Our events are marked free so a booking never blocks itself. If the calendar can't be read, booking stops with `calendar_unavailable`. Migration `0012` adds the per-booking sync state. Setup: [calendar.md](calendar.md). Decision: [0008](decisions/0008-google-calendar.md).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 345 passed (local PostgreSQL 14), 12 of them new with a fake Google: busy times block slots, short cache, fail closed, create once, delete on cancel, back-off and retry, staff cancel syncs, signed token request verified with the public key, create when missing, already-deleted is fine, free/busy sharing errors, key as JSON or base64 |
+| Real calendar | Not connected yet |

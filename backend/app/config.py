@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     phone_voice: str = ""
     phone_vad_eagerness: Literal["low", "medium", "high", "auto"] = "low"
 
+    # Google Calendar, through a service account the calendar is shared with. The JSON key
+    # may be pasted as is or base64-encoded. Both empty: no calendar.
+    google_calendar_id: str = ""
+    google_service_account_json: str = Field(default="", repr=False)
+
     # Automation webhook, for example an n8n Webhook node. Events are signed with the
     # secret. Empty URL: events are kept for a while but not sent.
     webhook_url: str = ""

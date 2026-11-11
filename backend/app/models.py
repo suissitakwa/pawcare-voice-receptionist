@@ -250,6 +250,12 @@ class Booking(Base):
     cancelled_via: Mapped[str | None] = mapped_column(String(8))
     # Set when a caller moved the booking or changed its service.
     changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Google Calendar sync: true until the booking's event matches it.
+    calendar_dirty: Mapped[bool] = mapped_column(server_default=text("true"))
+    calendar_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    calendar_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    calendar_error: Mapped[str | None] = mapped_column(String(200))
+    calendar_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("voice_sessions.id", ondelete="SET NULL")
     )

@@ -251,6 +251,8 @@ def confirm_change(
             booking.price_cents = pending["price_cents"]
             booking.summary = pending["summary"]
             booking.changed_at = now
+            booking.calendar_dirty = True
+            booking.calendar_next_attempt_at = None
             session.flush()
     except IntegrityError as exc:
         constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
@@ -290,6 +292,8 @@ def cancel(
     booking.status = "cancelled"
     booking.cancelled_at = now
     booking.cancelled_via = "caller"
+    booking.calendar_dirty = True
+    booking.calendar_next_attempt_at = None
     record.pending_change = None
     session.flush()
     enqueue(session, business.id, "booking.cancelled", booking_data(booking, business), now)
