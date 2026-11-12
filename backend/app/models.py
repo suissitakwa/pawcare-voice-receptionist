@@ -333,6 +333,7 @@ class VoiceSession(Base):
         CheckConstraint("mode IN ('test', 'live')", name="voice_mode_known"),
         CheckConstraint("status IN ('started', 'ended')", name="voice_status_known"),
         CheckConstraint("channel IN ('web', 'phone')", name="voice_channel_known"),
+        CheckConstraint("provider IN ('openai', 'vapi')", name="voice_provider_known"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -341,6 +342,8 @@ class VoiceSession(Base):
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
     mode: Mapped[str] = mapped_column(String(8))
     channel: Mapped[str] = mapped_column(String(8), server_default="web")
+    # Who runs the conversation: OpenAI Realtime directly, or Vapi (phone only).
+    provider: Mapped[str] = mapped_column(String(8), server_default="openai")
     model: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), server_default="started")
     end_reason: Mapped[str | None] = mapped_column(String(32))
@@ -358,6 +361,10 @@ class VoiceSession(Base):
         ForeignKey("bookings.id", ondelete="SET NULL")
     )
     pending_change: Mapped[dict | None] = mapped_column(JSONB)
+    # A new booking prepared on a phone call, waiting for the caller's spoken yes.
+    pending_draft_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("booking_drafts.id", ondelete="SET NULL")
+    )
     lookup_failures: Mapped[int] = mapped_column(server_default=text("0"))
 
 

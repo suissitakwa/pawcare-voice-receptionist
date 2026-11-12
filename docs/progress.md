@@ -597,3 +597,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 345 passed (local PostgreSQL 14), 12 of them new with a fake Google: busy times block slots, short cache, fail closed, create once, delete on cancel, back-off and retry, staff cancel syncs, signed token request verified with the public key, create when missing, already-deleted is fine, free/busy sharing errors, key as JSON or base64 |
 | Real calendar | Not connected yet |
+
+## Phone calls through Vapi (2026-11-10)
+
+**Outcome:** the number can be answered by Vapi, for more natural voices (ElevenLabs by default), while the backend keeps control. On each call Vapi asks `POST /api/v1/vapi/events` for the assistant; the backend applies the phone limits and returns the same instructions and tools as OpenAI calls. Tool calls come back to the same endpoint and run through the same code, including spoken booking confirmation and change or cancel. The end-of-call report ends the session with Vapi's reported cost. A call's pending booking now lives on its session record for both providers. Migration `0013` adds `voice_sessions.provider` and `pending_draft_id`. Setup: [vapi.md](vapi.md). Decision: [0009](decisions/0009-vapi.md).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 359 passed (local PostgreSQL 14), 14 of them new with requests shaped like Vapi's: secret required (bearer or `X-Vapi-Secret`), assistant contents, retried request, off, per-caller limit, overrides, booking by yes and repeat, no yes no booking, result ids, unknown call, end report with cost, website call button |
+| Real call through Vapi | Not made yet |

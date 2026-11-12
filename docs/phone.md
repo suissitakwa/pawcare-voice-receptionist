@@ -95,6 +95,8 @@ If nothing answers, check that the webhook endpoint shows a delivery in the Open
 
 ## Making calls sound natural
 
+For many more voices, the number can be answered by Vapi instead, with the same tools and rules: see [vapi.md](vapi.md).
+
 The phone instructions ask for a warm, relaxed front-desk style: contractions, short varied acknowledgements, one question at a time, prices and times said as words, and no more than two times offered at once. Three settings change how it sounds without touching the website assistant:
 
 | Setting | Default | Effect |

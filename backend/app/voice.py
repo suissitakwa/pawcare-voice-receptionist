@@ -256,8 +256,11 @@ def build_instructions(
     today: date,
     channel: str = "web",
     caller_number: str | None = None,
+    greeted: bool = False,
 ) -> str:
-    """Facts come only from database records, so the assistant has nothing else to quote."""
+    """Facts come only from database records, so the assistant has nothing else to quote.
+
+    `greeted` is for providers that speak a fixed first message themselves."""
     business = session.scalar(
         select(Business).where(Business.id == business.id).options(selectinload(Business.hours))
     )
@@ -345,7 +348,9 @@ def build_instructions(
             *service_lines,
             "Approved answers:",
             *faq_lines,
-            greeting_line(channel),
+            "You have already greeted the caller. Don't greet them again; answer what they say."
+            if greeted
+            else greeting_line(channel),
         ]
     )
 

@@ -58,6 +58,7 @@ from app.schemas import (
 )
 from app.staff_api import router as staff_router
 from app.subscriber_api import router as subscriber_router
+from app.vapi_api import router as vapi_router
 from app.voice import end_voice_session, start_voice_session
 from app.voice_tools import run_tool
 from app.webhooks import run_worker
@@ -188,7 +189,7 @@ def get_business(
         select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
     )
     profile = BusinessPublic.model_validate(business)
-    if settings.phone_number and answer_problem(settings) is None:
+    if settings.phone_number and (settings.vapi_enabled or answer_problem(settings) is None):
         profile.assistant_phone = settings.phone_number
     return profile
 
@@ -323,6 +324,7 @@ def confirm(
 app.include_router(staff_router)
 app.include_router(subscriber_router)
 app.include_router(phone_router)
+app.include_router(vapi_router)
 
 
 def client_ip(request: Request) -> str:
