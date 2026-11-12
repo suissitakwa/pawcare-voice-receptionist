@@ -78,6 +78,20 @@ def vapi_tools() -> list[dict]:
     ]
 
 
+def voice(settings: Settings, server_url: str) -> dict:
+    if settings.vapi_voice_provider != "fish":
+        return {"provider": settings.vapi_voice_provider, "voiceId": settings.vapi_voice_id}
+    # Fish Audio through this backend: Vapi sends each sentence to /voice for audio.
+    return {
+        "provider": "custom-voice",
+        "server": {
+            "url": server_url.removesuffix("/events") + "/voice",
+            "headers": {"Authorization": f"Bearer {settings.vapi_secret}"},
+            "timeoutSeconds": 20,
+        },
+    }
+
+
 def first_message(business: Business) -> str:
     return f"Hi, thanks for calling {business.name}! I'm the AI assistant. How can I help?"
 
@@ -93,7 +107,7 @@ def assistant(settings: Settings, business: Business, instructions: str, server_
             "messages": [{"role": "system", "content": instructions}],
             "tools": vapi_tools(),
         },
-        "voice": {"provider": settings.vapi_voice_provider, "voiceId": settings.vapi_voice_id},
+        "voice": voice(settings, server_url),
         "transcriber": {
             "provider": "deepgram",
             "model": settings.vapi_transcriber_model,

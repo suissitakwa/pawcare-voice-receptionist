@@ -50,12 +50,20 @@ class Settings(BaseSettings):
     vapi_enabled: bool = False
     vapi_secret: str = Field(default="", repr=False)
     vapi_model: str = "gpt-4.1-mini"
+    # A Vapi voice provider such as "11labs" or "cartesia", or "fish" for Fish Audio through
+    # this backend (needs the FISH_* settings).
     vapi_voice_provider: str = "11labs"
     # ElevenLabs "Rachel", a stock voice every account can use.
     vapi_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
     vapi_transcriber_model: str = "nova-3"
     # Optional JSON merged into the assistant, to tune Vapi settings without a deploy.
     vapi_assistant_overrides: str = ""
+
+    # Fish Audio, used when VAPI_VOICE_PROVIDER is "fish". The voice id is a Fish model id.
+    fish_api_key: str = Field(default="", repr=False)
+    fish_voice_id: str = ""
+    fish_model: str = "s2.1-pro"
+    fish_latency: Literal["low", "normal", "balanced"] = "low"
 
     # Google Calendar, through a service account the calendar is shared with. The JSON key
     # may be pasted as is or base64-encoded. Both empty: no calendar.

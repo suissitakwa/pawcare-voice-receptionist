@@ -73,7 +73,35 @@ If the call says the assistant can't take calls, check `VAPI_ENABLED` and the ph
 
 ## Choosing a voice
 
-Browse voices in Vapi's voice library or ElevenLabs, copy the voice id, set `VAPI_VOICE_ID`, and redeploy (or use `VAPI_ASSISTANT_OVERRIDES` to try other settings). Change one thing at a time and call to compare.
+Every call asks the backend for its assistant, so a voice change in Railway applies from the next call. Change one thing at a time and call to compare.
+
+### Vapi's built-in voice providers
+
+1. In the Vapi dashboard, open **Voice Library** (or any assistant's **Voice** tab) and listen to voices from ElevenLabs, Cartesia and others.
+2. Note the provider and the voice id.
+3. In Railway set `VAPI_VOICE_PROVIDER` (for example `11labs` or `cartesia`) and `VAPI_VOICE_ID`.
+
+### Fish Audio
+
+Fish Audio isn't one of Vapi's built-in providers, so the backend acts as the voice: Vapi sends each sentence to `POST /api/v1/vapi/voice`, the backend asks Fish Audio for 16-bit PCM at the rate Vapi wants, and streams it straight back.
+
+1. Create an account at [fish.audio](https://fish.audio), and create an API key in your account's API (developer) settings. Add credit if your plan needs it.
+2. Pick a voice in Fish's library (or clone your own) and copy its **model id** from the voice's page or URL.
+3. In Railway set:
+
+| Variable | Value |
+| --- | --- |
+| `VAPI_VOICE_PROVIDER` | `fish` |
+| `FISH_API_KEY` | the API key (never commit it) |
+| `FISH_VOICE_ID` | the voice's model id |
+| `FISH_MODEL` | optional; default `s2.1-pro` (Fish also lists `s1`, `s2-pro`, and a free `s2.1-pro-free`) |
+| `FISH_LATENCY` | optional; `low` (default), `balanced` or `normal` |
+
+To go back to a built-in voice, set `VAPI_VOICE_PROVIDER` to `11labs` (or another) again. The Fish keys can stay.
+
+If calls go silent with Fish, check the backend logs for `Fish Audio failed`: HTTP 401 means a wrong key, 402 means no credit. The voice endpoint answers 404 unless `VAPI_VOICE_PROVIDER` is `fish`.
+
+Fish's audio passes through the backend, which adds one network hop per sentence compared with Vapi's own providers. Compare the delay before replies on a real call.
 
 ## Costs
 

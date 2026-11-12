@@ -606,3 +606,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 359 passed (local PostgreSQL 14), 14 of them new with requests shaped like Vapi's: secret required (bearer or `X-Vapi-Secret`), assistant contents, retried request, off, per-caller limit, overrides, booking by yes and repeat, no yes no booking, result ids, unknown call, end report with cost, website call button |
 | Real call through Vapi | Not made yet |
+
+## Fish Audio voice for Vapi calls (2026-11-11)
+
+**Outcome:** with `VAPI_VOICE_PROVIDER=fish`, Vapi calls speak with a Fish Audio voice. The assistant's voice becomes a custom voice pointing at `POST /api/v1/vapi/voice`, which asks Fish for 16-bit mono PCM at Vapi's sample rate and streams it back as it arrives (22.05 kHz is made from 44.1 kHz). Any other value keeps Vapi's built-in providers, so voices can be compared by changing one Railway variable.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 371 passed (local PostgreSQL 14), 12 of them new with a fake Fish stream: custom voice in the assistant, streamed audio at the asked rate, 22.05 kHz from 44.1 kHz, Fish failure is a 502, secret required, hidden unless chosen, missing settings, bad text or rate, samples never split, rate mapping |
+| Real call with Fish | Not made yet |

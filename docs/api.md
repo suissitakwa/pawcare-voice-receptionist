@@ -273,3 +273,7 @@ The server URL for calls answered by Vapi. Every request must carry `VAPI_SECRET
 - Anything else: `{}`.
 
 Phone tools on both providers also include `find_booking`, `prepare_change`, `confirm_change` and `cancel_booking`. See [vapi.md](vapi.md).
+
+### `POST /api/v1/vapi/voice`
+
+Vapi's custom voice, used when `VAPI_VOICE_PROVIDER=fish`. Needs the Vapi secret. Takes `{"message": {"type": "voice-request", "text", "sampleRate"}}` (8000, 16000, 22050, 24000 or 44100) and streams raw 16-bit signed mono little-endian PCM at that rate from Fish Audio. 404 unless Fish is the chosen voice, 400 for empty or over-long text or another rate, 502 if Fish refuses, 503 if the Fish settings are missing.
