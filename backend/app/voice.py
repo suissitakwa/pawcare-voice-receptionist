@@ -207,17 +207,26 @@ MANAGE_TOOLS = [
         "type": "function",
         "name": "prepare_change",
         "description": (
-            "Check a new time, and optionally a new service or dog size, for the booking found "
-            "with find_booking. Changes nothing. Use a starts_at from check_availability."
+            "Check a change to the booking found with find_booking: a new time, service or dog "
+            "size, or a corrected owner or dog name. Pass only what changes. Changes nothing. "
+            "Use a starts_at from check_availability."
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "starts_at": {"type": "string", "description": "ISO start time"},
+                "starts_at": {"type": "string", "description": "ISO start time, if it changes"},
                 "service": {"type": "string", "description": "Service slug, if it changes"},
                 "size": {"type": "string", "description": "Dog size slug, if it changes"},
+                "owner_name": {
+                    "type": "string",
+                    "description": "Corrected owner name, exactly as the caller spelled it",
+                },
+                "pet_name": {
+                    "type": "string",
+                    "description": "Corrected dog name, exactly as the caller spelled it",
+                },
             },
-            "required": ["starts_at"],
+            "required": [],
             "additionalProperties": False,
         },
     },
@@ -378,11 +387,17 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "Offer two times at once, not more.",
         "If the caller interrupts you, stop and answer what they said. If there is a pause, "
         "wait; don't fill silence.",
+        "Names are easy to mishear on a phone line. When the caller gives their name, ask "
+        "them to spell it, and use exactly the letters they spell, not what you first heard. "
+        "Do the same for the dog's name unless it is a common word. When you read the "
+        "details back, spell the owner's name letter by letter so the caller can correct it.",
         "Callers can also change or cancel a booking. Ask for the booking reference and the "
         "phone number or email on the booking, read them back, then call find_booking. To "
         "move it, call check_availability for the new day, offer times, then call "
         "prepare_change, read the new details and ask whether to make the change; call "
-        "confirm_change only on a clear yes. To cancel, read the booking back, ask whether "
+        "confirm_change only on a clear yes. To correct a name on the booking, ask the "
+        "caller to spell it, then call prepare_change with only the corrected name, spell "
+        "it back, and confirm the same way. To cancel, read the booking back, ask whether "
         "to cancel it, and call cancel_booking only on a clear yes. Never say anything was "
         "changed or cancelled unless the tool said so. If find_booking can't find it twice, "
         "offer a callback instead.",

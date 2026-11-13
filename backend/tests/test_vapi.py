@@ -110,6 +110,7 @@ def test_a_call_gets_the_phone_assistant(client: TestClient, vapi, db) -> None:
     assert "confirm_booking" in names and "find_booking" in names
     instructions = model["messages"][0]["content"]
     assert CALLER in instructions and "already greeted" in instructions
+    assert "ask them to spell it" in instructions
     # Tool calls come back to this endpoint, with the secret.
     assert assistant["server"]["url"].endswith(URL)
     assert assistant["server"]["headers"]["Authorization"] == f"Bearer {SECRET}"

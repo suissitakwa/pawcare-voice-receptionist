@@ -34,11 +34,13 @@ class FindArgs(BaseModel):
 
 
 class ChangeArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    starts_at: datetime
+    starts_at: datetime | None = None
     service: str | None = Field(default=None, max_length=64)
     size: str | None = Field(default=None, max_length=32)
+    owner_name: str | None = Field(default=None, min_length=1, max_length=80)
+    pet_name: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 def error(code: str, message: str) -> VoiceToolResult:
@@ -70,6 +72,7 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
         "service": booking_summary["service"],
         "size": booking_summary["size"],
         "pet_name": booking_summary["pet_name"],
+        "owner_name": booking_summary["owner_name"],
         "date": start.date().isoformat(),
         "weekday": f"{start:%A}",
         "time": format_time(start.time()),
@@ -160,22 +163,31 @@ def prepare_change(
     if booking is None or booking.status != "confirmed":
         return find_first()
     args = ChangeArgs.model_validate(raw)
+    if args.starts_at is None and not any(
+        (args.service, args.size, args.owner_name, args.pet_name)
+    ):
+        return error("nothing_to_change", "Ask the caller what they would like to change.")
     current_service, current_size = option_slugs(session, booking)
     service, size, rule = resolve_option(
         session, business.id, args.service or current_service, args.size or current_size
     )
     timezone = ZoneInfo(business.timezone)
-    starts_at = args.starts_at.astimezone(ZoneInfo("UTC"))
-    check_booking_window(business, starts_at.astimezone(timezone).date(), now)
+    starts_at = (args.starts_at or booking.starts_at).astimezone(ZoneInfo("UTC"))
     duration = timedelta(minutes=rule.duration_minutes)
-    if not slot_is_open(session, business, starts_at, duration, now, ignore_booking=booking.id):
-        raise slot_unavailable()
     ends_at = starts_at + duration
+    if starts_at != booking.starts_at or ends_at != booking.ends_at:
+        # Only a new time or a longer service needs the time checked again; a corrected
+        # name keeps the slot the booking already holds.
+        check_booking_window(business, starts_at.astimezone(timezone).date(), now)
+        if not slot_is_open(session, business, starts_at, duration, now, ignore_booking=booking.id):
+            raise slot_unavailable()
+    owner_name = args.owner_name or booking.owner_name
+    pet_name = args.pet_name or booking.pet_name
     summary = BookingSummary(
         service=service.name,
         size=size.label,
-        pet_name=booking.pet_name,
-        owner_name=booking.owner_name,
+        pet_name=pet_name,
+        owner_name=owner_name,
         owner_email=booking.owner_email,
         owner_phone=booking.owner_phone,
         starts_at=starts_at,
@@ -193,6 +205,8 @@ def prepare_change(
         "ends_at": ends_at.isoformat(),
         "occupied_until": (ends_at + timedelta(minutes=business.buffer_minutes)).isoformat(),
         "price_cents": rule.price_cents,
+        "owner_name": owner_name,
+        "pet_name": pet_name,
         "summary": summary,
         "summary_hash": summary_hash(summary),
         "expires_at": (now + CHANGE_LIFETIME).isoformat(),
@@ -236,7 +250,8 @@ def confirm_change(
         return error("booking_unavailable", "That booking can no longer be changed.")
     starts_at = datetime.fromisoformat(pending["starts_at"])
     ends_at = datetime.fromisoformat(pending["ends_at"])
-    if not slot_is_open(
+    moved = starts_at != booking.starts_at or ends_at != booking.ends_at
+    if moved and not slot_is_open(
         session, business, starts_at, ends_at - starts_at, now, ignore_booking=booking.id
     ):
         record.pending_change = None
@@ -249,6 +264,8 @@ def confirm_change(
             booking.ends_at = ends_at
             booking.occupied_until = datetime.fromisoformat(pending["occupied_until"])
             booking.price_cents = pending["price_cents"]
+            booking.owner_name = pending.get("owner_name", booking.owner_name)
+            booking.pet_name = pending.get("pet_name", booking.pet_name)
             booking.summary = pending["summary"]
             booking.changed_at = now
             booking.calendar_dirty = True

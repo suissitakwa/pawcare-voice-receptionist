@@ -106,6 +106,31 @@ def test_a_caller_moves_a_booking_by_saying_yes(db: Session) -> None:
     assert event.payload["data"]["local_start"].startswith("2027-01-05T14:00")
 
 
+def test_a_caller_corrects_a_misheard_name(db: Session) -> None:
+    booking = existing_booking(db)
+    socket = ScriptedSocket(
+        [
+            find(booking.reference),
+            tool_call("prepare_change", {}, "c2"),
+            tool_call("prepare_change", {"owner_name": "Takwa"}, "c3"),
+            tool_call("confirm_change", {"caller_confirmed": True}, "c4"),
+        ]
+    )
+    play(db, socket)
+    _, empty, prepared, changed = outputs(socket)
+    assert empty["error"] == "nothing_to_change"
+    assert prepared["was"]["owner_name"] == "Jordan"
+    assert prepared["new"]["owner_name"] == "Takwa" and prepared["new"]["time"] == "9 AM"
+    assert changed["ok"], changed
+    db.expire_all()
+    fixed = db.get(Booking, booking.id)
+    assert fixed.owner_name == "Takwa" and fixed.summary["owner_name"] == "Takwa"
+    assert fixed.pet_name == "Biscuit" and fixed.starts_at == NINE
+    assert fixed.calendar_dirty
+    [event] = events(db, "booking.changed")
+    assert event.payload["data"]["owner_name"] == "Takwa"
+
+
 def test_a_booking_can_move_into_time_it_already_holds(db: Session) -> None:
     booking = existing_booking(db)
     later = NINE + timedelta(minutes=30)
