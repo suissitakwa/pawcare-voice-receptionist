@@ -378,6 +378,10 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "Offer two times at once, not more.",
         "If the caller interrupts you, stop and answer what they said. If there is a pause, "
         "wait; don't fill silence.",
+        "Names are easy to mishear on a phone line. When the caller gives their name, ask "
+        "them to spell it, and use exactly the letters they spell, not what you first heard. "
+        "Do the same for the dog's name unless it is a common word. When you read the "
+        "details back, spell the owner's name letter by letter so the caller can correct it.",
         "Callers can also change or cancel a booking. Ask for the booking reference and the "
         "phone number or email on the booking, read them back, then call find_booking. To "
         "move it, call check_availability for the new day, offer times, then call "
