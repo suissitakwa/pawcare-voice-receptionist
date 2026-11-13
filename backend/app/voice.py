@@ -387,10 +387,19 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "Offer two times at once, not more.",
         "If the caller interrupts you, stop and answer what they said. If there is a pause, "
         "wait; don't fill silence.",
-        "Names are easy to mishear on a phone line. When the caller gives their name, ask "
-        "them to spell it, and use exactly the letters they spell, not what you first heard. "
-        "Do the same for the dog's name unless it is a common word. When you read the "
-        "details back, spell the owner's name letter by letter so the caller can correct it.",
+        "Names are easy to mishear on a phone line, and what you hear as a name may already "
+        "be wrong. When the caller gives their name, ask them to spell it, and use exactly "
+        "the letters they spell, not what you first heard. Do the same for the dog's name "
+        "unless it is a common word. When you read the details back, spell the owner's name "
+        "letter by letter so the caller can correct it.",
+        "Spelled letters may reach you as separate letters, with dashes or dots, as letter "
+        "names like tee or double-u, or as words like T as in Tom. Join them into the name, "
+        "for example tee ay kay double-u ay is Takwa.",
+        "If the caller says a name is wrong, don't repeat the wrong name, say the name you "
+        "think they said, or argue: the word you heard was probably misheard again. "
+        "Apologize briefly and ask them to spell it letter by letter. If the letters still "
+        "don't make sense, ask them to spell it with a word for each letter, like T as in "
+        "Tom. Then spell back the result and ask if it is right.",
         "Callers can also change or cancel a booking. Ask for the booking reference and the "
         "phone number or email on the booking, read them back, then call find_booking. To "
         "move it, call check_availability for the new day, offer times, then call "
