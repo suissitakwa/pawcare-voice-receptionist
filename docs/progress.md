@@ -562,7 +562,8 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 319 passed, 20 of them new (fake OpenAI and scripted call events). A first full run hung in the existing concurrency test while the machine was overloaded; it passed alone and in the full rerun |
 | Frontend | Node 22: typecheck clean, 62 tests passed, build succeeded |
-| Real phone call | Not made yet; needs the OpenAI webhook, Railway variables and a Twilio number |
+| Production deploy | Readiness reports schema `0010`; the webhook endpoint returned 404 before the secret was set and 400 `invalid_signature` for an unsigned request after |
+| Real phone call | 2026-11-10: a call to the Twilio number was answered by the receptionist and an appointment was booked by spoken confirmation. Answer time and reply times were not measured |
 
 ## Call button on the website (2026-11-10)
 
@@ -576,8 +577,6 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 ## More natural phone calls (2026-11-10)
 
 **Outcome:** phone calls use warmer, more conversational instructions (varied acknowledgements, one question at a time, prices and times as words, two times offered at once) and wait longer before taking their turn (`semantic_vad` eagerness `low` instead of `auto`). `PHONE_VOICE`, `PHONE_MODEL` and `PHONE_VAD_EAGERNESS` let the phone line try another voice or the full model without changing the website assistant. Checks: `ruff check` and `ruff format --check` clean; phone and voice tests 75 passed, 2 of them new (overrides used, website voice unchanged). Whether calls sound more natural has not been judged on a real call yet.
-| Production deploy | Readiness reports schema `0010`; the webhook endpoint returned 404 before the secret was set and 400 `invalid_signature` for an unsigned request after |
-| Real phone call | 2026-11-10: a call to the Twilio number was answered by the receptionist and an appointment was booked by spoken confirmation. Answer time and reply times were not measured |
 
 ## Change or cancel a booking on a phone call (2026-11-10)
 
@@ -587,7 +586,7 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 333 passed, 9 of them new (find with reference and contact, move, move within its own time, refused overlap, no change without a yes, cancel, no guessing, cancelled booking, browser can't use them). Run against a local PostgreSQL 14 because Docker would not start; migrations `0001`–`0011` upgrade and downgrade cleanly there |
-| Real call | Not tried yet |
+| Real call | 2026-11-13, through Vapi: a booking was moved to another day by reference plus caller number and a spoken yes. See "Real calls through Vapi" below |
 
 ## Two-way Google Calendar sync (2026-11-10)
 
@@ -596,7 +595,7 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Check | Result |
 | --- | --- |
 | Backend tests | 345 passed (local PostgreSQL 14), 12 of them new with a fake Google: busy times block slots, short cache, fail closed, create once, delete on cancel, back-off and retry, staff cancel syncs, signed token request verified with the public key, create when missing, already-deleted is fine, free/busy sharing errors, key as JSON or base64 |
-| Real calendar | Not connected yet |
+| Real calendar | Connected 2026-11-11. Busy events in the owner's calendar removed those times from availability, and bookings made, moved and renamed on real calls appeared in the calendar as free events with their reference |
 
 ## Phone calls through Vapi (2026-11-10)
 
@@ -605,4 +604,28 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Check | Result |
 | --- | --- |
 | Backend tests | 359 passed (local PostgreSQL 14), 14 of them new with requests shaped like Vapi's: secret required (bearer or `X-Vapi-Secret`), assistant contents, retried request, off, per-caller limit, overrides, booking by yes and repeat, no yes no booking, result ids, unknown call, end report with cost, website call button |
-| Real call through Vapi | Not made yet |
+| Production deploy | Readiness reports schema `0013`; `POST /api/v1/vapi/events` returned 404 before `VAPI_SECRET` was set and 401 without the secret after |
+| Real call through Vapi | 2026-11-13: see below |
+
+## Real calls through Vapi (2026-11-13)
+
+**Outcome:** the Twilio number now rings Vapi (ElevenLabs voice, Deepgram transcription), and real calls booked, moved and corrected appointments through the backend's tools, each landing in Google Calendar. Two fixes came out of the calls: callers spell names, and callers can correct a name on an existing booking.
+
+| Call | Result |
+| --- | --- |
+| Book | Booked a full groom by spoken yes; the event appeared in Google Calendar under the same reference. The owner's name was misheard by speech-to-text, and the spelled-back name did not catch it |
+| Move | Moved that booking to another day by reference plus caller number; the calendar event moved with it |
+| Correct the name | Not possible at first: `prepare_change` only took time, service and size. After the fix the name was corrected, but only after several tries, because the corrected name was misheard the same way again |
+| Book after both fixes | The assistant asked for the name to be spelled and got it right on the first try |
+
+| Fix | What changed |
+| --- | --- |
+| Spell names | Phone callers are asked to spell their name, and the dog's name unless it is a common word; the assistant uses the spelled letters and spells the owner's name in the read-back |
+| Correct a name | `prepare_change` accepts `owner_name` and `pet_name`, and `starts_at` is optional. A name-only change keeps the booking's slot without checking availability again, still needs a spoken yes, and updates the booking, the calendar event and `booking.changed` |
+| Misheard corrections | When a caller says a name is wrong, the assistant asks for spelling straight away instead of repeating the name, accepts letters in any spoken form, and falls back to a word for each letter |
+
+| Check | Result |
+| --- | --- |
+| Backend | `ruff check` and `ruff format --check` clean; 360 passed (local PostgreSQL 14), 1 of them new (name-only correction keeps time and dog name, marks the calendar for sync, sends the new name to n8n) |
+| Known issue | The name-correction call also moved the booking back to its original time. The server keeps the time when none is passed, so the assistant likely sent the old time with the name; the call's tool arguments have not been checked yet |
+| Not measured | Answer time, reply times and per-call cost for Vapi calls |
