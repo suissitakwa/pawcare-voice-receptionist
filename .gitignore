@@ -17,6 +17,11 @@ dist/
 *.tsbuildinfo
 coverage/
 
+# Agent team private data (leads, outreach, ops notes)
+company/leads.csv
+company/outreach/
+company/ops-log.md
+
 .DS_Store
 .idea/
 .vscode/
