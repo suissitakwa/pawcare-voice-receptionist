@@ -73,6 +73,7 @@ def to_public(staff: StaffUser, business: Business) -> StaffPublic:
         display_name=staff.display_name,
         business_slug=business.slug,
         business_name=business.name,
+        business_is_demo=business.is_demo,
     )
 
 

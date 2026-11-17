@@ -89,7 +89,13 @@ function errorMessage(error: unknown): string {
   return "We couldn't connect to the voice assistant. Please try again, or use the booking form below.";
 }
 
-export default function VoiceAssistant({ deps = browserDeps }: { deps?: RealtimeDeps }) {
+export default function VoiceAssistant({
+  deps = browserDeps,
+  demo = true,
+}: {
+  deps?: RealtimeDeps;
+  demo?: boolean;
+}) {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [mode, setMode] = useState<"test" | "live" | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
@@ -492,7 +498,7 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
                 ["Date", longDate(prepared.summary.local_start.slice(0, 10))],
                 ["Time", `${wallClock(prepared.summary.local_start)} to ${wallClock(prepared.summary.local_end)}`],
                 ["Length", formatDuration(prepared.summary.duration_minutes)],
-                ["Price", `${formatPrice(prepared.summary.price_cents)} (demo price)`],
+                ["Price", `${formatPrice(prepared.summary.price_cents)}${demo ? " (demo price)" : ""}`],
                 ["Name", prepared.summary.owner_name],
                 ["Contact", [prepared.summary.owner_email, prepared.summary.owner_phone].filter(Boolean).join(", ")],
               ] as const
@@ -533,8 +539,8 @@ export default function VoiceAssistant({ deps = browserDeps }: { deps?: Realtime
         </ol>
       )}
       <p className="muted voice-fineprint">
-        The assistant answers from this demo business's details and can book appointments. A
-        booking is made only when you press Confirm. Audio is not recorded. The transcript stays
+        The assistant answers from {demo ? "this demo business's" : "our"} details and can book
+        appointments. A booking is made only when you press Confirm. Audio is not recorded. The transcript stays
         in your browser and disappears when you leave.
       </p>
     </div>
