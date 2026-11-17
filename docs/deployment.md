@@ -83,6 +83,16 @@ The dashboard is at `/staff` on the website. To create the staff account:
 
 The container creates or updates the account on every start. To change the password, generate a new hash and replace the variable. The password itself is never stored in Railway.
 
+### Staff for other businesses
+
+Staff of any other business are created from the command line, against the production database (`DATABASE_URL` set to it):
+
+```bash
+uv run python -m app.staff create <business-slug> <email> "<display name>"
+```
+
+It asks for the password twice and stores only its hash. Running it again for the same email at the same business changes the name and password. These staff sign in through `POST /api/v1/b/<business-slug>/staff/login`; the dashboard's per-business sign-in page comes later.
+
 ## Voice
 
 Voice runs in one of three modes, set by `VOICE_MODE` on the backend:

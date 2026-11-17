@@ -189,6 +189,8 @@ class ReadyStatus(BaseModel):
     schema_revision: str | None = None
 
 
+# A business slug as it appears in an address: lowercase letters, digits and inner hyphens.
+SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PHONE_PATTERN = re.compile(r"^\+?[0-9 ().-]{7,20}$")
 
@@ -276,6 +278,8 @@ class StaffLogin(BaseModel):
 class StaffPublic(BaseModel):
     email: str
     display_name: str
+    business_slug: str
+    business_name: str
 
 
 class StaffLoginResult(BaseModel):

@@ -17,7 +17,7 @@ The public routes (business, services, FAQs, availability, bookings, voice sessi
 - **`/api/v1/b/{business_slug}/...`** serves the business with that slug, for example `/api/v1/b/pawcare-demo/services`. An unknown or malformed slug returns `404 business_not_found`.
 - **`/api/v1/...`** (no slug) serves the deployment's own business, set by `BUSINESS_SLUG`. The demo site uses these. They stay until the frontend moves to slugged addresses.
 
-Everything a request reads or changes belongs to that business. A booking summary, voice session or booking from one business can't be used through another business's address. The receptionist phone number (`assistant_phone`) is still configured per deployment, so it appears only on the deployment's own business. Staff, phone and Vapi routes still serve the deployment's business. See [decision 0010](decisions/0010-multiple-businesses.md).
+Everything a request reads or changes belongs to that business. A booking summary, voice session or booking from one business can't be used through another business's address. The receptionist phone number (`assistant_phone`) is still configured per deployment, so it appears only on the deployment's own business. Staff sign in at their business's address; after that, every staff route serves the signed-in staff member's business. Phone and Vapi routes still serve the deployment's business. See [decision 0010](decisions/0010-multiple-businesses.md).
 
 The endpoints below are written without the slug.
 
@@ -185,9 +185,10 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 
 | Method and path | Purpose |
 |---|---|
-| `POST /api/v1/staff/login` | `{email, password}` returns `token`, `expires_at` (8 hours), and `staff`. Wrong details return `401 invalid_credentials`. Five failures return `429 too_many_attempts` for 15 minutes |
+| `POST /api/v1/b/{business_slug}/staff/login` | Signs in to the named business. `{email, password}` returns `token`, `expires_at` (8 hours), and `staff`. Wrong details, including staff of a different business, return `401 invalid_credentials`. Five failures return `429 too_many_attempts` for 15 minutes. An unknown slug returns `404 business_not_found` |
+| `POST /api/v1/staff/login` | The same, for the deployment's own business (`BUSINESS_SLUG`) |
 | `POST /api/v1/staff/logout` | Revokes the token. `204` |
-| `GET /api/v1/staff/me` | The signed-in staff member |
+| `GET /api/v1/staff/me` | The signed-in staff member: `email`, `display_name`, `business_slug`, `business_name`. The login response's `staff` has the same shape |
 | `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details and `source` (`form` or `voice`). `scope=past` lists finished bookings, most recent first |
 | `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
 | `GET /api/v1/staff/blocks` | Current and future blocked periods |
