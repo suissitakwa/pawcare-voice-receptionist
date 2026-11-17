@@ -91,6 +91,9 @@ def test_a_failed_confirmation_records_no_event(client, db) -> None:
 
 def test_cancelling_records_an_event_once(client, db, staff) -> None:  # noqa: F811
     booking = book(client)
+    # Staff cancel later than the booking was made. With one frozen time the two events tie,
+    # and the database may list them in either order.
+    app.dependency_overrides[get_now] = lambda: NOW + timedelta(minutes=5)
     headers = token_for(client, staff)
     url = f"/api/v1/staff/bookings/{booking['reference']}/cancel"
     assert client.post(url, headers=headers).status_code == 200
