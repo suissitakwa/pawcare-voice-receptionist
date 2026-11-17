@@ -1,4 +1,4 @@
-"""Two-way Google Calendar sync for the business's calendar.
+"""Two-way Google Calendar sync, one calendar per business (see app.integrations).
 
 - **Reading:** busy times in the calendar block booking times, through the free/busy API.
   Events this backend writes are marked "free", so a booking never blocks itself.
@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -25,11 +26,18 @@ from zoneinfo import ZoneInfo
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, true
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.errors import ApiError
+from app.integrations import (
+    CALENDAR,
+    CalendarConfig,
+    IntegrationUnavailable,
+    businesses_with,
+    calendar_config,
+)
 from app.models import Booking, Business
 
 logger = logging.getLogger("pawcare.calendar")
@@ -182,29 +190,47 @@ class GoogleCalendar:
 _clients: dict[tuple[str, str], GoogleCalendar] = {}
 
 
-def calendar_for(settings: Settings) -> GoogleCalendar | None:
-    if not settings.google_calendar_id or not settings.google_service_account_json:
-        return None
-    key = (settings.google_calendar_id, settings.google_service_account_json)
+def client_for(config: CalendarConfig) -> GoogleCalendar:
+    key = (config.calendar_id, config.service_account_json)
     if key not in _clients:
-        account = load_service_account(settings.google_service_account_json)
-        _clients[key] = GoogleCalendar(settings.google_calendar_id, account)
+        account = load_service_account(config.service_account_json)
+        _clients[key] = GoogleCalendar(config.calendar_id, account)
     return _clients[key]
 
 
-# Availability asks this for the calendar; tests replace it.
-current_calendar: Callable[[], GoogleCalendar | None] = lambda: calendar_for(get_settings())  # noqa: E731
+def calendar_of(session: Session, business: Business) -> GoogleCalendar | None:
+    """The business's own calendar client, or None when it has no calendar."""
+    config = calendar_config(session, get_settings(), business.id)
+    return client_for(config) if config is not None else None
+
+
+# Availability asks this for a business's calendar; tests replace it.
+current_calendar: Callable[[Session, Business], GoogleCalendar | None] = calendar_of
 
 _busy_cache: dict[tuple[str, datetime, datetime], tuple[float, list[Busy]]] = {}
 
 
-def busy_between(start: datetime, end: datetime) -> list[Busy]:
-    """Busy times from the business's calendar, or [] when no calendar is connected.
+def calendar_unavailable() -> ApiError:
+    return ApiError(
+        503,
+        "calendar_unavailable",
+        "The calendar can't be checked right now. Please try again shortly.",
+    )
+
+
+def busy_between(
+    session: Session, business: Business, start: datetime, end: datetime
+) -> list[Busy]:
+    """Busy times from the business's calendar, or [] when it has no calendar connected.
 
     If the calendar is connected but can't be read, booking stops rather than risk offering
     a time the owner is busy.
     """
-    calendar = current_calendar()
+    try:
+        calendar = current_calendar(session, business)
+    except (IntegrationUnavailable, ValueError, KeyError) as error:
+        logger.error("Google Calendar settings for %s can't be used: %s", business.slug, error)
+        raise calendar_unavailable() from None
     if calendar is None:
         return []
     key = (calendar.calendar_id, start, end)
@@ -215,11 +241,7 @@ def busy_between(start: datetime, end: datetime) -> list[Busy]:
         busy = calendar.busy(start, end)
     except CalendarError as error:
         logger.error("Could not read Google Calendar busy times: %s", error)
-        raise ApiError(
-            503,
-            "calendar_unavailable",
-            "The calendar can't be checked right now. Please try again shortly.",
-        ) from None
+        raise calendar_unavailable() from None
     _busy_cache[key] = (time.monotonic(), busy)
     return busy
 
@@ -263,11 +285,18 @@ def event_for(booking: Booking, business: Business) -> dict:
     }
 
 
-def sync_due(session: Session, calendar: GoogleCalendar, now: datetime) -> int:
-    """Pushes up to one batch of changed bookings to the calendar. Returns how many synced."""
+def sync_due(
+    session: Session,
+    calendar: GoogleCalendar,
+    now: datetime,
+    business_id: uuid.UUID | None = None,
+) -> int:
+    """Pushes up to one batch of one business's changed bookings to its calendar. Returns how
+    many synced. Without a business id (tests only), every business's bookings."""
     bookings = session.scalars(
         select(Booking)
         .where(
+            Booking.business_id == business_id if business_id is not None else true(),
             Booking.calendar_dirty,
             or_(
                 Booking.calendar_next_attempt_at.is_(None), Booking.calendar_next_attempt_at <= now
@@ -306,16 +335,29 @@ def sync_due(session: Session, calendar: GoogleCalendar, now: datetime) -> int:
     return synced
 
 
+def sync_round(session: Session, settings: Settings, now: datetime) -> int:
+    """One pass over every business with a calendar. Returns how many bookings synced."""
+    synced = 0
+    for business_id in businesses_with(session, settings, CALENDAR):
+        try:
+            config = calendar_config(session, settings, business_id)
+            if config is None:
+                continue
+            calendar = client_for(config)
+        except (IntegrationUnavailable, ValueError, KeyError) as error:
+            logger.warning("Skipping calendar sync for business %s: %s", business_id, error)
+            continue
+        synced += sync_due(session, calendar, now, business_id)
+    return synced
+
+
 async def run_sync_worker(settings: Settings, get_engine, clock) -> None:
-    calendar = calendar_for(settings)
-    if calendar is None:
-        logger.info("Google Calendar is not connected")
-        return
-    logger.info("Google Calendar sync is on")
+    """Syncs every business's calendar every few seconds until cancelled. Calendars connected
+    while the server runs are picked up on the next round."""
 
     def once() -> None:
         with Session(get_engine()) as session:
-            sync_due(session, calendar, clock())
+            sync_round(session, settings, clock())
 
     while True:
         try:

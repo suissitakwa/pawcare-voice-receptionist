@@ -1,4 +1,4 @@
-"""Events for the business's automation webhook, such as an n8n workflow.
+"""Events for each business's automation webhook, such as an n8n workflow.
 
 Events are written to an outbox in the same transaction as the change they describe, so an
 event is never sent for something that did not happen, and never lost because the webhook
@@ -29,6 +29,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.integrations import (
+    WEBHOOK,
+    IntegrationUnavailable,
+    WebhookConfig,
+    businesses_with,
+    webhook_config,
+)
 from app.models import Booking, Business, CallbackRequest, WebhookEvent
 
 logger = logging.getLogger("pawcare.webhooks")
@@ -107,17 +114,46 @@ def callback_data(callback: CallbackRequest) -> dict:
 
 
 def configuration_problem(settings: Settings) -> str | None:
-    """Why the webhook cannot be used, or None when it can."""
-    if not settings.webhook_url:
+    """Why the deployment's webhook settings cannot be used, or None when they can."""
+    return target_problem(settings.webhook_url, settings.webhook_secret)
+
+
+def target_problem(url: str, secret: str) -> str | None:
+    """Why a webhook URL and secret cannot be used, or None when they can."""
+    if not url:
         return "no webhook URL is set"
-    parsed = urlparse(settings.webhook_url)
+    parsed = urlparse(url)
     if parsed.scheme not in ("https", "http") or not parsed.hostname:
         return "the webhook URL is not a web address"
     if parsed.scheme == "http" and parsed.hostname not in LOCAL_HOSTS:
         return "the webhook URL must use https"
-    if len(settings.webhook_secret) < MIN_SECRET_LENGTH:
+    if len(secret) < MIN_SECRET_LENGTH:
         return f"the webhook secret must be at least {MIN_SECRET_LENGTH} characters"
     return None
+
+
+def business_problem(session: Session, settings: Settings, business_id: uuid.UUID) -> str | None:
+    """Why this business's events can't be sent, or None when they can."""
+    try:
+        config = webhook_config(session, settings, business_id)
+    except IntegrationUnavailable as error:
+        return f"the stored webhook settings can't be read: {error}"
+    if config is None:
+        return "no webhook URL is set"
+    return target_problem(config.url, config.secret)
+
+
+def usable_targets(session: Session, settings: Settings) -> dict[uuid.UUID, WebhookConfig]:
+    targets = {}
+    for business_id in businesses_with(session, settings, WEBHOOK):
+        try:
+            config = webhook_config(session, settings, business_id)
+        except IntegrationUnavailable as error:
+            logger.warning("Skipping webhooks for business %s: %s", business_id, error)
+            continue
+        if config is not None and target_problem(config.url, config.secret) is None:
+            targets[business_id] = config
+    return targets
 
 
 def sign(secret: str, timestamp: int, body: bytes) -> str:
@@ -181,23 +217,30 @@ def deliver_due(
         report.expired += 1
     session.commit()
 
-    problem = configuration_problem(settings)
-    if problem is not None:
+    # Each business's events go to its own webhook. Events of a business without one wait
+    # (and expire after a day) without holding up anyone else's.
+    targets = usable_targets(session, settings)
+    if not targets:
         return report
 
     # SKIP LOCKED lets several workers share the outbox without sending an event twice.
     events = session.scalars(
         select(WebhookEvent)
-        .where(pending, WebhookEvent.next_attempt_at <= now)
+        .where(
+            pending,
+            WebhookEvent.next_attempt_at <= now,
+            WebhookEvent.business_id.in_(list(targets)),
+        )
         .order_by(WebhookEvent.created_at)
         .limit(BATCH)
         .with_for_update(skip_locked=True)
     ).all()
     for event in events:
+        target = targets[event.business_id]
         body = json.dumps(event.payload, separators=(",", ":"), sort_keys=True).encode()
         timestamp = int(now.timestamp())
         attempt = send(
-            settings.webhook_url,
+            target.url,
             body,
             {
                 "Content-Type": "application/json",
@@ -205,7 +248,7 @@ def deliver_due(
                 "X-Webhook-Id": str(event.id),
                 "X-Webhook-Event": event.event_type,
                 "X-Webhook-Timestamp": str(timestamp),
-                "X-Webhook-Signature": sign(settings.webhook_secret, timestamp, body),
+                "X-Webhook-Signature": sign(target.secret, timestamp, body),
             },
         )
         event.attempts += 1
@@ -230,7 +273,7 @@ async def run_worker(settings: Settings, get_engine, clock) -> None:
     """Delivers events every few seconds until cancelled."""
     problem = configuration_problem(settings)
     if problem is not None:
-        logger.info("Webhook delivery is off: %s. Events are kept for 30 days.", problem)
+        logger.info("No webhook in the environment: %s. Stored webhooks still work.", problem)
 
     def once() -> None:
         with Session(get_engine()) as session:

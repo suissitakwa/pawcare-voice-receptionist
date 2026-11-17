@@ -638,3 +638,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 401 passed (local PostgreSQL 14), 19 of them new: number formats, reading the dialed number from the SIP `To` header and from Vapi's phone number, registering once and refusing a number owned elsewhere, routing with and without registered numbers, OpenAI and Vapi calls answered for the dialed business, unregistered numbers declined (OpenAI rejects with 603), Vapi tool calls use the call's business catalog, each site's own number. Migrations `0001`–`0014` upgrade and downgrade cleanly |
 | Real call to a second number | Not made yet. The `To` header and Vapi's `phoneNumber` field are where the dialed number is expected; neither has been checked on a live call |
 | Live | Not deployed |
+
+## Calendars and webhooks for each business (2026-11-17)
+
+**Outcome:** each business has its own Google Calendar and automation webhook. Before this, the calendar sync wrote every business's bookings to the one configured calendar, read that calendar's busy times for every business, and sent every business's events to the one webhook. Harmless with one business, a leak with two. Migration `0015` adds `business_integrations`, with each secret (calendar key, webhook secret) encrypted by `INTEGRATIONS_KEY` (Fernet). `python -m app.integrations set-calendar|set-webhook|show|remove|generate-key` manages them. The `GOOGLE_*` and `WEBHOOK_*` settings still serve `BUSINESS_SLUG` when it has nothing stored, so production is unchanged. The sync and delivery workers now run per business and pick up connections made while the server runs. A business without a webhook keeps its events waiting without holding up anyone else's. If stored calendar settings can't be read, booking stops for that business only (`calendar_unavailable`). The staff webhook status is per business. PR 4 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 415 passed (local PostgreSQL 14), 14 of them new: secrets stored encrypted and read back, key required and must match, bad webhooks and calendar keys refused, environment settings only for the deployment's business and overridden by stored ones, each business's events to its own URL with its own signature, a business without a webhook neither sent nor blocking, bookings synced to their own calendar only, no sync without a calendar, busy times only for their own business, unreadable settings stop that business only. Existing calendar and webhook tests unchanged apart from the calendar stub's arguments. Migrations `0001`–`0015` upgrade and downgrade cleanly |
+| Real calendar or webhook for a second business | Not connected yet |
+| Live | Not deployed |

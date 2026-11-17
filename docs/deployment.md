@@ -135,6 +135,8 @@ To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's
 
 To sync with the owner's Google Calendar both ways, set `GOOGLE_CALENDAR_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` (a service account key the calendar is shared with). Full guide: [calendar.md](calendar.md).
 
+Other businesses get their own calendar and webhook from the command line, stored encrypted with `INTEGRATIONS_KEY` (generate it with `uv run python -m app.integrations generate-key` and keep a copy). See [calendar.md](calendar.md#several-businesses) and [automations.md](automations.md#several-businesses).
+
 ## Phone calls through Vapi
 
 To answer the number with Vapi instead, set `VAPI_SECRET` and `VAPI_ENABLED=true`, import the Twilio number into Vapi, and point it at `/api/v1/vapi/events` with a bearer credential holding the secret. Full guide: [vapi.md](vapi.md).

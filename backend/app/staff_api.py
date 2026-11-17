@@ -42,7 +42,7 @@ from app.schemas import (
     WebhookTestQueued,
 )
 from app.staff import StaffContext, authenticate, sign_in
-from app.webhooks import booking_data, configuration_problem, enqueue
+from app.webhooks import booking_data, business_problem, enqueue
 
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 
@@ -407,7 +407,7 @@ def webhook_status(
         .order_by(WebhookEvent.created_at.desc())
         .limit(1)
     ).scalar_one_or_none()
-    problem = configuration_problem(settings)
+    problem = business_problem(db, settings, business_id)
     return WebhookStatus(
         configured=problem is None,
         problem=problem,
