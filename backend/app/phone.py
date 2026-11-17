@@ -35,6 +35,7 @@ from app.voice import (
     local_day_start,
     phone_tools,
     sha256,
+    tool_catalog,
 )
 from app.voice_tools import run_tool, tool_error
 
@@ -102,12 +103,12 @@ def call_token(call_id: str) -> str:
     return f"call:{call_id}"
 
 
-def accept_body(settings: Settings, instructions: str) -> dict:
+def accept_body(settings: Settings, instructions: str, tools: list[dict] | None = None) -> dict:
     return {
         "type": "realtime",
         "model": settings.phone_model_name,
         "instructions": instructions,
-        "tools": phone_tools(),
+        "tools": tools if tools is not None else phone_tools(),
         "tool_choice": "auto",
         "audio": {
             "input": {
@@ -260,7 +261,8 @@ def handle_incoming(
     session.flush()
     instructions = build_instructions(session, business, today, "phone", number)
     try:
-        calls.accept(call_id, accept_body(settings, instructions))
+        tools = phone_tools(tool_catalog(session, business.id))
+        calls.accept(call_id, accept_body(settings, instructions, tools))
     except CallControlError as error:
         logger.error("Accepting a call failed: %s", error)
         record.status = "ended"

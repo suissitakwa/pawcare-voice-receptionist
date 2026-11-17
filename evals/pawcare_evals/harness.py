@@ -28,7 +28,7 @@ from app.models import (
     SizeCategory,
     VoiceSession,
 )
-from app.voice import TOOLS, build_instructions, sha256
+from app.voice import browser_tools, build_instructions, sha256, tool_catalog
 from app.voice_tools import run_tool
 from pawcare_evals.model import ProviderRejected
 
@@ -177,7 +177,8 @@ async def run_scenario(session: Session, model, scenario: dict, now: datetime) -
         record.error = "too many tool rounds"
 
     try:
-        await model.connect(build_instructions(session, business, now.date()), TOOLS)
+        tools = browser_tools(tool_catalog(session, business.id))
+        await model.connect(build_instructions(session, business, now.date()), tools)
         for turn in scenario["turns"]:
             if "caller" in turn:
                 record.add("caller", text=turn["caller"])

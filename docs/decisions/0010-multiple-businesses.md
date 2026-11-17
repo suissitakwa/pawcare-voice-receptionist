@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–4 done.
+Status: accepted. PRs 1–4 done; plan re-ordered for a first pilot.
 
 ## Context
 
@@ -37,14 +37,26 @@ Not chosen: one deployment per customer (simple but every fix ships N times, the
 
 ## Plan, one PR each
 
-1. **Request-scoped business.** `CurrentBusiness` dependency from the path slug, `/api/v1/b/{slug}/...` routes, old routes as demo aliases. Second business in test fixtures and cross-business tests for public routes.
-2. **Staff per business.** Slug-scoped login; `manage.py create-staff <slug> <email>`; cross-business tests for all staff routes.
-3. **Phone routing.** `business_phone_numbers` table, routing by dialed number for OpenAI SIP and Vapi. Instead of seeding the demo number, an unregistered `PHONE_NUMBER`, an unreadable dialed number, or a deployment with no registered numbers still reaches `BUSINESS_SLUG`, so production keeps working with no data change.
+Done:
+
+1. **Request-scoped business.** `/api/v1/b/{slug}/...` routes, old routes as demo aliases. Second business in test fixtures and cross-business tests for public routes.
+2. **Staff per business.** Slug-scoped login; `python -m app.staff create <slug> <email>`; cross-business tests for staff routes.
+3. **Phone routing.** `business_phone_numbers` table, routing by dialed number for OpenAI SIP and Vapi. An unregistered `PHONE_NUMBER`, an unreadable dialed number, or a deployment with no registered numbers still reaches `BUSINESS_SLUG`, so production keeps working with no data change.
 4. **Per-business integrations.** `business_integrations` with encrypted secrets; Google Calendar and webhooks read from it; the sync and webhook workers loop over businesses. The `GOOGLE_*` and `WEBHOOK_*` settings keep serving `BUSINESS_SLUG` when it has nothing stored.
-5. **Per-business limits.** Count voice and phone usage per business.
-6. **Provisioning.** Link profiles to businesses, `manage.py provision`.
-7. **Frontend.** Business site at `/b/{slug}`, staff dashboard login per business; demo stays at `/`.
-8. **Several staff calendars.** Replace `active_groomer_id` with "any qualified staff member" or a requested one. Needed before hair salons.
+
+Next, re-ordered on 2026-11-17 to reach a first real pilot (one solo pet groomer) as soon as possible:
+
+5. **Voice tools from each business's catalog.** The assistant's tool definitions listed the demo's three service slugs, so no other business's services could be booked by voice. Build them from the business's own services and sizes.
+6. **Create a business from a file.** `python -m app.businesses load <file.json>`: name, hours, services, prices, FAQs, using the seed format, with `is_demo` false.
+7. **Frontend per business.** Booking site at `/b/{slug}`, staff dashboard sign-in per business; demo stays at `/`. Real businesses don't show the "fictional business" notice.
+8. **Per-business limits.** Count browser voice usage per business, keep a server-wide ceiling on cost.
+
+Then a real test call to a second number and a connected second calendar, and the pilot.
+
+After the pilot:
+
+9. **Provisioning from subscriber profiles.** Link `business_profiles` to businesses.
+10. **Several staff calendars.** Replace `active_groomer_id` with "any qualified staff member" or a requested one. Needed before multi-groomer shops and hair salons.
 
 Each PR keeps the demo working and the evals green.
 
