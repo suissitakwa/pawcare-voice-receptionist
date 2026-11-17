@@ -10,6 +10,17 @@ Application errors share one shape. Clients branch on `code`, and `message` is s
 { "error": { "code": "database_unavailable", "message": "The service is temporarily unavailable." } }
 ```
 
+## Choosing the business
+
+The public routes (business, services, FAQs, availability, bookings, voice sessions) are served at two addresses:
+
+- **`/api/v1/b/{business_slug}/...`** serves the business with that slug, for example `/api/v1/b/pawcare-demo/services`. An unknown or malformed slug returns `404 business_not_found`.
+- **`/api/v1/...`** (no slug) serves the deployment's own business, set by `BUSINESS_SLUG`. The demo site uses these. They stay until the frontend moves to slugged addresses.
+
+Everything a request reads or changes belongs to that business. A booking summary, voice session or booking from one business can't be used through another business's address. The receptionist phone number (`assistant_phone`) is still configured per deployment, so it appears only on the deployment's own business. Staff, phone and Vapi routes still serve the deployment's business. See [decision 0010](decisions/0010-multiple-businesses.md).
+
+The endpoints below are written without the slug.
+
 ## Endpoints
 
 ### `GET /health`

@@ -25,8 +25,13 @@ from app.schemas import BusinessSeed
 SEED_FILE = Path(__file__).parent / "seed_data" / "demo_business.json"
 
 
-def seed_business(session: Session) -> None:
-    seed = BusinessSeed.model_validate(json.loads(SEED_FILE.read_text()))
+def load_seed() -> BusinessSeed:
+    return BusinessSeed.model_validate(json.loads(SEED_FILE.read_text()))
+
+
+def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UUID:
+    """Upserts one business by slug. Defaults to the demo business."""
+    seed = seed or load_seed()
     profile = seed.model_dump(exclude={"hours", "groomers", "size_categories", "services", "faqs"})
     updates = {key: value for key, value in profile.items() if key != "slug"}
     business_id = session.scalar(
@@ -108,6 +113,7 @@ def seed_business(session: Session) -> None:
         .values(is_active=False)
     )
     session.flush()
+    return business_id
 
 
 def _upsert(
