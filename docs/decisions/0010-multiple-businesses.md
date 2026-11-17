@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PR 1 done.
+Status: accepted. PRs 1–2 done.
 
 ## Context
 

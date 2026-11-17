@@ -9,7 +9,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.main import app, get_now
-from app.models import BlockedPeriod, Business, StaffSession, StaffUser
+from app.models import BlockedPeriod, Business, CallbackRequest, StaffSession, StaffUser
+from app.staff import upsert_staff
 from tests.factories import make_booking
 
 LA = ZoneInfo("America/Los_Angeles")
@@ -76,20 +77,13 @@ def login(client: TestClient, email: str = "maya@pawcare.example", password: str
     return client.post(f"{STAFF}/login", json={"email": email, "password": password})
 
 
-def token_for(client: TestClient, staff_user: StaffUser) -> dict:
-    session_token = None
-    # Other businesses sign in through their own deployment, so create the session directly.
-    if staff_user.email != "maya@pawcare.example":
-        from app.db import get_engine
-        from app.staff import sign_in
+def login_at(client: TestClient, slug: str, email: str, password: str = PASSWORD):
+    return client.post(f"/api/v1/b/{slug}/staff/login", json={"email": email, "password": password})
 
-        with Session(get_engine()) as session:
-            session_token, _, _ = sign_in(
-                session, staff_user.business_id, staff_user.email, PASSWORD, NOW
-            )
-            session.commit()
-    else:
-        session_token = login(client).json()["token"]
+
+def token_for(client: TestClient, staff_user: StaffUser) -> dict:
+    slug = "pawcare-demo" if staff_user.email == "maya@pawcare.example" else "other-salon"
+    session_token = login_at(client, slug, staff_user.email).json()["token"]
     return {"Authorization": f"Bearer {session_token}"}
 
 
@@ -100,7 +94,12 @@ def test_login_returns_a_token_that_is_stored_only_as_a_hash(client, db, staff) 
     response = login(client)
     assert response.status_code == 200
     body = response.json()
-    assert body["staff"] == {"email": "maya@pawcare.example", "display_name": "Maya"}
+    assert body["staff"] == {
+        "email": "maya@pawcare.example",
+        "display_name": "Maya",
+        "business_slug": "pawcare-demo",
+        "business_name": "PawCare Grooming Studio",
+    }
     assert "password" not in response.text
     db.expire_all()
     stored = db.scalar(select(StaffSession.token_hash))
@@ -319,6 +318,96 @@ def test_staff_cannot_see_or_change_another_business(client, db, staff, other_bu
     db.expire_all()
     assert db.get(BlockedPeriod, block_id) is not None
     assert client.get(f"{STAFF}/bookings", headers=own).json()[0]["status"] == "confirmed"
+
+
+def test_staff_sign_in_to_their_own_business_by_address(client, staff, other_business_staff):
+    response = login_at(client, "other-salon", "owner@other.example")
+    assert response.status_code == 200
+    headers = {"Authorization": f"Bearer {response.json()['token']}"}
+    me = client.get(f"{STAFF}/me", headers=headers).json()
+    assert me["business_slug"] == "other-salon"
+    assert me["business_name"] == "Other Salon"
+
+
+def test_staff_cannot_sign_in_through_another_business(client, staff, other_business_staff):
+    wrong_door = login_at(client, "other-salon", "maya@pawcare.example")
+    assert wrong_door.status_code == 401
+    assert wrong_door.json()["error"]["code"] == "invalid_credentials"
+    # The unprefixed login is the deployment's own business only.
+    assert login(client, "owner@other.example").status_code == 401
+
+
+def test_same_email_at_two_businesses_signs_in_to_the_one_named(
+    client, db, staff, other_business_staff
+) -> None:
+    db.add(
+        StaffUser(
+            business_id=other_business_staff.business_id,
+            email="maya@pawcare.example",
+            display_name="Maya at Other",
+            password_hash=hasher.hash("a-different-password"),
+        )
+    )
+    db.commit()
+
+    at_other = login_at(client, "other-salon", "maya@pawcare.example", "a-different-password")
+    assert at_other.json()["staff"]["business_slug"] == "other-salon"
+    assert login_at(client, "other-salon", "maya@pawcare.example").status_code == 401
+    at_demo = login_at(client, "pawcare-demo", "maya@pawcare.example")
+    assert at_demo.json()["staff"]["business_slug"] == "pawcare-demo"
+
+
+def test_unknown_business_login_is_404(client) -> None:
+    response = login_at(client, "no-such-business", "maya@pawcare.example")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "business_not_found"
+
+
+def test_callbacks_and_metrics_stay_with_their_business(
+    client, db, staff, other_business_staff
+) -> None:
+    make_booking(db, datetime(2027, 1, 5, 10, 0, tzinfo=LA))
+    db.add(
+        CallbackRequest(
+            business_id=staff.business_id, name="Sam", phone="(323) 555-0101", reason="other"
+        )
+    )
+    db.commit()
+    own, other = token_for(client, staff), token_for(client, other_business_staff)
+
+    assert len(client.get(f"{STAFF}/callbacks", headers=own).json()) == 1
+    assert client.get(f"{STAFF}/callbacks", headers=other).json() == []
+    callback_id = client.get(f"{STAFF}/callbacks", headers=own).json()[0]["id"]
+    done = client.post(f"{STAFF}/callbacks/{callback_id}/done", headers=other)
+    assert done.status_code == 404
+    assert client.get(f"{STAFF}/metrics", headers=own).json()["upcoming_bookings"] == 1
+    assert client.get(f"{STAFF}/metrics", headers=other).json()["upcoming_bookings"] == 0
+
+
+# Staff accounts from the command line
+
+
+def test_upsert_staff_creates_an_account_at_the_named_business(db, other_business_staff):
+    upsert_staff(db, "other-salon", " New@Other.Example ", "New", hasher.hash(PASSWORD))
+    db.commit()
+    created = db.scalar(select(StaffUser).where(StaffUser.email == "new@other.example"))
+    assert created.business_id == other_business_staff.business_id
+    assert created.display_name == "New"
+
+
+def test_upsert_staff_updates_an_existing_account(db, staff) -> None:
+    upsert_staff(db, "pawcare-demo", "maya@pawcare.example", "Maya R.", hasher.hash("x" * 12))
+    db.commit()
+    db.expire_all()
+    assert db.get(StaffUser, staff.id).display_name == "Maya R."
+
+
+@pytest.mark.parametrize(
+    "slug, password_hash", [("no-such-business", None), ("pawcare-demo", "plain-text")]
+)
+def test_upsert_staff_rejects_unknown_business_or_unhashed_password(db, slug, password_hash):
+    with pytest.raises(ValueError):
+        upsert_staff(db, slug, "x@example.com", "X", password_hash or hasher.hash(PASSWORD))
 
 
 # Metrics

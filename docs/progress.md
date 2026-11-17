@@ -616,3 +616,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 373 passed (local PostgreSQL 14), 13 of them new with a second business in the same database: same answer with and without the slug, each business's own catalog and FAQs, unknown and malformed slugs, phone number only on the deployment's business, booking through a slug, a summary from one business can't be confirmed at another, a booking at one leaves the other's slot open, voice sessions tied to their business and unusable through another |
 | Live | Not deployed |
+
+## Staff for any business (2026-11-17)
+
+**Outcome:** staff sign in to a named business at `POST /api/v1/b/{business_slug}/staff/login`, so the same email can work at two businesses with different passwords. The unprefixed login still serves the deployment's own business. `staff` in the login response and `/staff/me` now include `business_slug` and `business_name`. `python -m app.staff create <slug> <email> [name]` creates or updates a staff account at any business. PR 2 of [decision 0010](decisions/0010-multiple-businesses.md). The dashboard still signs in to the deployment's business only.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 382 passed (local PostgreSQL 14), 9 of them new: sign in by address, no sign-in through another business's address or the unprefixed login, same email at two businesses, unknown business, callbacks and metrics stay with their business, create and update staff by slug, unknown business and unhashed password refused. Existing staff tests now sign in through the slugged route |
+| Frontend | Unchanged; the extra `staff` fields are ignored |
+| Live | Not deployed |

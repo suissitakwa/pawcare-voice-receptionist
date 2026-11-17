@@ -7,6 +7,7 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, Response
+from fastapi import Path as PathParam
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
@@ -22,10 +23,12 @@ from app.models import (
     Groomer,
     Service,
     SizeCategory,
+    StaffUser,
     VoiceSession,
     WebhookEvent,
 )
 from app.schemas import (
+    SLUG_PATTERN,
     BlockCreated,
     BlockRequest,
     StaffBlock,
@@ -64,8 +67,13 @@ def business_timezone(db: Session, business_id: uuid.UUID) -> ZoneInfo:
     return ZoneInfo(db.scalar(select(Business.timezone).where(Business.id == business_id)))
 
 
-def to_public(context_staff) -> StaffPublic:
-    return StaffPublic(email=context_staff.email, display_name=context_staff.display_name)
+def to_public(staff: StaffUser, business: Business) -> StaffPublic:
+    return StaffPublic(
+        email=staff.email,
+        display_name=staff.display_name,
+        business_slug=business.slug,
+        business_name=business.name,
+    )
 
 
 def booking_rows(db: Session, business_id: uuid.UUID, *conditions, order, limit: int = 200):
@@ -112,6 +120,16 @@ def to_staff_block(block: BlockedPeriod, timezone: ZoneInfo) -> StaffBlock:
     )
 
 
+def sign_in_at(
+    db: Session, business: Business, request: StaffLogin, now: datetime
+) -> StaffLoginResult:
+    token, staff_session, staff = sign_in(db, business.id, request.email, request.password, now)
+    db.commit()
+    return StaffLoginResult(
+        token=token, expires_at=staff_session.expires_at, staff=to_public(staff, business)
+    )
+
+
 @router.post("/login", response_model=StaffLoginResult)
 def login(
     request: StaffLogin,
@@ -119,14 +137,29 @@ def login(
     now: Now,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> StaffLoginResult:
-    business_id = db.scalar(select(Business.id).where(Business.slug == settings.business_slug))
-    if business_id is None:
+    """Signs in to the deployment's own business (BUSINESS_SLUG)."""
+    business = db.scalar(select(Business).where(Business.slug == settings.business_slug))
+    if business is None:
         raise ApiError(404, "business_not_configured", "Business details have not been set up.")
-    token, staff_session, staff = sign_in(db, business_id, request.email, request.password, now)
-    db.commit()
-    return StaffLoginResult(
-        token=token, expires_at=staff_session.expires_at, staff=to_public(staff)
-    )
+    return sign_in_at(db, business, request, now)
+
+
+# The same email can work at two businesses, so signing in names the business.
+business_router = APIRouter(prefix="/api/v1/b/{business_slug}/staff", tags=["staff"])
+
+
+@business_router.post("/login", response_model=StaffLoginResult)
+def login_to_business(
+    business_slug: Annotated[str, PathParam(min_length=1, max_length=64, pattern=SLUG_PATTERN)],
+    request: StaffLogin,
+    db: DbSession,
+    now: Now,
+) -> StaffLoginResult:
+    """Signs in to the business named in the address."""
+    business = db.scalar(select(Business).where(Business.slug == business_slug))
+    if business is None:
+        raise ApiError(404, "business_not_found", "No business was found at this address.")
+    return sign_in_at(db, business, request, now)
 
 
 @router.post("/logout", status_code=204)
@@ -137,8 +170,8 @@ def logout(context: Staff, db: DbSession, now: Now) -> Response:
 
 
 @router.get("/me", response_model=StaffPublic)
-def me(context: Staff) -> StaffPublic:
-    return to_public(context.staff)
+def me(context: Staff, db: DbSession) -> StaffPublic:
+    return to_public(context.staff, db.get(Business, context.staff.business_id))
 
 
 @router.get("/bookings", response_model=list[StaffBooking])

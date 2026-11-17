@@ -38,6 +38,7 @@ from app.phone import answer_problem
 from app.phone_api import router as phone_router
 from app.phone_api import stop_running_calls
 from app.schemas import (
+    SLUG_PATTERN,
     AvailabilityPublic,
     BookingConfirmation,
     BusinessPublic,
@@ -57,6 +58,7 @@ from app.schemas import (
     VoiceToolRequest,
     VoiceToolResult,
 )
+from app.staff_api import business_router as business_staff_router
 from app.staff_api import router as staff_router
 from app.subscriber_api import router as subscriber_router
 from app.vapi_api import router as vapi_router
@@ -174,8 +176,6 @@ def readiness(db: DbSession) -> ReadyStatus | JSONResponse:
 # Public routes are served twice: under /api/v1/b/{business_slug} for any business, and under
 # /api/v1 for the deployment's own business (BUSINESS_SLUG), which the demo site still uses.
 public = APIRouter()
-
-SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
 
 
 def business_slug_param(
@@ -409,6 +409,7 @@ app.include_router(
     public, prefix="/api/v1/b/{business_slug}", dependencies=[Depends(business_slug_param)]
 )
 app.include_router(staff_router)
+app.include_router(business_staff_router)
 app.include_router(subscriber_router)
 app.include_router(phone_router)
 app.include_router(vapi_router)

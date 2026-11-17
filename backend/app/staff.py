@@ -3,6 +3,9 @@
 Usage:
   python -m app.staff hash        prompt for a password and print its Argon2 hash
   python -m app.staff bootstrap   create or update the staff account from settings
+  python -m app.staff create <business-slug> <email> [display name]
+                                  prompt for a password, then create or update that
+                                  business's staff account
 """
 
 import hashlib
@@ -104,43 +107,69 @@ def authenticate(session: Session, token: str, now: datetime) -> StaffContext:
     return StaffContext(staff=found[1], session=found[0])
 
 
+def upsert_staff(
+    session: Session, business_slug: str, email: str, display_name: str, password_hash: str
+) -> None:
+    """Creates a staff account at one business, or updates its name and password."""
+    if not password_hash.startswith("$argon2"):
+        raise ValueError("The password hash must be an Argon2 hash from `app.staff hash`.")
+    business_id = session.scalar(select(Business.id).where(Business.slug == business_slug))
+    if business_id is None:
+        raise ValueError(f"No business with slug {business_slug}. Seed it first.")
+    values = {"display_name": display_name, "password_hash": password_hash}
+    session.execute(
+        insert(StaffUser)
+        .values(business_id=business_id, email=email.strip().lower(), **values)
+        .on_conflict_do_update(constraint="uq_staff_users_business_email", set_=values)
+    )
+
+
 def bootstrap_staff(session: Session) -> bool:
     """Creates or updates the configured staff account. Returns whether one is configured."""
     settings = get_settings()
     if not settings.staff_email or not settings.staff_password_hash:
         return False
-    if not settings.staff_password_hash.startswith("$argon2"):
-        raise ValueError("STAFF_PASSWORD_HASH must be an Argon2 hash from `app.staff hash`.")
-    business_id = session.scalar(select(Business.id).where(Business.slug == settings.business_slug))
-    if business_id is None:
-        raise ValueError(f"No business with slug {settings.business_slug}. Seed it first.")
-    values = {
-        "display_name": settings.staff_display_name,
-        "password_hash": settings.staff_password_hash,
-    }
-    session.execute(
-        insert(StaffUser)
-        .values(business_id=business_id, email=settings.staff_email.strip().lower(), **values)
-        .on_conflict_do_update(constraint="uq_staff_users_business_email", set_=values)
+    upsert_staff(
+        session,
+        settings.business_slug,
+        settings.staff_email,
+        settings.staff_display_name,
+        settings.staff_password_hash,
     )
     return True
+
+
+def prompt_password() -> str:
+    password = getpass("New staff password: ")
+    if len(password) < MIN_PASSWORD_LENGTH:
+        sys.exit(f"Use at least {MIN_PASSWORD_LENGTH} characters.")
+    if getpass("Repeat it: ") != password:
+        sys.exit("The passwords do not match.")
+    return password
 
 
 def main() -> None:
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "hash":
-        password = getpass("New staff password: ")
-        if len(password) < MIN_PASSWORD_LENGTH:
-            sys.exit(f"Use at least {MIN_PASSWORD_LENGTH} characters.")
-        if getpass("Repeat it: ") != password:
-            sys.exit("The passwords do not match.")
-        print(hasher.hash(password))
+        print(hasher.hash(prompt_password()))
     elif command == "bootstrap":
         from app.db import get_engine
 
         with Session(get_engine()) as session, session.begin():
             configured = bootstrap_staff(session)
         print("Staff account updated." if configured else "No staff account configured.")
+    elif command == "create" and len(sys.argv) in (4, 5):
+        from app.db import get_engine
+
+        slug, email = sys.argv[2], sys.argv[3]
+        display_name = sys.argv[4] if len(sys.argv) == 5 else "Staff"
+        password_hash = hasher.hash(prompt_password())
+        try:
+            with Session(get_engine()) as session, session.begin():
+                upsert_staff(session, slug, email, display_name, password_hash)
+        except ValueError as exc:
+            sys.exit(str(exc))
+        print(f"Staff account {email.strip().lower()} saved for {slug}.")
     else:
         sys.exit(__doc__)
 
