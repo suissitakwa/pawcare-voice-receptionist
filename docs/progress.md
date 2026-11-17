@@ -606,3 +606,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 359 passed (local PostgreSQL 14), 14 of them new with requests shaped like Vapi's: secret required (bearer or `X-Vapi-Secret`), assistant contents, retried request, off, per-caller limit, overrides, booking by yes and repeat, no yes no booking, result ids, unknown call, end report with cost, website call button |
 | Real call through Vapi | Not made yet |
+
+## Public routes for any business (2026-11-17)
+
+**Outcome:** the public routes are now also served at `/api/v1/b/{business_slug}/...`, so one deployment can serve several businesses' sites, bookings and browser voice. The unprefixed `/api/v1/...` routes still serve the deployment's own business for the demo site. The receptionist phone number appears only on the deployment's own business. This is PR 1 of [decision 0010](decisions/0010-multiple-businesses.md). Staff login, phone calls and integrations are still one business per deployment.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 373 passed (local PostgreSQL 14), 13 of them new with a second business in the same database: same answer with and without the slug, each business's own catalog and FAQs, unknown and malformed slugs, phone number only on the deployment's business, booking through a slug, a summary from one business can't be confirmed at another, a booking at one leaves the other's slot open, voice sessions tied to their business and unusable through another |
+| Live | Not deployed |

@@ -10,7 +10,8 @@ from typing import Annotated
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from fastapi import Depends, FastAPI, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
+from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -170,31 +171,56 @@ def readiness(db: DbSession) -> ReadyStatus | JSONResponse:
     return ReadyStatus(status="ready", database="ok", schema_revision=revision)
 
 
-def current_business_id(db: DbSession, settings: AppSettings) -> uuid.UUID:
-    business_id = db.scalar(select(Business.id).where(Business.slug == settings.business_slug))
-    if business_id is None:
-        raise BusinessNotConfigured
-    return business_id
+# Public routes are served twice: under /api/v1/b/{business_slug} for any business, and under
+# /api/v1 for the deployment's own business (BUSINESS_SLUG), which the demo site still uses.
+public = APIRouter()
+
+SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+
+
+def business_slug_param(
+    business_slug: Annotated[str, PathParam(min_length=1, max_length=64, pattern=SLUG_PATTERN)],
+) -> str:
+    """Validates and documents the slug in the address."""
+    return business_slug
+
+
+def current_business_id(request: Request, db: DbSession, settings: AppSettings) -> uuid.UUID:
+    """The business named in the address, or the deployment's own business without one."""
+    slug = request.path_params.get("business_slug")
+    business_id = db.scalar(
+        select(Business.id).where(Business.slug == (slug or settings.business_slug))
+    )
+    if business_id is not None:
+        return business_id
+    if slug is not None:
+        raise ApiError(404, "business_not_found", "No business was found at this address.")
+    raise BusinessNotConfigured
 
 
 CurrentBusinessId = Annotated[uuid.UUID, Depends(current_business_id)]
 
 
-@app.get("/api/v1/business", response_model=BusinessPublic, tags=["business"])
+@public.get("/business", response_model=BusinessPublic, tags=["business"])
 def get_business(
     db: DbSession, business_id: CurrentBusinessId, settings: AppSettings
 ) -> BusinessPublic:
-    """Public profile of the business this deployment serves, chosen by the server."""
+    """Public profile of the business named in the address."""
     business = db.scalar(
         select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
     )
     profile = BusinessPublic.model_validate(business)
-    if settings.phone_number and (settings.vapi_enabled or answer_problem(settings) is None):
+    # The phone line is still configured per deployment, so only its own business shows it.
+    if (
+        business.slug == settings.business_slug
+        and settings.phone_number
+        and (settings.vapi_enabled or answer_problem(settings) is None)
+    ):
         profile.assistant_phone = settings.phone_number
     return profile
 
 
-@app.get("/api/v1/services", response_model=CatalogPublic, tags=["business"])
+@public.get("/services", response_model=CatalogPublic, tags=["business"])
 def list_services(db: DbSession, business_id: CurrentBusinessId) -> CatalogPublic:
     """Active services with duration and indicative price for each eligible size."""
     sizes = db.scalars(
@@ -234,7 +260,7 @@ def list_services(db: DbSession, business_id: CurrentBusinessId) -> CatalogPubli
     )
 
 
-@app.get("/api/v1/faqs", response_model=list[FaqPublic], tags=["business"])
+@public.get("/faqs", response_model=list[FaqPublic], tags=["business"])
 def list_faqs(db: DbSession, business_id: CurrentBusinessId) -> Sequence[Faq]:
     """Approved questions and answers. Nothing outside this list is an approved answer."""
     return db.scalars(
@@ -242,7 +268,7 @@ def list_faqs(db: DbSession, business_id: CurrentBusinessId) -> Sequence[Faq]:
     ).all()
 
 
-@app.get("/api/v1/availability", response_model=AvailabilityPublic, tags=["booking"])
+@public.get("/availability", response_model=AvailabilityPublic, tags=["booking"])
 def get_availability(
     db: DbSession,
     business_id: CurrentBusinessId,
@@ -280,9 +306,7 @@ def get_availability(
 Now = Annotated[datetime, Depends(get_now)]
 
 
-@app.post(
-    "/api/v1/bookings/prepare", response_model=PreparedBooking, status_code=201, tags=["booking"]
-)
+@public.post("/bookings/prepare", response_model=PreparedBooking, status_code=201, tags=["booking"])
 def prepare(
     request: PrepareBookingRequest, db: DbSession, business_id: CurrentBusinessId, now: Now
 ) -> PreparedBooking:
@@ -296,7 +320,7 @@ def prepare(
     return prepared
 
 
-@app.post("/api/v1/bookings/confirm", response_model=BookingConfirmation, tags=["booking"])
+@public.post("/bookings/confirm", response_model=BookingConfirmation, tags=["booking"])
 def confirm(
     request: ConfirmBookingRequest,
     response: Response,
@@ -321,12 +345,6 @@ def confirm(
     return confirmation
 
 
-app.include_router(staff_router)
-app.include_router(subscriber_router)
-app.include_router(phone_router)
-app.include_router(vapi_router)
-
-
 def client_ip(request: Request) -> str:
     # Railway's proxy adds the visitor's address. The value can be forged, so the per-visitor
     # limit is best effort. The daily quota is the hard cap on cost.
@@ -334,9 +352,7 @@ def client_ip(request: Request) -> str:
     return forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
 
 
-@app.post(
-    "/api/v1/voice/sessions", response_model=VoiceSessionStarted, status_code=201, tags=["voice"]
-)
+@public.post("/voice/sessions", response_model=VoiceSessionStarted, status_code=201, tags=["voice"])
 def create_voice_session(
     request: Request,
     db: DbSession,
@@ -352,7 +368,7 @@ def create_voice_session(
     return started
 
 
-@app.post("/api/v1/voice/sessions/{session_id}/end", status_code=204, tags=["voice"])
+@public.post("/voice/sessions/{session_id}/end", status_code=204, tags=["voice"])
 def end_voice(
     session_id: uuid.UUID,
     body: VoiceEndRequest,
@@ -366,8 +382,8 @@ def end_voice(
     return Response(status_code=204)
 
 
-@app.post(
-    "/api/v1/voice/sessions/{session_id}/tools/{name}",
+@public.post(
+    "/voice/sessions/{session_id}/tools/{name}",
     response_model=VoiceToolResult,
     tags=["voice"],
 )
@@ -386,3 +402,13 @@ def call_voice_tool(
     )
     db.commit()
     return outcome
+
+
+app.include_router(public, prefix="/api/v1")
+app.include_router(
+    public, prefix="/api/v1/b/{business_slug}", dependencies=[Depends(business_slug_param)]
+)
+app.include_router(staff_router)
+app.include_router(subscriber_router)
+app.include_router(phone_router)
+app.include_router(vapi_router)

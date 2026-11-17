@@ -34,7 +34,8 @@ from app.models import (  # noqa: E402
     VoiceSession,
     WebhookEvent,
 )
-from app.seed import seed_business  # noqa: E402
+from app.schemas import FaqSeed  # noqa: E402
+from app.seed import load_seed, seed_business  # noqa: E402
 
 ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
@@ -78,6 +79,28 @@ def db() -> Iterator[Session]:
         seed_business(session)
         session.commit()
         yield session
+
+
+SECOND_SLUG = "second-studio"
+
+
+@pytest.fixture
+def second_business(db: Session) -> str:
+    """A second business in the same database, with its own catalog and FAQs."""
+    seed = load_seed().model_copy(
+        update={
+            "slug": SECOND_SLUG,
+            "name": "Second Studio",
+            "is_demo": False,
+            "faqs": [
+                FaqSeed(slug="parking", question="Is there parking?", answer="Yes, out back.")
+            ],
+        }
+    )
+    seed.services = [service for service in seed.services if service.slug == "bath-and-tidy"]
+    seed_business(db, seed)
+    db.commit()
+    return SECOND_SLUG
 
 
 @pytest.fixture

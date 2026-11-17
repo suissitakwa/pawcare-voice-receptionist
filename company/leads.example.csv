@@ -1,0 +1,2 @@
+id,industry,business_name,city,state,website,public_phone,public_email,booking_software,booking_evidence,team_size,fit_score,fit_reasons,status,last_action,last_action_date,notes
+example-1,pet,Example Grooming Co,Austin,TX,https://example.com,(555) 010-0000,hello@example.com,square,"Book Now button links to squareup.com",2,4,"phone-first booking; reviews mention hard to reach",qualified,added,2026-11-17,Example row: delete before use
