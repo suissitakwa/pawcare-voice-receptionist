@@ -93,7 +93,16 @@ if (!valid || !fresh) throw new Error("Rejected webhook: bad signature or stale 
 return [{ json: { event: headers["x-webhook-event"], id: headers["x-webhook-id"], ...JSON.parse(raw.toString("utf8")) } }];
 ```
 
+## Several businesses
+
+`WEBHOOK_URL` and `WEBHOOK_SECRET` serve the deployment's own business (`BUSINESS_SLUG`). Any other business gets its own webhook, so its events never reach another business's workflow. It needs `INTEGRATIONS_KEY` set (see [calendar.md](calendar.md#several-businesses)). From `backend/`:
+
+```bash
+uv run python -m app.integrations set-webhook <business-slug> https://your-n8n.example.com/webhook/...
+```
+
+It asks for the signing secret (at least 32 characters) and stores it encrypted. Each event is sent to its business's webhook and signed with its secret. Events of a business without a webhook are kept for a day without being sent, as before, and don't hold up anyone else's. The staff dashboard shows each business's own webhook status.
+
 ## Not covered yet
 
-- One webhook URL per deployment. Per-subscriber webhooks come with subscriber receptionists.
 - Events for profile sign-ups and submissions, reminders, and follow-ups are built in n8n from these events or on a schedule, or added here when needed.

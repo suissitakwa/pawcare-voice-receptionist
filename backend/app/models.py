@@ -70,6 +70,29 @@ class BusinessPhoneNumber(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class BusinessIntegration(Base):
+    """One business's connection to an outside service. Secrets are stored encrypted."""
+
+    __tablename__ = "business_integrations"
+    __table_args__ = (
+        UniqueConstraint("business_id", "kind", name="uq_business_integrations_kind"),
+        CheckConstraint("kind IN ('google_calendar', 'webhook')", name="integration_kind_known"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(32))
+    # Settings that are not secret: a calendar id, a webhook URL.
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # A Fernet token holding the secret, encrypted with INTEGRATIONS_KEY.
+    secret: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class SizeCategory(Base):
     __tablename__ = "size_categories"
     __table_args__ = (UniqueConstraint("business_id", "slug"),)

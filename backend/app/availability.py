@@ -161,7 +161,8 @@ def load_day_rules(
         )
         # Busy times in the owner's Google Calendar, if one is connected.
         blocked += tuple(
-            Interval(busy.start, busy.end) for busy in busy_between(range_start, range_end)
+            Interval(busy.start, busy.end)
+            for busy in busy_between(session, business, range_start, range_end)
         )
         booked = tuple(
             Interval(start, end)

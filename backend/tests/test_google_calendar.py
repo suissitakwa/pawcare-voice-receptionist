@@ -70,7 +70,7 @@ class FakeCalendar:
 def calendar() -> Iterator[FakeCalendar]:
     fake = FakeCalendar()
     original = google_calendar.current_calendar
-    google_calendar.current_calendar = lambda: fake
+    google_calendar.current_calendar = lambda *_: fake
     google_calendar.clear_busy_cache()
     app.dependency_overrides[get_now] = lambda: NOW
     yield fake

@@ -41,10 +41,27 @@ On the backend service:
 - `GOOGLE_CALENDAR_ID`: the calendar id
 - `GOOGLE_SERVICE_ACCOUNT_JSON`: the whole contents of the key file. If the dashboard mangles multi-line values, paste it base64-encoded instead (`base64 -i key.json | pbcopy` on a Mac).
 
-Redeploy. The logs show `Google Calendar sync is on`. Upcoming bookings made before connecting are added too.
+Redeploy. Upcoming bookings made before connecting are added too.
 
 ### 4. Check it
 
 1. Add a busy event tomorrow at 10 AM in Google Calendar. Within a minute, 10 AM is no longer offered on the website.
 2. Book a time. Within a few seconds the event appears in the calendar.
 3. Cancel it from the staff dashboard. The event disappears.
+
+## Several businesses
+
+The `GOOGLE_*` variables connect the deployment's own business (`BUSINESS_SLUG`). Any other business gets its own calendar, stored in the database with its key encrypted:
+
+1. Once per deployment, generate a key with `uv run python -m app.integrations generate-key` and set it as `INTEGRATIONS_KEY` on the backend. Keep a copy somewhere safe: without it, stored keys can't be read.
+2. Share that business's calendar with a service account as in steps 1 and 2 above, and download its JSON key.
+3. From `backend/`, with `DATABASE_URL` pointing at the database:
+
+   ```bash
+   uv run python -m app.integrations set-calendar <business-slug> <calendar-id> key.json
+   uv run python -m app.integrations show <business-slug>
+   ```
+
+   Delete the key file afterwards.
+
+Each business's bookings go only to its own calendar, and only its own busy times block its booking times. A business with no calendar is never synced. If a stored key can't be read (for example `INTEGRATIONS_KEY` changed), booking stops for that business with `calendar_unavailable`, the same as when Google can't be reached. `remove <business-slug> google_calendar` disconnects it.

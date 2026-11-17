@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–3 done.
+Status: accepted. PRs 1–4 done.
 
 ## Context
 
@@ -40,7 +40,7 @@ Not chosen: one deployment per customer (simple but every fix ships N times, the
 1. **Request-scoped business.** `CurrentBusiness` dependency from the path slug, `/api/v1/b/{slug}/...` routes, old routes as demo aliases. Second business in test fixtures and cross-business tests for public routes.
 2. **Staff per business.** Slug-scoped login; `manage.py create-staff <slug> <email>`; cross-business tests for all staff routes.
 3. **Phone routing.** `business_phone_numbers` table, routing by dialed number for OpenAI SIP and Vapi. Instead of seeding the demo number, an unregistered `PHONE_NUMBER`, an unreadable dialed number, or a deployment with no registered numbers still reaches `BUSINESS_SLUG`, so production keeps working with no data change.
-4. **Per-business integrations.** `business_integrations` with encrypted secrets; Google Calendar and webhooks read from it; the sync and webhook workers loop over businesses.
+4. **Per-business integrations.** `business_integrations` with encrypted secrets; Google Calendar and webhooks read from it; the sync and webhook workers loop over businesses. The `GOOGLE_*` and `WEBHOOK_*` settings keep serving `BUSINESS_SLUG` when it has nothing stored.
 5. **Per-business limits.** Count voice and phone usage per business.
 6. **Provisioning.** Link profiles to businesses, `manage.py provision`.
 7. **Frontend.** Business site at `/b/{slug}`, staff dashboard login per business; demo stays at `/`.

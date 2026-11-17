@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # Off in tests, which deliver events explicitly.
     webhook_worker_enabled: bool = True
 
+    # Encrypts each business's integration secrets (calendar keys, webhook secrets) in the
+    # database. A Fernet key from `python -m app.integrations generate-key`. The settings above
+    # still serve the deployment's own business when it has none stored.
+    integrations_key: str = Field(default="", repr=False)
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:
