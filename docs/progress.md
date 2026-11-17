@@ -669,3 +669,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 422 passed (local PostgreSQL 14), 7 of them new: the demo's tools unchanged, a second business offered only its own services, inactive services left out, an empty catalog leaves the value open, the shared template never changed, Vapi tools carry the catalog, a browser session at the second business sends its catalog and name to OpenAI |
 | Live evals | Not run (they call OpenAI) |
 | Live | Not deployed |
+
+## Limits per business and a ceiling on cost (2026-11-17)
+
+**Outcome:** the daily browser voice and phone limits were already counted per business. Now a business can have its own: `voice_daily_limit` and `phone_daily_limit` in its business file (migration `0016` adds them to `businesses`; `0` turns that channel off for it), replacing `VOICE_DAILY_SESSION_LIMIT` and `PHONE_DAILY_CALL_LIMIT`. Two new settings cap every business together over the last 24 hours, so adding businesses can't multiply the bill without a limit: `VOICE_DAILY_TOTAL_LIMIT` (150) and `PHONE_DAILY_TOTAL_LIMIT` (250). Both are above the per-business defaults, so a single-business deployment behaves as before. Callers over a ceiling get the same answer as over a business's limit (voice: `voice_quota_reached`; phone: busy). Step 8 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 444 passed (local PostgreSQL 14), 8 of them new: each business has its own browser quota, a business's own limit applies and `0` turns voice off for it, the browser ceiling caps all businesses together and counts only the last 24 hours, phone limits per business and overridable, the phone ceiling caps all businesses and ignores older calls, business files accept limits and refuse negative ones. Migrations `0001`–`0016` upgrade and downgrade cleanly |
+| Live | Not deployed |

@@ -112,7 +112,8 @@ To go live:
    |---|---|
    | `OPENAI_API_KEY` | The key. It stays on the server and is never sent to the browser |
    | `VOICE_MODE` | `live` |
-   | `VOICE_DAILY_SESSION_LIMIT` | Optional, default `30` |
+   | `VOICE_DAILY_SESSION_LIMIT` | Optional, default `30`, per business per day |
+   | `VOICE_DAILY_TOTAL_LIMIT` | Optional, default `150`, across all businesses in the last 24 hours |
    | `VOICE_SESSIONS_PER_CLIENT_PER_HOUR` | Optional, default `6` |
    | `VOICE_MAX_SESSION_SECONDS` | Optional, default `300` |
    | `VOICE_MODEL` | Optional, default `gpt-realtime-2.1-mini` |
@@ -129,7 +130,7 @@ Bookings, cancellations, and callback requests can be sent to an n8n workflow or
 
 ### Phone line
 
-To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's webhook for `realtime.call.incoming`) and `PHONE_ENABLED=true`, with `VOICE_MODE=live`. Set `PHONE_NUMBER` (E.164) to show a call button on the website. `PHONE_VOICE`, `PHONE_MODEL` and `PHONE_VAD_EAGERNESS` (default `low`) tune calls without changing the website assistant. Then point a Twilio Elastic SIP Trunk at `sip:<project id>@sip.api.openai.com;transport=tls`. Limits: `PHONE_MAX_CALL_SECONDS` (600), `PHONE_DAILY_CALL_LIMIT` (50), `PHONE_CALLS_PER_CALLER_PER_HOUR` (4). Full guide: [phone.md](phone.md).
+To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's webhook for `realtime.call.incoming`) and `PHONE_ENABLED=true`, with `VOICE_MODE=live`. Set `PHONE_NUMBER` (E.164) to show a call button on the website. `PHONE_VOICE`, `PHONE_MODEL` and `PHONE_VAD_EAGERNESS` (default `low`) tune calls without changing the website assistant. Then point a Twilio Elastic SIP Trunk at `sip:<project id>@sip.api.openai.com;transport=tls`. Limits: `PHONE_MAX_CALL_SECONDS` (600), `PHONE_DAILY_CALL_LIMIT` (50 per business), `PHONE_DAILY_TOTAL_LIMIT` (250 across all businesses), `PHONE_CALLS_PER_CALLER_PER_HOUR` (4). Full guide: [phone.md](phone.md).
 
 ## Google Calendar
 

@@ -25,7 +25,11 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", repr=False)
     voice_model: str = "gpt-realtime-2.1-mini"
     voice_name: str = "marin"
+    # Per business, per local day. A business's own limit (businesses.voice_daily_limit)
+    # replaces it.
     voice_daily_session_limit: int = 30
+    # Across every business, in the last 24 hours: the ceiling on browser voice cost.
+    voice_daily_total_limit: int = 150
     voice_sessions_per_client_per_hour: int = 6
     voice_max_session_seconds: int = 300
 
@@ -34,7 +38,10 @@ class Settings(BaseSettings):
     phone_enabled: bool = False
     openai_webhook_secret: str = Field(default="", repr=False)
     phone_max_call_seconds: int = 600
+    # Per business, per local day; businesses.phone_daily_limit replaces it.
     phone_daily_call_limit: int = 50
+    # Across every business, in the last 24 hours: the ceiling on phone cost.
+    phone_daily_total_limit: int = 250
     phone_calls_per_caller_per_hour: int = 4
     # The number callers dial, in E.164 form (+12605550123). Public: the website shows a
     # call button for it while the phone line is on.

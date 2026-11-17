@@ -25,6 +25,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `size_categories` | Dog sizes. A size with `requires_staff_assessment: true` can't be booked directly; callers get a callback instead |
 | `services` | Each service's duration and price (in cents) for each size it's offered for |
 | `faqs` | The only answers the receptionist gives beyond services and hours. Keep them short and true |
+| `voice_daily_limit`, `phone_daily_limit` | Optional. Browser voice sessions and phone calls this business may take per day, replacing the deployment's `VOICE_DAILY_SESSION_LIMIT` (30) and `PHONE_DAILY_CALL_LIMIT` (50). `0` turns that channel off for the business |
 
 Check it without saving anything:
 
@@ -80,4 +81,3 @@ See [calendar.md](calendar.md#several-businesses) and [automations.md](automatio
 
 - The website booking page and staff dashboard for each business (`/b/{slug}`) are next.
 - One groomer per business.
-- Browser voice limits are shared by all businesses on the deployment.

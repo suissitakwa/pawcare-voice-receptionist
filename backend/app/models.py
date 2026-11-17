@@ -42,6 +42,9 @@ class Business(Base):
     buffer_minutes: Mapped[int] = mapped_column(server_default=text("15"))
     min_notice_minutes: Mapped[int] = mapped_column(server_default=text("120"))
     booking_horizon_days: Mapped[int] = mapped_column(server_default=text("30"))
+    # Daily limits for this business. Empty: the deployment's defaults apply.
+    voice_daily_limit: Mapped[int | None]
+    phone_daily_limit: Mapped[int | None]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

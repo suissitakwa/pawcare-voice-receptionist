@@ -77,6 +77,9 @@ class BusinessSeed(SeedModel):
     buffer_minutes: int = Field(ge=0)
     min_notice_minutes: int = Field(ge=0)
     booking_horizon_days: int = Field(gt=0)
+    # Optional daily limits for this business; without them the deployment's defaults apply.
+    voice_daily_limit: int | None = Field(default=None, ge=0)
+    phone_daily_limit: int | None = Field(default=None, ge=0)
     hours: list[HoursSeed]
     groomers: list[GroomerSeed]
     size_categories: list[SizeCategorySeed]
