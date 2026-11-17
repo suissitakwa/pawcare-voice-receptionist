@@ -9,15 +9,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db, get_engine
 from app.errors import ApiError
-from app.models import Business
-from app.phone import InvalidSignature, OpenAICalls, handle_incoming, run_call, verify_signature
+from app.phone import (
+    CALL_ID_PATTERN,
+    DECLINE,
+    CallControlError,
+    InvalidSignature,
+    OpenAICalls,
+    handle_incoming,
+    run_call,
+    verify_signature,
+)
+from app.phone_numbers import business_for_call, dialed_from_sip
 from app.schemas import PhoneEventReceived
 
 logger = logging.getLogger("pawcare.phone")
@@ -58,6 +66,17 @@ async def stop_running_calls() -> None:
     await asyncio.gather(*RUNNING, return_exceptions=True)
 
 
+def decline_unrouted(calls: OpenAICalls, data: dict) -> None:
+    """Rejects a call that no business answers, so it doesn't just ring."""
+    call_id = data.get("call_id")
+    if not isinstance(call_id, str) or not CALL_ID_PATTERN.match(call_id):
+        return
+    try:
+        calls.reject(call_id, DECLINE)
+    except CallControlError as error:
+        logger.warning("Rejecting a call failed: %s", error)
+
+
 @router.post("/openai-events", response_model=PhoneEventReceived)
 async def openai_events(
     request: Request,
@@ -85,9 +104,9 @@ async def openai_events(
     data = event.get("data") if isinstance(event.get("data"), dict) else {}
 
     def answer():
-        business = db.scalar(select(Business).where(Business.slug == settings.business_slug))
+        business = business_for_call(db, settings, dialed_from_sip(data.get("sip_headers")))
         if business is None:
-            logger.error("Phone call arrived but the business is not configured")
+            decline_unrouted(calls, data)
             return None
         record = handle_incoming(db, business, settings, data, calls, now)
         db.commit()

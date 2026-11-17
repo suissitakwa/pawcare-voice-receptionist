@@ -627,3 +627,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 382 passed (local PostgreSQL 14), 9 of them new: sign in by address, no sign-in through another business's address or the unprefixed login, same email at two businesses, unknown business, callbacks and metrics stay with their business, create and update staff by slug, unknown business and unhashed password refused. Existing staff tests now sign in through the slugged route |
 | Frontend | Unchanged; the extra `staff` fields are ignored |
 | Live | Not deployed |
+
+## Phone calls by the number dialed (2026-11-17)
+
+**Outcome:** each phone call, through OpenAI or Vapi, is answered for the business whose number was dialed, with that business's name, hours, services and FAQs. Migration `0014` adds `business_phone_numbers` (one business per number). `python -m app.phone_numbers add|remove|list` manages them. With no numbers registered, every call still reaches `BUSINESS_SLUG`, so production is unchanged. Once numbers are registered, calls to other numbers are declined unless they are `PHONE_NUMBER`. Each site shows its own number. Vapi tool calls and end reports stay with the business the call started at. Numbers without a country code are accepted only when they are clearly US numbers. PR 3 of [decision 0010](decisions/0010-multiple-businesses.md). Setup: [phone.md](phone.md#numbers-for-several-businesses).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 401 passed (local PostgreSQL 14), 19 of them new: number formats, reading the dialed number from the SIP `To` header and from Vapi's phone number, registering once and refusing a number owned elsewhere, routing with and without registered numbers, OpenAI and Vapi calls answered for the dialed business, unregistered numbers declined (OpenAI rejects with 603), Vapi tool calls use the call's business catalog, each site's own number. Migrations `0001`–`0014` upgrade and downgrade cleanly |
+| Real call to a second number | Not made yet. The `To` header and Vapi's `phoneNumber` field are where the dialed number is expected; neither has been checked on a live call |
+| Live | Not deployed |

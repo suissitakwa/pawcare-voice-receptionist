@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–2 done.
+Status: accepted. PRs 1–3 done.
 
 ## Context
 
@@ -27,7 +27,7 @@ Already fine: staff sessions resolve to a staff user with a `business_id`; booki
 1. **The business comes from the request, never from settings.**
    - Public routes: `/api/v1/b/{slug}/...`. The current unprefixed routes stay as aliases for the demo business until the frontend moves, then are removed.
    - Staff routes: the business comes from the signed-in staff user. Login takes the business slug (`/api/v1/b/{slug}/staff/login`), because the same email can work at two businesses.
-   - Phone: the **dialed number** picks the business, through a new `business_phone_numbers` table (number unique → business). OpenAI SIP: read the `To` SIP header. Vapi: map Vapi's phone-number id. A call to an unknown number is declined and logged.
+   - Phone: the **dialed number** picks the business, through a new `business_phone_numbers` table (number unique → business). OpenAI SIP: read the `To` SIP header. Vapi: read the call's phone number. A call to an unknown number is declined and logged.
 2. **Per-business settings move into the database.** A new `business_integrations` table: `business_id`, `kind` (`google_calendar`, `webhook`, later `square`, `vapi`), non-secret `config` (JSONB), and `secrets` encrypted with a key from the environment (Fernet, `cryptography` is already a dependency). The env values stay only as the demo business's seed.
 3. **Limits per business.** Voice and phone daily limits are counted per `business_id`, with server-wide caps kept as a safety ceiling against cost blowups.
 4. **Isolation is tested, not assumed.** The test suite seeds two businesses, and every route gets a test that business B can't read or change business A's data (same reference, same block id, same callback id).
@@ -39,7 +39,7 @@ Not chosen: one deployment per customer (simple but every fix ships N times, the
 
 1. **Request-scoped business.** `CurrentBusiness` dependency from the path slug, `/api/v1/b/{slug}/...` routes, old routes as demo aliases. Second business in test fixtures and cross-business tests for public routes.
 2. **Staff per business.** Slug-scoped login; `manage.py create-staff <slug> <email>`; cross-business tests for all staff routes.
-3. **Phone routing.** `business_phone_numbers` table, routing by dialed number for OpenAI SIP and Vapi; seed the demo number from `PHONE_NUMBER`.
+3. **Phone routing.** `business_phone_numbers` table, routing by dialed number for OpenAI SIP and Vapi. Instead of seeding the demo number, an unregistered `PHONE_NUMBER`, an unreadable dialed number, or a deployment with no registered numbers still reaches `BUSINESS_SLUG`, so production keeps working with no data change.
 4. **Per-business integrations.** `business_integrations` with encrypted secrets; Google Calendar and webhooks read from it; the sync and webhook workers loop over businesses.
 5. **Per-business limits.** Count voice and phone usage per business.
 6. **Provisioning.** Link profiles to businesses, `manage.py provision`.
