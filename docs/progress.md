@@ -650,6 +650,15 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Real calendar or webhook for a second business | Not connected yet |
 | Live | Not deployed |
 
+## Create a business from a file (2026-11-17)
+
+**Outcome:** `python -m app.businesses template|check|load|list` creates a real business from a JSON file in the demo seed's format: details, hours, groomer, sizes, services with prices, FAQs. Beyond the format's own checks, a file is refused with reasons when its slug can't be a web address, its email isn't one, it has no services, groomer or hours, a slug or weekday repeats, or a period ends before it starts. Loading never overwrites an existing business unless `--update` is given; an update replaces details, hours, FAQs and prices, switches off dropped services, and leaves bookings, staff, numbers and integrations alone. [onboarding.md](onboarding.md) walks through setting up a business end to end. Step 6 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 429 passed (local PostgreSQL 14), 14 of them new: template valid, a loaded business served and bookable at its address in its own time zone, no overwrite without `--update` and no update of a missing business, update replaces details and switches off dropped services while staff stay, each kind of problem explained, unreadable and invalid files refused with reasons, nothing saved from a bad file |
+| Commands | `load`, a second `load` (refused), `load --update`, `list` and a missing file run against a scratch database |
 ## Voice tools from each business's catalog (2026-11-17)
 
 **Outcome:** the assistant's tools (browser, OpenAI phone and Vapi) now list the business's own active services and sizes as allowed values. Before, they listed the demo's three service slugs, so another business's services could not be booked by voice. Sizes that need a staff assessment are still left out of `prepare_booking`. For the demo the tools are exactly as before. The evals harness uses the same per-business tools. This is step 5 of the plan in [decision 0010](decisions/0010-multiple-businesses.md), re-ordered today to reach a first pilot with one solo pet groomer: next are creating a business from a file, the website and staff sign-in per business, and per-business limits.
