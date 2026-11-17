@@ -3,7 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StaffApp from "./StaffApp";
 
-const STAFF = { email: "maya@pawcare.example", display_name: "Maya" };
+const STAFF = {
+  email: "maya@pawcare.example",
+  display_name: "Maya",
+  business_slug: "pawcare-demo",
+  business_name: "PawCare Grooming Studio",
+  business_is_demo: true,
+};
 const BOOKING = {
   reference: "PC-ABCD2345",
   status: "confirmed",
@@ -238,5 +244,48 @@ describe("StaffApp", () => {
     await user.click(screen.getByRole("button", { name: "Send test event" }));
     expect(await screen.findByText(/Test event queued/)).toBeInTheDocument();
     expect(queued).toBe(true);
+  });
+
+  describe("at a business's own address", () => {
+    const REAL = {
+      ...STAFF,
+      email: "owner@happytails.example",
+      display_name: "Sam",
+      business_slug: "happy-tails",
+      business_name: "Happy Tails Grooming",
+      business_is_demo: false,
+    };
+    beforeEach(() => window.history.pushState({}, "", "/b/happy-tails/staff"));
+    afterEach(() => window.history.pushState({}, "", "/"));
+
+    it("signs in to that business and keeps its own token", async () => {
+      const calls = mockApi(
+        dashboardRoutes({
+          "POST /api/v1/b/happy-tails/staff/login": () => ({
+            status: 200,
+            body: { token: "t-real", expires_at: "x", staff: REAL },
+          }),
+          "GET /api/v1/staff/me": () => ({ status: 200, body: REAL }),
+        }),
+      );
+      render(<StaffApp />);
+      await signIn();
+      expect(await screen.findByRole("heading", { name: "Happy Tails Grooming" })).toBeInTheDocument();
+      expect(calls.some((call) => call.key === "POST /api/v1/b/happy-tails/staff/login")).toBe(true);
+      expect(calls.some((call) => call.key === "POST /api/v1/staff/login")).toBe(false);
+      expect(sessionStorage.getItem("pawcare-staff-token:happy-tails")).toBe("t-real");
+      expect(sessionStorage.getItem("pawcare-staff-token")).toBeNull();
+      expect(screen.queryByText(/Demonstration dashboard/)).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Back to the website" })).toHaveAttribute("href", "/b/happy-tails/");
+    });
+
+    it("never shows another business's dashboard under this address", async () => {
+      sessionStorage.setItem("pawcare-staff-token:happy-tails", "t-other");
+      mockApi(dashboardRoutes({ "GET /api/v1/staff/me": () => ({ status: 200, body: STAFF }) }));
+      render(<StaffApp />);
+      expect(await screen.findByRole("heading", { name: "Staff sign in" })).toBeInTheDocument();
+      expect(screen.queryByText("PC-ABCD2345")).not.toBeInTheDocument();
+      expect(sessionStorage.getItem("pawcare-staff-token:happy-tails")).toBeNull();
+    });
   });
 });

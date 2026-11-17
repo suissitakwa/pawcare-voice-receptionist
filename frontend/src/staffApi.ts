@@ -1,8 +1,12 @@
 import { request } from "./api";
+import { businessSlug } from "./site";
 
 export interface StaffUser {
   email: string;
   display_name: string;
+  business_slug: string;
+  business_name: string;
+  business_is_demo: boolean;
 }
 
 export interface StaffBooking {
@@ -83,9 +87,10 @@ function json(body: unknown): RequestInit {
   };
 }
 
-export function login(email: string, password: string) {
+/** Signs in to this page's business: /b/{slug}/staff signs in there, /staff to the demo. */
+export function login(email: string, password: string, slug: string | null = businessSlug()) {
   return request<{ token: string; expires_at: string; staff: StaffUser }>(
-    `${BASE}/login`,
+    slug ? `/api/v1/b/${slug}/staff/login` : `${BASE}/login`,
     json({ email, password }),
   );
 }

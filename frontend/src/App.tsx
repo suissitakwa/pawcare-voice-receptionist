@@ -3,6 +3,7 @@ import { type Business, type Catalog, type Faq } from "./api";
 import { formatDuration, formatPhone, formatPrice, formatTime, weekdayName } from "./format";
 import BookingForm from "./BookingForm";
 import VoiceAssistant from "./VoiceAssistant";
+import { businessSlug, siteRoot } from "./site";
 import { useSiteData } from "./useSiteData";
 
 const NAV_LINKS = [
@@ -133,12 +134,16 @@ function Section({
   );
 }
 
-function ServicesList({ catalog }: { catalog: Catalog }) {
+function ServicesList({ catalog, demo }: { catalog: Catalog; demo: boolean }) {
   const sizes = new Map(catalog.size_categories.map((size) => [size.slug, size]));
   const assessed = catalog.size_categories.filter((size) => size.requires_staff_assessment);
   return (
     <>
-      <p className="lead">Prices are indicative demo prices and depend on your dog's size.</p>
+      <p className="lead">
+        {demo
+          ? "Prices are indicative demo prices and depend on your dog's size."
+          : "Prices are a starting point and depend on your dog's size and coat."}
+      </p>
       <div className="service-grid">
         {catalog.services.map((service) => (
           <article className="service-card" key={service.slug}>
@@ -257,9 +262,12 @@ export default function App() {
   const data = state.status === "ready" ? state.data : undefined;
   const business = data?.business;
   const failed = state.status === "error";
+  // Until the details load, assume a demo only at the root, so a real business's page never
+  // flashes demo warnings.
+  const demo = business ? business.is_demo : businessSlug() === null;
 
   useEffect(() => {
-    if (business) document.title = `${business.name} (demo)`;
+    if (business) document.title = business.is_demo ? `${business.name} (demo)` : business.name;
   }, [business]);
 
   return (
@@ -267,19 +275,21 @@ export default function App() {
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
-      <p className="demo-banner" role="note">
-        <strong>Demonstration site.</strong> This is a fictional business. Please do not enter
-        sensitive or real personal information.
-      </p>
+      {demo && (
+        <p className="demo-banner" role="note">
+          <strong>Demonstration site.</strong> This is a fictional business. Please do not enter
+          sensitive or real personal information.
+        </p>
+      )}
       <header className="site-header">
         <div className="container header-row">
           <a className="brand" href="#main">
             <PawMark />
-            <span>{business?.name ?? "Grooming demo"}</span>
+            <span>{business?.name ?? (demo ? "Grooming demo" : "")}</span>
           </a>
           <nav aria-label="Main">
             <ul className="nav-list">
-              {NAV_LINKS.map((link) => (
+              {NAV_LINKS.filter((link) => demo || link.href !== "#video").map((link) => (
                 <li key={link.href}>
                   <a href={link.href}>{link.label}</a>
                 </li>
@@ -303,9 +313,11 @@ export default function App() {
 
         <Hero tagline={business?.tagline} phone={business?.assistant_phone} />
 
-        <Section id="video" title="See the idea in one minute">
-          <ExplainerVideo />
-        </Section>
+        {demo && (
+          <Section id="video" title="See the idea in one minute">
+            <ExplainerVideo />
+          </Section>
+        )}
 
         <Section id="assistant" title="Talk to our assistant" tone="tint">
           {business?.assistant_phone && (
@@ -314,11 +326,15 @@ export default function App() {
               <a href={`tel:${business.assistant_phone}`}>{formatPhone(business.assistant_phone)}</a>.
             </p>
           )}
-          <VoiceAssistant />
+          <VoiceAssistant demo={demo} />
         </Section>
 
         <Section id="services" title="Services and pricing">
-          {data ? <ServicesList catalog={data.catalog} /> : <SectionFallback failed={failed} />}
+          {data ? (
+            <ServicesList catalog={data.catalog} demo={demo} />
+          ) : (
+            <SectionFallback failed={failed} />
+          )}
         </Section>
 
         <Section id="about" title="About" tone="tint">
@@ -351,14 +367,26 @@ export default function App() {
 
       <footer className="site-footer">
         <div className="container">
-          <p>
-            {business?.name ?? "This site"} is a fictional business used for product demonstration.
-            No real grooming services are offered.
-          </p>
+          {demo ? (
+            <p>
+              {business?.name ?? "This site"} is a fictional business used for product
+              demonstration. No real grooming services are offered.
+            </p>
+          ) : (
+            business && (
+              <p>
+                {business.name} · {business.address}
+              </p>
+            )
+          )}
           <p className="footer-links">
-            <a href="/staff">Staff sign in</a>
-            {" · "}
-            <a href="/get-started">Set up a receptionist for your business</a>
+            <a href={`${siteRoot()}/staff`}>Staff sign in</a>
+            {demo && (
+              <>
+                {" · "}
+                <a href="/get-started">Set up a receptionist for your business</a>
+              </>
+            )}
           </p>
         </div>
       </footer>

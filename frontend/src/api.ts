@@ -1,3 +1,5 @@
+import { publicApi } from "./site";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export interface BusinessHours {
@@ -67,9 +69,9 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export async function fetchSiteData(signal?: AbortSignal): Promise<SiteData> {
   const [business, catalog, faqs] = await Promise.all([
-    getJson<Business>("/api/v1/business", signal),
-    getJson<Catalog>("/api/v1/services", signal),
-    getJson<Faq[]>("/api/v1/faqs", signal),
+    getJson<Business>(publicApi("/business"), signal),
+    getJson<Catalog>(publicApi("/services"), signal),
+    getJson<Faq[]>(publicApi("/faqs"), signal),
   ]);
   // A misconfigured host can answer unknown paths with a 200 HTML page or other shapes.
   if (!Array.isArray(catalog.services) || !Array.isArray(catalog.size_categories) || !Array.isArray(faqs)) {
@@ -170,11 +172,11 @@ export function fetchAvailability(
   signal?: AbortSignal,
 ): Promise<Availability> {
   const query = new URLSearchParams({ service, size, date });
-  return request<Availability>(`/api/v1/availability?${query}`, { signal });
+  return request<Availability>(publicApi(`/availability?${query}`), { signal });
 }
 
 export function prepareBooking(details: BookingDetails): Promise<PreparedBooking> {
-  return request<PreparedBooking>("/api/v1/bookings/prepare", {
+  return request<PreparedBooking>(publicApi("/bookings/prepare"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(details),
@@ -185,7 +187,7 @@ export function confirmBooking(
   prepared: PreparedBooking,
   idempotencyKey: string,
 ): Promise<BookingConfirmation> {
-  return request<BookingConfirmation>("/api/v1/bookings/confirm", {
+  return request<BookingConfirmation>(publicApi("/bookings/confirm"), {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({
@@ -224,7 +226,7 @@ export interface VoiceUsage {
 }
 
 export function startVoiceSession(): Promise<VoiceSession> {
-  return request<VoiceSession>("/api/v1/voice/sessions", { method: "POST" });
+  return request<VoiceSession>(publicApi("/voice/sessions"), { method: "POST" });
 }
 
 /** Best effort: `keepalive` lets the report finish even while the page is closing. */
@@ -233,7 +235,7 @@ export function endVoiceSession(
   reason: VoiceEndReason,
   usage: VoiceUsage | null,
 ): Promise<void> {
-  return request<void>(`/api/v1/voice/sessions/${session.session_id}/end`, {
+  return request<void>(publicApi(`/voice/sessions/${session.session_id}/end`), {
     method: "POST",
     keepalive: true,
     headers: { "Content-Type": "application/json" },
@@ -249,7 +251,7 @@ export interface VoiceToolResult {
 
 export function callVoiceTool(session: VoiceSession, name: string, args: string): Promise<VoiceToolResult> {
   return request<VoiceToolResult>(
-    `/api/v1/voice/sessions/${session.session_id}/tools/${encodeURIComponent(name)}`,
+    publicApi(`/voice/sessions/${session.session_id}/tools/${encodeURIComponent(name)}`),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

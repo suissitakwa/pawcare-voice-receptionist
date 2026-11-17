@@ -669,3 +669,15 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 422 passed (local PostgreSQL 14), 7 of them new: the demo's tools unchanged, a second business offered only its own services, inactive services left out, an empty catalog leaves the value open, the shared template never changed, Vapi tools carry the catalog, a browser session at the second business sends its catalog and name to OpenAI |
 | Live evals | Not run (they call OpenAI) |
 | Live | Not deployed |
+
+## Website and staff dashboard for each business (2026-11-17)
+
+**Outcome:** each business has its own booking site at `/b/{slug}` and its own staff dashboard at `/b/{slug}/staff`. The site loads the business, its services, availability, bookings and browser voice through `/api/v1/b/{slug}/...`. Demo wording (the banner, the concept video, "demo price", "use made-up details", the fictional-business footer and the sign-up link) shows only when the business is a demo, so a real business's page never says it's fictional. The dashboard signs in through the business's own login, keeps a separate token per business in the tab, shows the business's name, and signs out instead of showing a token that belongs to another business. Staff payloads now include `business_is_demo`. The demo at `/` and `/staff` is unchanged. Step 7 of [decision 0010](decisions/0010-multiple-businesses.md); [onboarding.md](onboarding.md) now points owners at their pages.
+
+| Check | Result |
+| --- | --- |
+| Frontend typecheck and build | Clean |
+| Frontend tests | 70 passed, run locally on Node 22 through `npx node@22`: address helpers, a real business's site loads only its own data and shows no demo wording, the dashboard signs in at the business's address and keeps its own token, a token for another business is signed out |
+| Backend tests | 436 passed (local PostgreSQL 14) |
+| In the browser | Against a scratch database with a business loaded from the template: `/b/happy-tails-austin` showed its services, prices, Chicago hours and no demo notices; a booking through the form went through with real-business wording; its dashboard showed its name, that booking and its own webhook status, with no demo banner. `/` still showed the demo banner, video and `/staff` link |
+| Live | Not deployed |

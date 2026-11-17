@@ -13,13 +13,18 @@ import {
   type StaffUser,
   type WebhookStatus,
 } from "./staffApi";
+import { businessSlug, siteRoot } from "./site";
 
 // Session storage keeps the token for this tab only, and it is cleared when the tab closes.
-const TOKEN_KEY = "pawcare-staff-token";
+// Each business's dashboard keeps its own token.
+function tokenKey(): string {
+  const slug = businessSlug();
+  return slug ? `pawcare-staff-token:${slug}` : "pawcare-staff-token";
+}
 
 function readToken(): string | null {
   try {
-    return sessionStorage.getItem(TOKEN_KEY);
+    return sessionStorage.getItem(tokenKey());
   } catch {
     return null;
   }
@@ -27,8 +32,8 @@ function readToken(): string | null {
 
 function writeToken(token: string | null) {
   try {
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
-    else sessionStorage.removeItem(TOKEN_KEY);
+    if (token) sessionStorage.setItem(tokenKey(), token);
+    else sessionStorage.removeItem(tokenKey());
   } catch {
     // Storage can be unavailable in private browsing. Sign-in still works for this page view.
   }
@@ -336,7 +341,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
   return (
     <div className="staff-dashboard">
       <div className="staff-header">
-        <h1>Dashboard</h1>
+        <h1>{staff.business_name}</h1>
         <p>
           Signed in as {staff.display_name}{" "}
           <button
@@ -540,6 +545,7 @@ function seconds(ms: number): string {
 }
 
 export default function StaffApp() {
+  const slug = businessSlug();
   const [token, setToken] = useState<string | null>(readToken);
   const [staff, setStaff] = useState<StaffUser | null>(null);
   const [notice, setNotice] = useState<string | undefined>();
@@ -551,35 +557,49 @@ export default function StaffApp() {
     setNotice(text);
   }, []);
 
+  const accept = useCallback(
+    (next: string, user: StaffUser) => {
+      // A token for another business never shows its bookings under this address.
+      if (slug && user.business_slug !== slug) {
+        signOut("Please sign in.");
+        return;
+      }
+      writeToken(next);
+      setToken(next);
+      setStaff(user);
+      setNotice(undefined);
+    },
+    [signOut, slug],
+  );
+
   useEffect(() => {
-    document.title = "Staff dashboard";
+    document.title = staff ? `${staff.business_name} staff dashboard` : "Staff dashboard";
     if (token && !staff) {
-      staffApi.me(token).then(setStaff).catch(() => signOut("Please sign in."));
+      staffApi
+        .me(token)
+        .then((user) => accept(token, user))
+        .catch(() => signOut("Please sign in."));
     }
-  }, [token, staff, signOut]);
+  }, [token, staff, signOut, accept]);
+
+  const demo = staff ? staff.business_is_demo : slug === null;
 
   return (
     <main id="main" className="container staff-page">
-      <p className="demo-banner staff-banner" role="note">
-        Demonstration dashboard. Bookings shown here were made on the public demo site.
-      </p>
+      {demo && (
+        <p className="demo-banner staff-banner" role="note">
+          Demonstration dashboard. Bookings shown here were made on the public demo site.
+        </p>
+      )}
       {token && staff ? (
         <Dashboard token={token} staff={staff} onSignedOut={signOut} />
       ) : token ? (
         <p className="muted">Loading…</p>
       ) : (
-        <LoginForm
-          notice={notice}
-          onSignedIn={(next, user) => {
-            writeToken(next);
-            setToken(next);
-            setStaff(user);
-            setNotice(undefined);
-          }}
-        />
+        <LoginForm notice={notice} onSignedIn={accept} />
       )}
       <p>
-        <a href="/">Back to the website</a>
+        <a href={`${siteRoot()}/`}>Back to the website</a>
       </p>
     </main>
   );

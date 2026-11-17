@@ -99,6 +99,7 @@ def test_login_returns_a_token_that_is_stored_only_as_a_hash(client, db, staff) 
         "display_name": "Maya",
         "business_slug": "pawcare-demo",
         "business_name": "PawCare Grooming Studio",
+        "business_is_demo": True,
     }
     assert "password" not in response.text
     db.expire_all()

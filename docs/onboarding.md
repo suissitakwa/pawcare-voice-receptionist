@@ -47,7 +47,7 @@ To change prices, hours or FAQs later, edit the file and load it again with `--u
 uv run python -m app.staff create happy-tails-austin owner@happytails.example "Sam"
 ```
 
-It asks for the password. Staff sign in through `POST /api/v1/b/happy-tails-austin/staff/login`. The dashboard's per-business sign-in page is not built yet.
+It asks for the password. The owner signs in at `https://YOUR-SITE.netlify.app/b/happy-tails-austin/staff`, which shows only their business's bookings, callbacks, blocked time and webhook status.
 
 ## 4. Phone number
 
@@ -72,12 +72,11 @@ See [calendar.md](calendar.md#several-businesses) and [automations.md](automatio
 
 ## 6. Check it
 
-1. `GET /api/v1/b/happy-tails-austin/business` shows the right name, hours and number.
+1. `https://YOUR-SITE.netlify.app/b/happy-tails-austin` shows the right name, services, prices, hours and number, with no demo notices. This is the business's booking site; the owner can link to it from their own website or Google listing.
 2. Call the number. The receptionist greets with the business's name and offers its services.
 3. Book a test appointment by phone, check it in the calendar (if connected), and cancel it.
 
 ## Not ready yet
 
-- The website booking page and staff dashboard for each business (`/b/{slug}`) are next.
 - One groomer per business.
 - Browser voice limits are shared by all businesses on the deployment.
