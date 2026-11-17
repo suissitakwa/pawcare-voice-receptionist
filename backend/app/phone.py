@@ -32,6 +32,8 @@ from app.schemas import VoiceToolResult, VoiceUsage
 from app.voice import (
     TRANSCRIPTION_MODEL,
     build_instructions,
+    daily_limit,
+    deployment_total,
     local_day_start,
     phone_tools,
     sha256,
@@ -193,8 +195,10 @@ def limit_problem(
             VoiceSession.started_at >= local_day_start(today, timezone),
         )
     )
-    if calls_today >= settings.phone_daily_call_limit:
+    if calls_today >= daily_limit(business.phone_daily_limit, settings.phone_daily_call_limit):
         return "daily call limit reached"
+    if deployment_total(session, "phone", now) >= settings.phone_daily_total_limit:
+        return "deployment-wide daily call limit reached"
     recent = session.scalar(
         select(func.count())
         .select_from(VoiceSession)

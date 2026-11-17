@@ -47,7 +47,8 @@ These tools exist only on phone calls. The website assistant can't use them.
 | `PHONE_ENABLED` | `false` | Off: every call is declined (SIP 603) |
 | `PHONE_NUMBER` | empty | The number callers dial, in E.164 (`+12605550123`). While calls are answered, the website shows a **Call our assistant** button for it |
 | `PHONE_MAX_CALL_SECONDS` | `600` | The backend hangs up after this |
-| `PHONE_DAILY_CALL_LIMIT` | `50` | Calls answered per business day; later calls get busy (486) |
+| `PHONE_DAILY_CALL_LIMIT` | `50` | Calls answered per business per day; later calls get busy (486). A business's own `phone_daily_limit` replaces it |
+| `PHONE_DAILY_TOTAL_LIMIT` | `250` | Calls answered across all businesses in the last 24 hours, the ceiling on cost |
 | `PHONE_CALLS_PER_CALLER_PER_HOUR` | `4` | Per calling number; later calls get busy (486) |
 
 - Phone calls have their own daily limit and don't use the website's voice quota.
@@ -125,7 +126,7 @@ uv run python -m app.phone_numbers remove +13105550142
 
 Once you register any number, calls to unregistered numbers other than `PHONE_NUMBER` are declined, so set `PHONE_NUMBER` or register the deployment's own number too. Each business's site shows its first registered number as **Call our assistant**.
 
-Point every number at the same OpenAI trunk or Vapi server URL. Limits (`PHONE_DAILY_CALL_LIMIT` and the per-caller limit) apply to each business separately for the daily count.
+Point every number at the same OpenAI trunk or Vapi server URL. The daily limit and the per-caller limit are counted for each business separately; `PHONE_DAILY_TOTAL_LIMIT` caps all of them together.
 
 ## Not done yet
 

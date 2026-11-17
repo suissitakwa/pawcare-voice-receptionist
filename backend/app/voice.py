@@ -563,6 +563,19 @@ def local_day_start(day: date, timezone: ZoneInfo) -> datetime:
     return datetime.combine(day, time.min, tzinfo=timezone)
 
 
+def deployment_total(session: Session, channel: str, now: datetime) -> int:
+    """Sessions on this channel across every business in the last 24 hours."""
+    return session.scalar(
+        select(func.count())
+        .select_from(VoiceSession)
+        .where(VoiceSession.channel == channel, VoiceSession.started_at >= now - timedelta(days=1))
+    )
+
+
+def daily_limit(own: int | None, default: int) -> int:
+    return default if own is None else own
+
+
 def start_voice_session(
     session: Session, business: Business, settings: Settings, client_ip: str, now: datetime
 ) -> VoiceSessionStarted:
@@ -583,7 +596,12 @@ def start_voice_session(
             VoiceSession.started_at >= local_day_start(today, timezone),
         )
     )
-    if started_today >= settings.voice_daily_session_limit:
+    over_total = deployment_total(session, "web", now) >= settings.voice_daily_total_limit
+    if over_total:
+        logger.warning("Browser voice has reached the deployment-wide daily ceiling")
+    if over_total or started_today >= daily_limit(
+        business.voice_daily_limit, settings.voice_daily_session_limit
+    ):
         raise ApiError(
             429,
             "voice_quota_reached",

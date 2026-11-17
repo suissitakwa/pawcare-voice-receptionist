@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–4 and pilot steps 5–7 done; plan re-ordered for a first pilot.
+Status: accepted. PRs 1–4 and pilot steps 5–8 done; plan re-ordered for a first pilot.
 
 ## Context
 
@@ -49,7 +49,7 @@ Next, re-ordered on 2026-11-17 to reach a first real pilot (one solo pet groomer
 5. **Voice tools from each business's catalog.** The assistant's tool definitions listed the demo's three service slugs, so no other business's services could be booked by voice. Build them from the business's own services and sizes.
 6. **Create a business from a file.** `python -m app.businesses load <file.json>`: name, hours, services, prices, FAQs, using the seed format, with `is_demo` false.
 7. **Frontend per business.** Booking site at `/b/{slug}`, staff dashboard sign-in per business; demo stays at `/`. Real businesses don't show the "fictional business" notice.
-8. **Per-business limits.** Count browser voice usage per business, keep a server-wide ceiling on cost.
+8. **Per-business limits.** Daily limits were already counted per business; add per-business overrides and a deployment-wide ceiling on cost across all businesses.
 
 Then a real test call to a second number and a connected second calendar, and the pilot.
 
