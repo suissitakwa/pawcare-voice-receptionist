@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.models import Business, VoiceSession
 from app.phone import CALL_ID_PATTERN, hash_caller, limit_problem
-from app.voice import build_instructions, phone_tools, sha256
+from app.voice import ToolCatalog, build_instructions, phone_tools, sha256, tool_catalog
 from app.voice_tools import run_tool
 
 logger = logging.getLogger("pawcare.vapi")
@@ -62,7 +62,7 @@ def call_token(call_id: str) -> str:
     return f"vapi:{call_id}"
 
 
-def vapi_tools() -> list[dict]:
+def vapi_tools(catalog: ToolCatalog | None = None) -> list[dict]:
     """The phone tools in Vapi's shape. With no server of their own, calls come to the
     assistant's server, this backend."""
     return [
@@ -74,7 +74,7 @@ def vapi_tools() -> list[dict]:
                 "parameters": tool["parameters"],
             },
         }
-        for tool in phone_tools()
+        for tool in phone_tools(catalog)
     ]
 
 
@@ -82,7 +82,13 @@ def first_message(business: Business) -> str:
     return f"Hi, thanks for calling {business.name}! I'm the AI assistant. How can I help?"
 
 
-def assistant(settings: Settings, business: Business, instructions: str, server_url: str) -> dict:
+def assistant(
+    settings: Settings,
+    business: Business,
+    instructions: str,
+    server_url: str,
+    catalog: ToolCatalog | None = None,
+) -> dict:
     config: dict = {
         "name": f"{business.name} receptionist"[:40],
         "firstMessage": first_message(business),
@@ -91,7 +97,7 @@ def assistant(settings: Settings, business: Business, instructions: str, server_
             "model": settings.vapi_model,
             "temperature": 0.4,
             "messages": [{"role": "system", "content": instructions}],
-            "tools": vapi_tools(),
+            "tools": vapi_tools(catalog),
         },
         "voice": {"provider": settings.vapi_voice_provider, "voiceId": settings.vapi_voice_id},
         "transcriber": {
@@ -182,7 +188,8 @@ def answer_call(
     # A retried request gets the same assistant for the same call.
     today = now.astimezone(ZoneInfo(business.timezone)).date()
     instructions = build_instructions(session, business, today, "phone", number, greeted=True)
-    return {"assistant": assistant(settings, business, instructions, server_url)}
+    catalog = tool_catalog(session, business.id)
+    return {"assistant": assistant(settings, business, instructions, server_url, catalog)}
 
 
 def run_tool_calls(

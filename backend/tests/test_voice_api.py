@@ -41,9 +41,14 @@ def minted(monkeypatch) -> list[dict]:
     """Replaces the OpenAI call and records what would have been sent."""
     calls: list[dict] = []
 
-    def fake_mint(settings, instructions, safety_id):
+    def fake_mint(settings, instructions, safety_id, tools=None):
         calls.append(
-            {"key": settings.openai_api_key, "instructions": instructions, "id": safety_id}
+            {
+                "key": settings.openai_api_key,
+                "instructions": instructions,
+                "id": safety_id,
+                "tools": tools,
+            }
         )
         return "ek_test_secret", int((NOW + timedelta(seconds=60)).timestamp())
 

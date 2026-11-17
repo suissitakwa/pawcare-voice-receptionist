@@ -7,6 +7,7 @@ Session length is enforced by the browser, which is why the quota and rate limit
 they cap cost even if a visitor bypasses the page.
 """
 
+import copy
 import hashlib
 import json
 import logging
@@ -14,6 +15,7 @@ import secrets
 import urllib.error
 import urllib.request
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -131,10 +133,64 @@ TOOLS = [
 ]
 
 
-def phone_tools() -> list[dict]:
+@dataclass(frozen=True)
+class ToolCatalog:
+    """One business's choices, which the tools offer the model as allowed values."""
+
+    services: tuple[str, ...]
+    sizes: tuple[str, ...]
+    # Sizes that can be booked without a staff assessment first.
+    bookable_sizes: tuple[str, ...]
+
+
+def tool_catalog(session: Session, business_id: uuid.UUID) -> ToolCatalog:
+    services = session.scalars(
+        select(Service.slug)
+        .where(Service.business_id == business_id, Service.is_active)
+        .order_by(Service.display_order)
+    ).all()
+    sizes = session.execute(
+        select(SizeCategory.slug, SizeCategory.requires_staff_assessment)
+        .where(SizeCategory.business_id == business_id)
+        .order_by(SizeCategory.display_order)
+    ).all()
+    return ToolCatalog(
+        services=tuple(services),
+        sizes=tuple(slug for slug, _ in sizes),
+        bookable_sizes=tuple(slug for slug, assessed in sizes if not assessed),
+    )
+
+
+def with_catalog(tools: list[dict], catalog: ToolCatalog | None) -> list[dict]:
+    """The tools with this business's services and sizes as the allowed values. The backend
+    still checks every value, so this only keeps the model from guessing another business's."""
+    if catalog is None:
+        return tools
+    allowed = {
+        "check_availability": {"service": catalog.services, "size": catalog.sizes},
+        "prepare_booking": {"service": catalog.services, "size": catalog.bookable_sizes},
+    }
+    result = []
+    for tool in tools:
+        tool = copy.deepcopy(tool)
+        for field, values in allowed.get(tool["name"], {}).items():
+            schema = tool["parameters"]["properties"][field]
+            if values:
+                schema["enum"] = list(values)
+            else:
+                schema.pop("enum", None)
+        result.append(tool)
+    return result
+
+
+def browser_tools(catalog: ToolCatalog | None = None) -> list[dict]:
+    return with_catalog(TOOLS, catalog)
+
+
+def phone_tools(catalog: ToolCatalog | None = None) -> list[dict]:
     """The phone version: no screen, so the caller confirms out loud and the server books."""
     tools = []
-    for tool in TOOLS:
+    for tool in with_catalog(TOOLS, catalog):
         if tool["name"] == "prepare_booking":
             tool = {
                 **tool,
@@ -447,7 +503,9 @@ def greeting_line(channel: str) -> str:
     )
 
 
-def mint_client_secret(settings: Settings, instructions: str, safety_id: str) -> tuple[str, int]:
+def mint_client_secret(
+    settings: Settings, instructions: str, safety_id: str, tools: list[dict] | None = None
+) -> tuple[str, int]:
     """Asks OpenAI for a short-lived browser credential. Returns (value, expires_at)."""
     body = {
         "expires_after": {"anchor": "created_at", "seconds": CREDENTIAL_LIFETIME_SECONDS},
@@ -455,7 +513,7 @@ def mint_client_secret(settings: Settings, instructions: str, safety_id: str) ->
             "type": "realtime",
             "model": settings.voice_model,
             "instructions": instructions,
-            "tools": TOOLS,
+            "tools": tools if tools is not None else TOOLS,
             "tool_choice": "auto",
             "audio": {
                 "input": {
@@ -559,7 +617,10 @@ def start_voice_session(
     client_secret, expires_at = None, None
     if settings.voice_mode == "live":
         value, expiry = mint_client_secret(
-            settings, build_instructions(session, business, today), sha256(str(record.id))
+            settings,
+            build_instructions(session, business, today),
+            sha256(str(record.id)),
+            tools=browser_tools(tool_catalog(session, business.id)),
         )
         client_secret, expires_at = value, datetime.fromtimestamp(expiry, tz=timezone)
     return VoiceSessionStarted(

@@ -659,4 +659,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 429 passed (local PostgreSQL 14), 14 of them new: template valid, a loaded business served and bookable at its address in its own time zone, no overwrite without `--update` and no update of a missing business, update replaces details and switches off dropped services while staff stay, each kind of problem explained, unreadable and invalid files refused with reasons, nothing saved from a bad file |
 | Commands | `load`, a second `load` (refused), `load --update`, `list` and a missing file run against a scratch database |
+## Voice tools from each business's catalog (2026-11-17)
+
+**Outcome:** the assistant's tools (browser, OpenAI phone and Vapi) now list the business's own active services and sizes as allowed values. Before, they listed the demo's three service slugs, so another business's services could not be booked by voice. Sizes that need a staff assessment are still left out of `prepare_booking`. For the demo the tools are exactly as before. The evals harness uses the same per-business tools. This is step 5 of the plan in [decision 0010](decisions/0010-multiple-businesses.md), re-ordered today to reach a first pilot with one solo pet groomer: next are creating a business from a file, the website and staff sign-in per business, and per-business limits.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean (backend and evals) |
+| Backend tests | 422 passed (local PostgreSQL 14), 7 of them new: the demo's tools unchanged, a second business offered only its own services, inactive services left out, an empty catalog leaves the value open, the shared template never changed, Vapi tools carry the catalog, a browser session at the second business sends its catalog and name to OpenAI |
+| Live evals | Not run (they call OpenAI) |
 | Live | Not deployed |
