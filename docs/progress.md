@@ -649,3 +649,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 415 passed (local PostgreSQL 14), 14 of them new: secrets stored encrypted and read back, key required and must match, bad webhooks and calendar keys refused, environment settings only for the deployment's business and overridden by stored ones, each business's events to its own URL with its own signature, a business without a webhook neither sent nor blocking, bookings synced to their own calendar only, no sync without a calendar, busy times only for their own business, unreadable settings stop that business only. Existing calendar and webhook tests unchanged apart from the calendar stub's arguments. Migrations `0001`–`0015` upgrade and downgrade cleanly |
 | Real calendar or webhook for a second business | Not connected yet |
 | Live | Not deployed |
+
+## Create a business from a file (2026-11-17)
+
+**Outcome:** `python -m app.businesses template|check|load|list` creates a real business from a JSON file in the demo seed's format: details, hours, groomer, sizes, services with prices, FAQs. Beyond the format's own checks, a file is refused with reasons when its slug can't be a web address, its email isn't one, it has no services, groomer or hours, a slug or weekday repeats, or a period ends before it starts. Loading never overwrites an existing business unless `--update` is given; an update replaces details, hours, FAQs and prices, switches off dropped services, and leaves bookings, staff, numbers and integrations alone. [onboarding.md](onboarding.md) walks through setting up a business end to end. Step 6 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 429 passed (local PostgreSQL 14), 14 of them new: template valid, a loaded business served and bookable at its address in its own time zone, no overwrite without `--update` and no update of a missing business, update replaces details and switches off dropped services while staff stay, each kind of problem explained, unreadable and invalid files refused with reasons, nothing saved from a bad file |
+| Commands | `load`, a second `load` (refused), `load --update`, `list` and a missing file run against a scratch database |
+| Live | Not deployed |
