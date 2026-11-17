@@ -649,3 +649,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 415 passed (local PostgreSQL 14), 14 of them new: secrets stored encrypted and read back, key required and must match, bad webhooks and calendar keys refused, environment settings only for the deployment's business and overridden by stored ones, each business's events to its own URL with its own signature, a business without a webhook neither sent nor blocking, bookings synced to their own calendar only, no sync without a calendar, busy times only for their own business, unreadable settings stop that business only. Existing calendar and webhook tests unchanged apart from the calendar stub's arguments. Migrations `0001`–`0015` upgrade and downgrade cleanly |
 | Real calendar or webhook for a second business | Not connected yet |
 | Live | Not deployed |
+
+## Voice tools from each business's catalog (2026-11-17)
+
+**Outcome:** the assistant's tools (browser, OpenAI phone and Vapi) now list the business's own active services and sizes as allowed values. Before, they listed the demo's three service slugs, so another business's services could not be booked by voice. Sizes that need a staff assessment are still left out of `prepare_booking`. For the demo the tools are exactly as before. The evals harness uses the same per-business tools. This is step 5 of the plan in [decision 0010](decisions/0010-multiple-businesses.md), re-ordered today to reach a first pilot with one solo pet groomer: next are creating a business from a file, the website and staff sign-in per business, and per-business limits.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean (backend and evals) |
+| Backend tests | 422 passed (local PostgreSQL 14), 7 of them new: the demo's tools unchanged, a second business offered only its own services, inactive services left out, an empty catalog leaves the value open, the shared template never changed, Vapi tools carry the catalog, a browser session at the second business sends its catalog and name to OpenAI |
+| Live evals | Not run (they call OpenAI) |
+| Live | Not deployed |
