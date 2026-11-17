@@ -171,4 +171,34 @@ describe("App", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(container.querySelector("video")).toBeInTheDocument();
   });
+
+  describe("for a real business at its own address", () => {
+    afterEach(() => window.history.pushState({}, "", "/"));
+
+    it("loads that business and shows no demo wording", async () => {
+      window.history.pushState({}, "", "/b/happy-tails");
+      const real = { ...BUSINESS, name: "Happy Tails Grooming", is_demo: false };
+      const bodies: Record<string, unknown> = {
+        "/api/v1/b/happy-tails/business": real,
+        "/api/v1/b/happy-tails/services": CATALOG,
+        "/api/v1/b/happy-tails/faqs": FAQS,
+      };
+      const fetchMock = vi.fn((url: string) => {
+        const path = Object.keys(bodies).find((candidate) => url.endsWith(candidate));
+        return Promise.resolve({ ok: Boolean(path), json: () => Promise.resolve(path && bodies[path]) });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      render(<App />);
+
+      expect(await screen.findAllByText("Happy Tails Grooming")).not.toHaveLength(0);
+      expect(fetchMock.mock.calls.every(([url]) => String(url).includes("/api/v1/b/happy-tails/"))).toBe(true);
+      expect(screen.queryByText(/Demonstration site/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/fictional business/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "See the idea in one minute" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/demo prices/)).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Staff sign in" })).toHaveAttribute("href", "/b/happy-tails/staff");
+      expect(screen.queryByRole("link", { name: /Set up a receptionist/ })).not.toBeInTheDocument();
+      await waitFor(() => expect(document.title).toBe("Happy Tails Grooming"));
+    });
+  });
 });

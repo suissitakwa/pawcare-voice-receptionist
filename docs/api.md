@@ -188,7 +188,7 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `POST /api/v1/b/{business_slug}/staff/login` | Signs in to the named business. `{email, password}` returns `token`, `expires_at` (8 hours), and `staff`. Wrong details, including staff of a different business, return `401 invalid_credentials`. Five failures return `429 too_many_attempts` for 15 minutes. An unknown slug returns `404 business_not_found` |
 | `POST /api/v1/staff/login` | The same, for the deployment's own business (`BUSINESS_SLUG`) |
 | `POST /api/v1/staff/logout` | Revokes the token. `204` |
-| `GET /api/v1/staff/me` | The signed-in staff member: `email`, `display_name`, `business_slug`, `business_name`. The login response's `staff` has the same shape |
+| `GET /api/v1/staff/me` | The signed-in staff member: `email`, `display_name`, `business_slug`, `business_name`, `business_is_demo`. The login response's `staff` has the same shape |
 | `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details and `source` (`form` or `voice`). `scope=past` lists finished bookings, most recent first |
 | `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
 | `GET /api/v1/staff/blocks` | Current and future blocked periods |

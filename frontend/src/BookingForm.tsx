@@ -259,8 +259,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
           at {wallClock(summary.local_start)}.
         </p>
         <p className="muted">
-          This is a demonstration, so no appointment will take place and nothing will be sent to
-          you. Keep the reference if you'd like to mention it to staff.
+          {business.is_demo
+            ? "This is a demonstration, so no appointment will take place and nothing will be sent to you. Keep the reference if you'd like to mention it to staff."
+            : "Keep the reference in case you need to change or cancel the appointment."}
         </p>
         <button
           type="button"
@@ -285,7 +286,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
       ["Date", longDate(summary.local_start.slice(0, 10))],
       ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
       ["Length", formatDuration(summary.duration_minutes)],
-      ["Price", `${formatPrice(summary.price_cents)} (demo price)`],
+      ["Price", `${formatPrice(summary.price_cents)}${business.is_demo ? " (demo price)" : ""}`],
       ["Name", summary.owner_name],
       ["Contact", [summary.owner_email, summary.owner_phone].filter(Boolean).join(", ")],
     ];
@@ -334,7 +335,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
         </h3>
         <p className="muted">
           {selectedService?.name} on {longDate(date)} at {wallClock(availability?.slots.find((s) => s.starts_at === startsAt)?.local_start ?? `${date}T00:00:00`)}.
-          This is a demo, so please use made-up details.
+          {business.is_demo && "This is a demo, so please use made-up details."}
         </p>
         <Field
           id={`${id}-owner`}
@@ -458,7 +459,8 @@ export default function BookingForm({ business, catalog }: { business: Business;
       {option && !needsAssessment && (
         <p className="muted">
           {selectedService?.name}: {formatDuration(option.duration_minutes)},{" "}
-          {formatPrice(option.price_cents)} demo price.
+          {formatPrice(option.price_cents)}
+          {business.is_demo ? " demo price." : "."}
         </p>
       )}
       <div aria-live="polite">

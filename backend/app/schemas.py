@@ -280,6 +280,7 @@ class StaffPublic(BaseModel):
     display_name: str
     business_slug: str
     business_name: str
+    business_is_demo: bool
 
 
 class StaffLoginResult(BaseModel):

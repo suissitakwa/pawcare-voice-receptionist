@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–4 done; plan re-ordered for a first pilot.
+Status: accepted. PRs 1–4 and pilot steps 5–7 done; plan re-ordered for a first pilot.
 
 ## Context
 
