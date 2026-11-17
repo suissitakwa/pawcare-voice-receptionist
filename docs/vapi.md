@@ -71,6 +71,10 @@ To switch back to OpenAI later, remove the number from Vapi and attach it to the
 
 If the call says the assistant can't take calls, check `VAPI_ENABLED` and the phone limits. If tools fail, check the backend logs for `pawcare.vapi`, and that the credential's token matches `VAPI_SECRET` (a 401 in Vapi's logs means it doesn't).
 
+## Several businesses
+
+Each Vapi call goes to the business that registered the number dialed. Point every number at the same server URL and register them as in [phone.md](phone.md#numbers-for-several-businesses).
+
 ## Choosing a voice
 
 Browse voices in Vapi's voice library or ElevenLabs, copy the voice id, set `VAPI_VOICE_ID`, and redeploy (or use `VAPI_ASSISTANT_OVERRIDES` to try other settings). Change one thing at a time and call to compare.

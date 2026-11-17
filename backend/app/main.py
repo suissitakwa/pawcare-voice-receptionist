@@ -37,6 +37,7 @@ from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
 from app.phone import answer_problem
 from app.phone_api import router as phone_router
 from app.phone_api import stop_running_calls
+from app.phone_numbers import public_number
 from app.schemas import (
     SLUG_PATTERN,
     AvailabilityPublic,
@@ -210,13 +211,8 @@ def get_business(
         select(Business).where(Business.id == business_id).options(selectinload(Business.hours))
     )
     profile = BusinessPublic.model_validate(business)
-    # The phone line is still configured per deployment, so only its own business shows it.
-    if (
-        business.slug == settings.business_slug
-        and settings.phone_number
-        and (settings.vapi_enabled or answer_problem(settings) is None)
-    ):
-        profile.assistant_phone = settings.phone_number
+    if settings.vapi_enabled or answer_problem(settings) is None:
+        profile.assistant_phone = public_number(db, settings, business)
     return profile
 
 

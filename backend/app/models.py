@@ -50,6 +50,26 @@ class Business(Base):
     hours: Mapped[list["BusinessHours"]] = relationship(order_by="BusinessHours.weekday")
 
 
+class BusinessPhoneNumber(Base):
+    """A number callers dial. Calls to it are answered for its business."""
+
+    __tablename__ = "business_phone_numbers"
+    __table_args__ = (
+        UniqueConstraint("number", name="uq_business_phone_numbers_number"),
+        CheckConstraint("number ~ '^\\+[1-9][0-9]{6,14}$'", name="phone_number_e164"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), index=True
+    )
+    # E.164, e.g. +13235550100.
+    number: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class SizeCategory(Base):
     __tablename__ = "size_categories"
     __table_args__ = (UniqueConstraint("business_id", "slug"),)

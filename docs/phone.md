@@ -107,9 +107,29 @@ The phone instructions ask for a warm, relaxed front-desk style: contractions, s
 
 Change one at a time in Railway, call, and compare.
 
+## Numbers for several businesses
+
+One deployment can answer numbers for several businesses. Each call goes to the business that registered the dialed number, read from the SIP `To` header (OpenAI) or the call's phone number (Vapi):
+
+1. A registered number is answered for its business, with that business's name, hours, services and FAQs.
+2. Otherwise the call goes to the deployment's own business (`BUSINESS_SLUG`) if the number dialed is `PHONE_NUMBER`, if the dialed number can't be read, or while no number is registered at all. A single-business deployment works unchanged.
+3. Any other call is declined.
+
+Register numbers from `backend/`, with `DATABASE_URL` pointing at the database:
+
+```bash
+uv run python -m app.phone_numbers add <business-slug> +13105550142
+uv run python -m app.phone_numbers list
+uv run python -m app.phone_numbers remove +13105550142
+```
+
+Once you register any number, calls to unregistered numbers other than `PHONE_NUMBER` are declined, so set `PHONE_NUMBER` or register the deployment's own number too. Each business's site shows its first registered number as **Call our assistant**.
+
+Point every number at the same OpenAI trunk or Vapi server URL. Limits (`PHONE_DAILY_CALL_LIMIT` and the per-caller limit) apply to each business separately for the daily count.
+
 ## Not done yet
 
-- One number per deployment: calls are answered for `BUSINESS_SLUG`. Routing each subscriber's number to their own profile comes with profile-driven receptionists.
+- Routing by the dialed number has been tested with requests shaped like OpenAI's and Vapi's, not yet with a real call to a second number. Check one before relying on it.
 - No transfer to a person (OpenAI's `refer` endpoint supports it).
 - No phone reply-time measurement. Browser calls measure it; the server-side WebSocket doesn't get the audio playback events used for that.
 - Tested with one real call (a booking made by phone). Latency and audio quality have not been measured; the rest of the flow is covered by automated tests with a fake OpenAI.

@@ -17,7 +17,7 @@ The public routes (business, services, FAQs, availability, bookings, voice sessi
 - **`/api/v1/b/{business_slug}/...`** serves the business with that slug, for example `/api/v1/b/pawcare-demo/services`. An unknown or malformed slug returns `404 business_not_found`.
 - **`/api/v1/...`** (no slug) serves the deployment's own business, set by `BUSINESS_SLUG`. The demo site uses these. They stay until the frontend moves to slugged addresses.
 
-Everything a request reads or changes belongs to that business. A booking summary, voice session or booking from one business can't be used through another business's address. The receptionist phone number (`assistant_phone`) is still configured per deployment, so it appears only on the deployment's own business. Staff sign in at their business's address; after that, every staff route serves the signed-in staff member's business. Phone and Vapi routes still serve the deployment's business. See [decision 0010](decisions/0010-multiple-businesses.md).
+Everything a request reads or changes belongs to that business. A booking summary, voice session or booking from one business can't be used through another business's address. Each business shows its own receptionist number (`assistant_phone`). Staff sign in at their business's address; after that, every staff route serves the signed-in staff member's business. Phone calls (OpenAI and Vapi) go to the business whose number was dialed; see [phone.md](phone.md#numbers-for-several-businesses). See [decision 0010](decisions/0010-multiple-businesses.md).
 
 The endpoints below are written without the slug.
 
@@ -43,7 +43,7 @@ Public profile of the business this deployment serves. The record is chosen by s
 
 | Status | Meaning |
 |---|---|
-| 200 | `name`, `tagline`, `about`, `timezone`, `contact_email`, `contact_phone`, `address`, `is_demo`, `hours`, `assistant_phone` (the receptionist's number in E.164, or `null` unless the phone line is answering) |
+| 200 | `name`, `tagline`, `about`, `timezone`, `contact_email`, `contact_phone`, `address`, `is_demo`, `hours`, `assistant_phone` (the business's first registered receptionist number in E.164, or `PHONE_NUMBER` for the deployment's own business; `null` when it has none or the phone line isn't answering) |
 | 404 | `business_not_configured`: the demo seed has not been run |
 | 503 | `database_unavailable` |
 
