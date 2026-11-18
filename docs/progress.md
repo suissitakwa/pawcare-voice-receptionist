@@ -701,3 +701,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 461 passed (local PostgreSQL 14), 17 of them new: two people booked at the same time, a time stays open while anyone is free, no preference goes to the less busy person, requested person named in the summary, only qualified staff offered, unknown staff refused, no staff in a one-person summary, catalog lists staff only with a choice, blocks for one person or everyone, dashboard staff column and team list, phone tools and instructions, reloading a file without someone stops their bookings, file checks for staff services, and a phone change staying with the same person. Migrations `0001`–`0017` upgrade and downgrade cleanly |
 | Frontend | Typecheck and build pass; 74 tests pass (Node 22), 4 of them new |
 | Live | Not deployed |
+
+## Real businesses aren't called a demo (2026-11-17)
+
+**Outcome:** the receptionist's instructions called every business "a fictional dog grooming business on a demonstration line" and quoted "demo prices", even when `is_demo` was false; the website already checked it. Now only the demo business gets that wording, for browser voice and phone (OpenAI and Vapi), and a real business's callers hear its prices as prices.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 463 passed (local PostgreSQL 14), 2 new: a real business's web and phone instructions contain no "fictional", "demonstration" or "demo", while the demo's still say it is fictional |
+| Live | Not deployed |
