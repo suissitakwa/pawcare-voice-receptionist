@@ -712,3 +712,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 467 passed (local PostgreSQL 14), 6 of them new: the draft carries the profile's details, create makes the business live and the sign-up password opens its dashboard, a taken name gets a free address, only submitted pet grooming profiles are accepted, a file with problems creates nothing, slugs are web-safe. Migrations `0001`–`0018` upgrade and downgrade cleanly |
 | Frontend | Typecheck and build pass; 76 tests pass (Node 22), 2 of them new |
 | Live | Not deployed |
+
+## Owner emails (2026-11-17)
+
+**Outcome:** each owner is emailed about every new, changed and cancelled booking and every callback request, through any SMTP server (Gmail app password for a pilot, Resend or similar later), with no automation tool. Emails come from the event outbox, are retried up to 6 times with growing delays and given up after 24 hours. They go to the business's new `notify_email` (migration `0019`), or its `contact_email`; the demo never emails its made-up address. Businesses made from a sign-up email the owner's sign-up address. `python -m app.businesses notify <slug> <email>` changes it. The staff dashboard has an "Email notices" section. See [email.md](email.md).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 476 passed (local PostgreSQL 14), 10 new: a booking and a callback request are emailed with their details and dashboard link, sent once, the demo doesn't email, nothing is lost without a mail server, failures retried then given up, old notices dropped, SMTP uses STARTTLS and signs in, staff see the address and count, files check the address, sign-up drafts set it. Migrations `0001`–`0019` upgrade and downgrade cleanly |
+| Frontend | Typecheck and build pass; 77 tests pass (Node 22), 1 new |
+| Live | Not deployed. Needs `SMTP_*` and `EMAIL_FROM` on Railway |

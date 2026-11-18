@@ -89,6 +89,8 @@ def draft(session: Session, email: str) -> dict:
         tagline="",
         about=f"{profile.business_name} is a pet grooming business.",
         contact_email=account.email,
+        # Bookings and callback requests are emailed to the person who signed up.
+        notify_email=account.email,
         contact_phone=details.business_phone or "",
         address="",
         is_demo=False,

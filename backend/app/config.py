@@ -81,6 +81,17 @@ class Settings(BaseSettings):
     # still serve the deployment's own business when it has none stored.
     integrations_key: str = Field(default="", repr=False)
 
+    # Owner emails about bookings and callback requests, through any SMTP server. Port 465
+    # uses TLS from the start, any other port STARTTLS. Empty host or sender: no emails.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = Field(default="", repr=False)
+    # The From address, for example "Receptionist <bookings@example.com>".
+    email_from: str = ""
+    # The booking site's address, for links in emails, for example https://example.netlify.app
+    public_site_url: str = ""
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

@@ -35,6 +35,8 @@ class Business(Base):
     about: Mapped[str] = mapped_column(Text)
     timezone: Mapped[str] = mapped_column(String(64))
     contact_email: Mapped[str] = mapped_column(String(254))
+    # Where owner notices go (new bookings, callback requests). Empty: contact_email.
+    notify_email: Mapped[str | None] = mapped_column(String(254))
     contact_phone: Mapped[str] = mapped_column(String(32))
     address: Mapped[str] = mapped_column(String(200))
     is_demo: Mapped[bool] = mapped_column(server_default=true())
@@ -552,3 +554,9 @@ class WebhookEvent(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(String(200))
+    # The owner's email about this event, sent separately from the webhook.
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    email_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_error: Mapped[str | None] = mapped_column(String(200))

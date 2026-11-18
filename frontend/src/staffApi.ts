@@ -115,6 +115,14 @@ export interface WebhookStatus {
   last_error: string | null;
 }
 
+export interface EmailStatus {
+  /** Where emails about bookings and callback requests go; null when none are sent. */
+  address: string | null;
+  enabled: boolean;
+  sent_last_7_days: number;
+  last_error: string | null;
+}
+
 export const staffApi = {
   logout: (token: string) => authed<void>(token, "/logout", { method: "POST" }),
   me: (token: string) => authed<StaffUser>(token, "/me"),
@@ -135,5 +143,6 @@ export const staffApi = {
   completeCallback: (token: string, id: string) =>
     authed<StaffCallback>(token, `/callbacks/${encodeURIComponent(id)}/done`, { method: "POST" }),
   webhooks: (token: string) => authed<WebhookStatus>(token, "/webhooks"),
+  emails: (token: string) => authed<EmailStatus>(token, "/emails"),
   sendTestEvent: (token: string) => authed<{ event_id: string }>(token, "/webhooks/test", { method: "POST" }),
 };

@@ -26,7 +26,7 @@ This replaces steps 2 and 3: it creates the business, links their profile, and l
 Once per deployment:
 
 - [ ] `INTEGRATIONS_KEY` set on Railway (`uv run python -m app.integrations generate-key`), so each business's calendar key and webhook secret can be stored.
-- [ ] A way for owners to hear about callback requests and bookings: an n8n workflow on the webhook that emails or texts them ([automations.md](automations.md)). Without it they must check the staff dashboard themselves.
+- [ ] Owner emails set up (`SMTP_*` and `EMAIL_FROM`, [email.md](email.md)), so owners hear about bookings and callback requests without checking the dashboard.
 - [ ] The phone daily ceiling (`PHONE_DAILY_TOTAL_LIMIT`) covers the demo plus every business's expected calls.
 
 Per business, go through [company/groomer-intake.md](../company/groomer-intake.md) with the owner. It collects everything below. Today the business must book in Google Calendar or on paper: Square, Vagaro and other software aren't connected, so they'd take the same slots as the receptionist.
@@ -45,6 +45,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `name`, `tagline`, `about` | What the receptionist says about the business. `about` is two or three plain sentences |
 | `timezone` | The business's time zone, e.g. `America/Chicago` |
 | `contact_email`, `contact_phone`, `address` | Shown on the site and given to callers who ask |
+| `notify_email` | Optional. Where booking and callback emails go; without it, `contact_email` |
 | `is_demo` | `false` for a real business |
 | `slot_increment_minutes`, `buffer_minutes`, `min_notice_minutes`, `booking_horizon_days` | Start times every 15 minutes, 15 minutes between appointments, at least 2 hours' notice, up to 30 days ahead. Change if the owner wants |
 | `hours` | Opening hours, one entry per open day. `weekday` 0 is Monday |

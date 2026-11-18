@@ -38,6 +38,7 @@ def test_draft_fills_in_what_the_profile_knows(db, submitted) -> None:
     assert data["slug"] == "shaggy-chic"
     assert data["name"] == "Shaggy Chic"
     assert data["contact_email"] == "sam@example.com"
+    assert data["notify_email"] == "sam@example.com"
     assert data["contact_phone"] == "(415) 555-0134"
     assert data["is_demo"] is False
     assert data["faqs"] == [

@@ -37,6 +37,7 @@ from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.google_calendar import run_sync_worker
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
+from app.owner_email import run_email_worker
 from app.phone import answer_problem
 from app.phone_api import router as phone_router
 from app.phone_api import stop_running_calls
@@ -106,10 +107,11 @@ def expected_revision() -> str | None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     workers = []
-    # The same switch as webhooks: tests run both explicitly.
+    # One switch for every background worker: tests run them explicitly.
     if settings.webhook_worker_enabled:
         workers.append(asyncio.create_task(run_worker(settings, get_engine, get_now)))
         workers.append(asyncio.create_task(run_sync_worker(settings, get_engine, get_now)))
+        workers.append(asyncio.create_task(run_email_worker(settings, get_engine, get_now)))
     yield
     await stop_running_calls()
     for worker in workers:

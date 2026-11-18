@@ -91,6 +91,10 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     "GET /api/v1/staff/metrics": () => ({ status: 200, body: METRICS }),
     "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK] }),
     "GET /api/v1/staff/webhooks": () => ({ status: 200, body: WEBHOOKS }),
+    "GET /api/v1/staff/emails": () => ({
+      status: 200,
+      body: { address: "owner@studio.example", enabled: true, sent_last_7_days: 3, last_error: null },
+    }),
     "GET /api/v1/staff/team": () => ({ status: 200, body: [{ slug: "main-groomer", name: "Main groomer" }] }),
     ...overrides,
   };
@@ -225,6 +229,14 @@ describe("StaffApp", () => {
     await waitFor(() => expect(calls.some((c) => c.key === "POST /api/v1/staff/blocks")).toBe(true));
     const sent = calls.find((c) => c.key === "POST /api/v1/staff/blocks");
     expect(JSON.parse(String(sent?.init?.body)).staff).toBe("alex");
+  });
+
+  it("says where booking and callback emails go", async () => {
+    mockApi(dashboardRoutes());
+    render(<StaffApp />);
+    await signIn();
+    expect(await screen.findByText("owner@studio.example")).toBeInTheDocument();
+    expect(screen.getByText(/3 sent in the last 7 days/)).toBeInTheDocument();
   });
 
   it("with one staff member, has no staff column or choice", async () => {

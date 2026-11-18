@@ -75,6 +75,8 @@ class BusinessSeed(SeedModel):
     contact_phone: str
     address: str
     is_demo: bool
+    # Where owner notices go; leave out to use contact_email.
+    notify_email: str | None = None
     slot_increment_minutes: int = Field(gt=0)
     buffer_minutes: int = Field(ge=0)
     min_notice_minutes: int = Field(ge=0)
@@ -452,6 +454,15 @@ class WebhookStatus(BaseModel):
     delivered_last_7_days: int
     failed_last_7_days: int
     last_delivered_at: datetime | None
+    last_error: str | None
+
+
+class EmailStatus(BaseModel):
+    # Where owner emails go, or None when nothing would be sent.
+    address: str | None
+    # Whether the deployment can send email at all.
+    enabled: bool
+    sent_last_7_days: int
     last_error: str | None
 
 
