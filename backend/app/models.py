@@ -495,12 +495,17 @@ class SubscriberSession(Base):
 
 class BusinessProfile(Base):
     __tablename__ = "business_profiles"
+    __table_args__ = (UniqueConstraint("business_id", name="uq_business_profiles_business_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, server_default=text("gen_random_uuid()")
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("subscriber_accounts.id", ondelete="CASCADE"), unique=True
+    )
+    # The live business made from this profile, once it has been provisioned.
+    business_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("businesses.id", ondelete="SET NULL")
     )
     status: Mapped[str] = mapped_column(String(16), server_default="draft")
     business_name: Mapped[str | None] = mapped_column(String(120))

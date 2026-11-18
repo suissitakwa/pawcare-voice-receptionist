@@ -174,6 +174,8 @@ class ProfilePublic(BaseModel):
     missing: list[str]
     submitted_at: datetime | None
     updated_at: datetime
+    # Set once the receptionist is live: the business's address, /b/{slug}.
+    business_slug: str | None = None
 
 
 class Option(BaseModel):
