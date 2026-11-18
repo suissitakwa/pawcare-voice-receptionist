@@ -14,14 +14,16 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.availability import (
-    active_groomer_id,
+    active_staff,
     check_booking_window,
+    free_staff_at,
     resolve_option,
     slot_is_open,
+    staff_for,
 )
 from app.errors import ApiError
 from app.models import Booking, BookingDraft, Business, VoiceSession
@@ -63,9 +65,11 @@ def prepare_booking(
     starts_at = request.starts_at.astimezone(UTC)
     check_booking_window(business, starts_at.astimezone(timezone).date(), now)
     duration = timedelta(minutes=rule.duration_minutes)
-    groomer_id = active_groomer_id(session, business.id)
-    if groomer_id is None or not slot_is_open(session, business, starts_at, duration, now):
+    staff = staff_for(session, business.id, service.id, request.staff)
+    free = free_staff_at(session, business, starts_at, duration, now, staff)
+    if not free:
         raise slot_unavailable()
+    member = free[0]
 
     ends_at = starts_at + duration
     summary = BookingSummary(
@@ -81,11 +85,12 @@ def prepare_booking(
         timezone=business.timezone,
         duration_minutes=rule.duration_minutes,
         price_cents=rule.price_cents,
+        staff=member.name if len(active_staff(session, business.id)) > 1 else None,
     ).model_dump(mode="json")
     token = secrets.token_urlsafe(32)
     draft = BookingDraft(
         business_id=business.id,
-        groomer_id=groomer_id,
+        groomer_id=member.id,
         service_id=service.id,
         size_category_id=size.id,
         starts_at=starts_at,
@@ -190,7 +195,8 @@ def confirm_prepared(
             "The details changed since they were shown. Please review and confirm again.",
         )
     duration = draft.ends_at - draft.starts_at
-    if not slot_is_open(session, business, draft.starts_at, duration, now):
+    # The customer saw this person's name, so it stays theirs or the booking fails.
+    if not slot_is_open(session, business, draft.starts_at, duration, now, draft.groomer_id):
         raise slot_unavailable()
 
     for _ in range(3):
@@ -232,6 +238,12 @@ def confirm_prepared(
                     409, "already_confirmed", "This booking summary was already confirmed."
                 ) from None
             if constraint == "uq_bookings_reference":
+                continue
+            raise
+        except OperationalError as exc:
+            # Two inserts checking the overlap constraint at once can deadlock. Postgres
+            # aborts one; trying again either books or meets the winner's booking.
+            if getattr(exc.orig, "sqlstate", None) == "40P01":
                 continue
             raise
         if draft.voice_session_id is not None:

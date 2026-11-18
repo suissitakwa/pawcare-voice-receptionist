@@ -111,6 +111,8 @@ export default function BookingForm({ business, catalog }: { business: Business;
   const [step, setStep] = useState<Step>("choose");
   const [service, setService] = useState(catalog.services[0]?.slug ?? "");
   const [size, setSize] = useState("");
+  // Empty: anyone who does the service.
+  const [staff, setStaff] = useState("");
   const [date, setDate] = useState("");
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [slotsState, setSlotsState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -128,10 +130,17 @@ export default function BookingForm({ business, catalog }: { business: Business;
   const needsAssessment = sizeCategory?.requires_staff_assessment ?? false;
   const selectedService = catalog.services.find((s) => s.slug === service);
   const option = selectedService?.options.find((o) => o.size === size);
+  const team = catalog.staff ?? [];
+  const teamForService = team.filter((member) => member.services.includes(service));
 
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
+
+  // A person who doesn't do the newly chosen service can't stay selected.
+  useEffect(() => {
+    if (staff && !teamForService.some((member) => member.slug === staff)) setStaff("");
+  }, [service, staff, teamForService]);
 
   useEffect(() => {
     setStartsAt("");
@@ -142,7 +151,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
     }
     const controller = new AbortController();
     setSlotsState("loading");
-    fetchAvailability(service, size, date, controller.signal)
+    fetchAvailability(service, size, date, controller.signal, staff)
       .then((result) => {
         setAvailability(result);
         setSlotsState("ready");
@@ -155,7 +164,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
         }
       });
     return () => controller.abort();
-  }, [service, size, date, needsAssessment, reload]);
+  }, [service, size, date, staff, needsAssessment, reload]);
 
   function startOver(text?: string) {
     setPrepared(null);
@@ -185,6 +194,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
         owner_email: contact.email.trim() || null,
         owner_phone: contact.phone.trim() || null,
         pet_name: contact.petName.trim(),
+        ...(staff ? { staff } : {}),
       });
       setPrepared(result);
       // One key per summary: retrying this summary can never create a second booking.
@@ -255,8 +265,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
           Reference <strong>{confirmation.reference}</strong>
         </p>
         <p>
-          {summary.service} for {summary.pet_name} on {longDate(summary.local_start.slice(0, 10))}{" "}
-          at {wallClock(summary.local_start)}.
+          {summary.service} for {summary.pet_name}
+          {summary.staff ? ` with ${summary.staff}` : ""} on{" "}
+          {longDate(summary.local_start.slice(0, 10))} at {wallClock(summary.local_start)}.
         </p>
         <p className="muted">
           {business.is_demo
@@ -285,6 +296,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
       ["Dog", summary.pet_name],
       ["Date", longDate(summary.local_start.slice(0, 10))],
       ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
+      ...(summary.staff ? ([["With", summary.staff]] as [string, string][]) : []),
       ["Length", formatDuration(summary.duration_minutes)],
       ["Price", `${formatPrice(summary.price_cents)}${business.is_demo ? " (demo price)" : ""}`],
       ["Name", summary.owner_name],
@@ -439,6 +451,19 @@ export default function BookingForm({ business, catalog }: { business: Business;
             ))}
           </select>
         </div>
+        {team.length > 1 && (
+          <div className="field">
+            <label htmlFor={`${id}-staff`}>Who would you like?</label>
+            <select id={`${id}-staff`} value={staff} onChange={(e) => setStaff(e.target.value)}>
+              <option value="">Anyone available</option>
+              {teamForService.map((member) => (
+                <option key={member.slug} value={member.slug}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="field">
           <label htmlFor={`${id}-date`}>Date</label>
           <input

@@ -195,6 +195,19 @@ class Groomer(Base):
     is_active: Mapped[bool] = mapped_column(server_default=true())
 
 
+class GroomerService(Base):
+    """The services a staff member does. A staff member with no rows does every service."""
+
+    __tablename__ = "groomer_services"
+
+    groomer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("groomers.id", ondelete="CASCADE"), primary_key=True
+    )
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class GroomerHours(Base):
     __tablename__ = "groomer_hours"
     __table_args__ = (
@@ -235,7 +248,13 @@ class BlockedPeriod(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, server_default=text("gen_random_uuid()")
     )
-    groomer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groomers.id", ondelete="CASCADE"))
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), index=True
+    )
+    # None blocks every staff member: the whole business is closed.
+    groomer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("groomers.id", ondelete="CASCADE")
+    )
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str] = mapped_column(String(200), server_default="")

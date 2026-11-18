@@ -690,3 +690,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 444 passed (local PostgreSQL 14), 8 of them new: each business has its own browser quota, a business's own limit applies and `0` turns voice off for it, the browser ceiling caps all businesses together and counts only the last 24 hours, phone limits per business and overridable, the phone ceiling caps all businesses and ignores older calls, business files accept limits and refuse negative ones. Migrations `0001`–`0016` upgrade and downgrade cleanly |
 | Live | Not deployed |
+
+## Several staff per business (2026-11-17)
+
+**Outcome:** a business can have several staff, so multi-groomer shops and hair salons can use the receptionist. Customers take anyone free or ask for someone; with no preference, the person with fewest bookings that day gets it. Each staff member can be limited to some services (`"services"` in the business file, table `groomer_services`). Staff blocks can be for one person or the whole business (migration `0017` gives `blocked_periods` a `business_id` and makes the staff member optional). The booking site shows "Who would you like?", the summary and confirmation say who it's with, and the staff dashboard has a "With" column and a "Who" choice for blocks, all only when there is more than one person. Phone and browser assistants get an optional `staff` value and a staff list in their instructions; a change by phone stays with the same person. Calendar events and webhooks say who it's with. Booking confirmation now retries once after a Postgres deadlock between two inserts racing for one slot, which the race test hit after this change. Step 10a of [decision 0010](decisions/0010-multiple-businesses.md); each person's own Google Calendar is 10b.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 461 passed (local PostgreSQL 14), 17 of them new: two people booked at the same time, a time stays open while anyone is free, no preference goes to the less busy person, requested person named in the summary, only qualified staff offered, unknown staff refused, no staff in a one-person summary, catalog lists staff only with a choice, blocks for one person or everyone, dashboard staff column and team list, phone tools and instructions, reloading a file without someone stops their bookings, file checks for staff services, and a phone change staying with the same person. Migrations `0001`–`0017` upgrade and downgrade cleanly |
+| Frontend | Typecheck and build pass; 74 tests pass (Node 22), 4 of them new |
+| Live | Not deployed |

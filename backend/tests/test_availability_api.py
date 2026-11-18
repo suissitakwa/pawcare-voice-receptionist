@@ -101,6 +101,7 @@ def test_blocked_period_removes_starts(client: TestClient, db: Session) -> None:
     groomer_id = db.scalar(select(Groomer.id))
     db.add(
         BlockedPeriod(
+            business_id=db.scalar(select(Groomer.business_id).where(Groomer.id == groomer_id)),
             groomer_id=groomer_id,
             starts_at=datetime(2027, 1, 5, 14, 0, tzinfo=LA),
             ends_at=datetime(2027, 1, 5, 15, 0, tzinfo=LA),

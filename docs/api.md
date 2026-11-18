@@ -71,6 +71,8 @@ Active services, each with a duration and indicative price for every eligible si
 
 A size with `requires_staff_assessment: true` never has an option, so it cannot be priced or booked directly.
 
+A business with more than one active staff member also returns `staff`, so a customer can ask for someone: `[{ "slug": "alex", "name": "Alex", "services": ["full-groom", "nail-and-paw"] }]`, where `services` are the service slugs that person does. With one staff member it is `[]`.
+
 ### `GET /api/v1/faqs`
 
 Approved questions and answers, in display order: `slug`, `question`, `answer`.
@@ -86,6 +88,7 @@ Open appointment starts for one service, dog size, and local date in the busines
 | `service` | `full-groom` |
 | `size` | `medium` |
 | `date` | `2026-11-10` |
+| `staff` (optional) | `alex`: only this person's open times. Leave it out for anyone who does the service |
 
 ```json
 {
@@ -106,13 +109,17 @@ Open appointment starts for one service, dog size, and local date in the busines
 }
 ```
 
-`closed` means the business is shut or the groomer is not working. An empty `slots` list with `closed: false` means the day is fully taken.
+`closed` means the business is shut or nobody who does the service is working. An empty `slots` list with `closed: false` means the day is fully taken. With several staff, a start is listed while anyone who does the service is free for it.
+
+The staff errors below also apply to `POST /api/v1/bookings/prepare`.
 
 | Status | Code | Meaning |
 |---|---|---|
 | 404 | `unknown_service` | No active service with that name for this size |
 | 404 | `unknown_size` | No such dog size |
 | 422 | `staff_assessment_required` | This size must speak to staff first |
+| 404 | `unknown_staff` | No active staff member with that slug |
+| 422 | `staff_not_qualified` | That person doesn't do this service |
 | 422 | `date_in_past` | The date has passed in the business time zone |
 | 422 | `date_too_far_ahead` | The date is past the booking horizon |
 | 422 | `invalid_request` | A parameter is missing or malformed |
@@ -147,7 +154,7 @@ Checks the slot and returns a summary to show the customer. Nothing is booked ye
 }
 ```
 
-`starts_at` must include a UTC offset and match a start that `GET /api/v1/availability` would offer. An email address or a phone number is required. Unknown fields, including any attempt to send a price, are rejected.
+`starts_at` must include a UTC offset and match a start that `GET /api/v1/availability` would offer. An email address or a phone number is required. An optional `staff` slug books that person; without it the booking goes to whoever is free, the one with fewest bookings that day first. At a business with several staff, the summary's `staff` names who it is with (otherwise `null`), and confirming fails with `slot_unavailable` if that person has been taken in the meantime. Unknown fields, including any attempt to send a price, are rejected.
 
 `201` returns `confirmation_token`, `summary_hash`, `expires_at` (10 minutes), and `summary`: service, size, pet and owner details, UTC and local times, duration, and price.
 
@@ -191,8 +198,9 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `GET /api/v1/staff/me` | The signed-in staff member: `email`, `display_name`, `business_slug`, `business_name`, `business_is_demo`. The login response's `staff` has the same shape |
 | `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details and `source` (`form` or `voice`). `scope=past` lists finished bookings, most recent first |
 | `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
-| `GET /api/v1/staff/blocks` | Current and future blocked periods |
-| `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason}` as wall-clock values in the business time zone. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range |
+| `GET /api/v1/staff/team` | Active staff members: `slug`, `name` |
+| `GET /api/v1/staff/blocks` | Current and future blocked periods, each with `staff`: the person's name, or `null` for the whole business |
+| `POST /api/v1/staff/blocks` | `{start_date, start_time, end_date, end_time, reason, staff}` as wall-clock values in the business time zone. `staff` is a staff slug, or left out to close the whole business. Returns the block and any confirmed bookings it overlaps. `422 invalid_block` for an empty, past, or over-31-day range; `404 unknown_staff` |
 | `DELETE /api/v1/staff/blocks/{id}` | Removes a block. `204`, or `404 block_not_found` |
 | `GET /api/v1/staff/metrics` | Upcoming bookings, bookings and cancellations in the last 7 days, voice calls and voice bookings in the last 7 days, open callbacks, assistant tool failures in the last 7 days, and the median and 90th percentile voice reply time in the last 7 days (null until a call is measured) |
 | `GET /api/v1/staff/callbacks?status=open` | Callback requests, newest first. `status` is `open`, `done`, or `all` |
@@ -249,7 +257,7 @@ Runs one assistant tool. The browser relays the model's request: `{session_token
 
 | Tool | Does |
 |---|---|
-| `check_availability` | `service`, `size`, `date`. Returns up to 12 open times with labels and `starts_at`, plus duration and demo price |
+| `check_availability` | `service`, `size`, `date`, and `staff` at a business with a choice of staff. Returns up to 12 open times with labels and `starts_at`, plus duration and demo price |
 | `prepare_booking` | `service`, `size`, `starts_at`, `owner_name`, `pet_name`, and a phone or email. Returns a summary for the model and, separately, the prepared booking for the screen. The confirmation token is never in the model's part |
 | `create_callback_request` | `name`, a phone or email, `reason`, optional `note`. Saves a request for staff |
 

@@ -2,7 +2,17 @@
 
 How to set up a new business on an existing deployment, from its details to its phone number. Every command runs from `backend/` with `DATABASE_URL` pointing at the production database.
 
-For now this suits a **solo pet groomer**: each business books against one groomer's calendar, and the receptionist talks about dogs. See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
+This suits a **pet groomer with one or more groomers**. The receptionist talks about dogs, and a connected Google Calendar blocks every groomer at once (each groomer's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
+
+## 0. Before the first real business
+
+Once per deployment:
+
+- [ ] `INTEGRATIONS_KEY` set on Railway (`uv run python -m app.integrations generate-key`), so each business's calendar key and webhook secret can be stored.
+- [ ] A way for owners to hear about callback requests and bookings: an n8n workflow on the webhook that emails or texts them ([automations.md](automations.md)). Without it they must check the staff dashboard themselves.
+- [ ] The phone daily ceiling (`PHONE_DAILY_TOTAL_LIMIT`) covers the demo plus every business's expected calls.
+
+Per business, go through [company/groomer-intake.md](../company/groomer-intake.md) with the owner. It collects everything below. Today the business must book in Google Calendar or on paper: Square, Vagaro and other software aren't connected, so they'd take the same slots as the receptionist.
 
 ## 1. Write the business file
 
@@ -21,7 +31,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `is_demo` | `false` for a real business |
 | `slot_increment_minutes`, `buffer_minutes`, `min_notice_minutes`, `booking_horizon_days` | Start times every 15 minutes, 15 minutes between appointments, at least 2 hours' notice, up to 30 days ahead. Change if the owner wants |
 | `hours` | Opening hours, one entry per open day. `weekday` 0 is Monday |
-| `groomers` | One groomer with working hours and breaks. Bookings fit inside these |
+| `groomers` | Each groomer with working hours and breaks. Bookings fit inside these. With more than one, customers can ask for someone by name or take anyone free. Add `"services": ["full-groom"]` to limit a groomer to some services; leave it out for every service. A groomer removed from the file stops taking bookings |
 | `size_categories` | Dog sizes. A size with `requires_staff_assessment: true` can't be booked directly; callers get a callback instead |
 | `services` | Each service's duration and price (in cents) for each size it's offered for |
 | `faqs` | The only answers the receptionist gives beyond services and hours. Keep them short and true |
@@ -79,4 +89,4 @@ See [calendar.md](calendar.md#several-businesses) and [automations.md](automatio
 
 ## Not ready yet
 
-- One groomer per business.
+- Each groomer's own Google Calendar. One calendar per business, which blocks everyone.

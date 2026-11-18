@@ -256,6 +256,7 @@ def test_block_added_after_prepare_is_respected(client: TestClient, db: Session)
     prepared = prepare(client).json()
     db.add(
         BlockedPeriod(
+            business_id=db.scalar(select(Groomer.business_id)),
             groomer_id=db.scalar(select(Groomer.id)),
             starts_at=datetime(2027, 1, 5, 10, 0, tzinfo=LA),
             ends_at=datetime(2027, 1, 5, 10, 30, tzinfo=LA),

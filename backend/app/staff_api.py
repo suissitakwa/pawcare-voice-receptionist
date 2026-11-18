@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, Response
 from fastapi import Path as PathParam
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
 
+from app.availability import active_staff
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
@@ -38,6 +39,7 @@ from app.schemas import (
     StaffLoginResult,
     StaffMetrics,
     StaffPublic,
+    TeamMember,
     WebhookStatus,
     WebhookTestQueued,
 )
@@ -80,18 +82,25 @@ def to_public(staff: StaffUser, business: Business) -> StaffPublic:
 def booking_rows(db: Session, business_id: uuid.UUID, *conditions, order, limit: int = 200):
     timezone = business_timezone(db, business_id)
     rows = db.execute(
-        select(Booking, Service.name, SizeCategory.label)
+        select(Booking, Service.name, SizeCategory.label, Groomer.display_name)
         .join(Service, Service.id == Booking.service_id)
         .join(SizeCategory, SizeCategory.id == Booking.size_category_id)
+        .join(Groomer, Groomer.id == Booking.groomer_id)
         .where(Booking.business_id == business_id, *conditions)
         .order_by(order)
         .limit(limit)
     ).all()
-    return [to_staff_booking(booking, service, size, timezone) for booking, service, size in rows]
+    return [
+        to_staff_booking(booking, service, size, staff, timezone)
+        for booking, service, size, staff in rows
+    ]
 
 
-def to_staff_booking(booking: Booking, service: str, size: str, timezone: ZoneInfo) -> StaffBooking:
+def to_staff_booking(
+    booking: Booking, service: str, size: str, staff: str, timezone: ZoneInfo
+) -> StaffBooking:
     return StaffBooking(
+        staff=staff,
         reference=booking.reference,
         status=booking.status,
         service=service,
@@ -110,7 +119,7 @@ def to_staff_booking(booking: Booking, service: str, size: str, timezone: ZoneIn
     )
 
 
-def to_staff_block(block: BlockedPeriod, timezone: ZoneInfo) -> StaffBlock:
+def to_staff_block(block: BlockedPeriod, staff: str | None, timezone: ZoneInfo) -> StaffBlock:
     return StaffBlock(
         id=block.id,
         starts_at=block.starts_at,
@@ -118,6 +127,7 @@ def to_staff_block(block: BlockedPeriod, timezone: ZoneInfo) -> StaffBlock:
         local_start=block.starts_at.astimezone(timezone),
         local_end=block.ends_at.astimezone(timezone),
         reason=block.reason,
+        staff=staff,
     )
 
 
@@ -223,13 +233,22 @@ def cancel_booking(reference: str, context: Staff, db: DbSession, now: Now) -> S
 def list_blocks(context: Staff, db: DbSession, now: Now):
     business_id = context.staff.business_id
     timezone = business_timezone(db, business_id)
-    blocks = db.scalars(
-        select(BlockedPeriod)
-        .join(Groomer, Groomer.id == BlockedPeriod.groomer_id)
-        .where(Groomer.business_id == business_id, BlockedPeriod.ends_at > now)
+    blocks = db.execute(
+        select(BlockedPeriod, Groomer.display_name)
+        .outerjoin(Groomer, Groomer.id == BlockedPeriod.groomer_id)
+        .where(BlockedPeriod.business_id == business_id, BlockedPeriod.ends_at > now)
         .order_by(BlockedPeriod.starts_at)
     ).all()
-    return [to_staff_block(block, timezone) for block in blocks]
+    return [to_staff_block(block, staff, timezone) for block, staff in blocks]
+
+
+@router.get("/team", response_model=list[TeamMember])
+def team(context: Staff, db: DbSession) -> list[TeamMember]:
+    """Active staff members, who bookings and blocks can belong to."""
+    return [
+        TeamMember(slug=member.slug, name=member.name)
+        for member in active_staff(db, context.staff.business_id)
+    ]
 
 
 def local_instant(day: date, wall_clock: time, timezone: ZoneInfo) -> datetime:
@@ -249,16 +268,14 @@ def create_block(request: BlockRequest, context: Staff, db: DbSession, now: Now)
         raise ApiError(422, "invalid_block", "A block can last at most 31 days.")
     if ends_at <= now:
         raise ApiError(422, "invalid_block", "That time has already passed.")
-    groomer_id = db.scalar(
-        select(Groomer.id)
-        .where(Groomer.business_id == business_id, Groomer.is_active)
-        .order_by(Groomer.slug)
-        .limit(1)
-    )
-    if groomer_id is None:
-        raise ApiError(409, "no_groomer", "There is no active groomer to block.")
+    member = None
+    if request.staff:
+        member = next((m for m in active_staff(db, business_id) if m.slug == request.staff), None)
+        if member is None:
+            raise ApiError(404, "unknown_staff", "That staff member is not recognised.")
     block = BlockedPeriod(
-        groomer_id=groomer_id,
+        business_id=business_id,
+        groomer_id=member.id if member else None,
         starts_at=starts_at,
         ends_at=ends_at,
         reason=request.reason,
@@ -270,20 +287,23 @@ def create_block(request: BlockRequest, context: Staff, db: DbSession, now: Now)
         db,
         business_id,
         Booking.status == "confirmed",
-        Booking.groomer_id == groomer_id,
+        Booking.groomer_id == member.id if member else true(),
         Booking.starts_at < ends_at,
         Booking.ends_at > starts_at,
         order=Booking.starts_at,
     )
-    return BlockCreated(block=to_staff_block(block, timezone), conflicts=conflicts)
+    return BlockCreated(
+        block=to_staff_block(block, member.name if member else None, timezone),
+        conflicts=conflicts,
+    )
 
 
 @router.delete("/blocks/{block_id}", status_code=204)
 def delete_block(block_id: uuid.UUID, context: Staff, db: DbSession) -> Response:
     block = db.scalar(
-        select(BlockedPeriod)
-        .join(Groomer, Groomer.id == BlockedPeriod.groomer_id)
-        .where(BlockedPeriod.id == block_id, Groomer.business_id == context.staff.business_id)
+        select(BlockedPeriod).where(
+            BlockedPeriod.id == block_id, BlockedPeriod.business_id == context.staff.business_id
+        )
     )
     if block is None:
         raise ApiError(404, "block_not_found", "No block with that id.")

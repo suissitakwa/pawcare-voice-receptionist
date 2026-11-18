@@ -61,6 +61,8 @@ class GroomerSeed(SeedModel):
     display_name: str
     hours: list[GroomerPeriodSeed]
     breaks: list[GroomerPeriodSeed]
+    # Service slugs this person does. Empty: every service.
+    services: list[str] = []
 
 
 class BusinessSeed(SeedModel):
@@ -152,9 +154,18 @@ class ServicePublic(BaseModel):
     options: list[ServiceOptionPublic]
 
 
+class StaffMemberPublic(BaseModel):
+    slug: str
+    name: str
+    # Service slugs this person does.
+    services: list[str]
+
+
 class CatalogPublic(BaseModel):
     size_categories: list[SizeCategoryPublic]
     services: list[ServicePublic]
+    # Customers can ask for someone by name only when there is more than one.
+    staff: list[StaffMemberPublic] = []
 
 
 class FaqPublic(BaseModel):
@@ -210,6 +221,8 @@ class PrepareBookingRequest(BaseModel):
     owner_email: str | None = Field(default=None, max_length=254)
     owner_phone: str | None = Field(default=None, max_length=20)
     pet_name: str = Field(min_length=1, max_length=40)
+    # A staff member's slug, only when the customer asked for someone. Otherwise anyone free.
+    staff: str | None = Field(default=None, max_length=64)
 
     @field_validator("owner_email")
     @classmethod
@@ -249,6 +262,8 @@ class BookingSummary(BaseModel):
     timezone: str
     duration_minutes: int
     price_cents: int
+    # Who does the appointment, at a business with more than one staff member.
+    staff: str | None = None
 
 
 class PreparedBooking(BaseModel):
@@ -308,6 +323,7 @@ class StaffBooking(BaseModel):
     created_at: datetime
     cancelled_at: datetime | None
     source: Literal["form", "voice"]
+    staff: str
 
 
 class StaffBlock(BaseModel):
@@ -317,6 +333,13 @@ class StaffBlock(BaseModel):
     local_start: datetime
     local_end: datetime
     reason: str
+    # None: the whole business.
+    staff: str | None
+
+
+class TeamMember(BaseModel):
+    slug: str
+    name: str
 
 
 class BlockRequest(BaseModel):
@@ -329,6 +352,8 @@ class BlockRequest(BaseModel):
     end_date: date
     end_time: time
     reason: str = Field(default="", max_length=200)
+    # A staff member's slug; empty blocks the whole business.
+    staff: str | None = Field(default=None, max_length=64)
 
 
 class BlockCreated(BaseModel):

@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–4 and pilot steps 5–8 done; plan re-ordered for a first pilot.
+Status: accepted. PRs 1–4, pilot steps 5–8 and step 10a done; plan re-ordered for a first pilot.
 
 ## Context
 
@@ -56,7 +56,9 @@ Then a real test call to a second number and a connected second calendar, and th
 After the pilot:
 
 9. **Provisioning from subscriber profiles.** Link `business_profiles` to businesses.
-10. **Several staff calendars.** Replace `active_groomer_id` with "any qualified staff member" or a requested one. Needed before multi-groomer shops and hair salons.
+10. **Several staff.** Needed before multi-groomer shops and hair salons.
+    - **10a (done).** Any qualified staff member or a requested one, which services each person does (`groomer_services`), blocks for one person or the whole business, staff in the booking site, dashboard, phone tools and instructions. A change by phone stays with the same person.
+    - **10b.** Each person's own Google Calendar for busy times and events. Until then a business's calendar blocks everyone, which can hide times but never double-books.
 
 Each PR keeps the demo working and the evals green.
 

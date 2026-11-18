@@ -16,6 +16,7 @@ from app.models import (
     Groomer,
     GroomerBreak,
     GroomerHours,
+    GroomerService,
     Service,
     ServiceSizeRule,
     SizeCategory,
@@ -54,6 +55,7 @@ def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UU
         for order, faq in enumerate(seed.faqs)
     )
 
+    groomer_ids = {}
     for groomer in seed.groomers:
         groomer_id = _upsert(
             session,
@@ -62,6 +64,7 @@ def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UU
             groomer.slug,
             {"display_name": groomer.display_name, "is_active": True},
         )
+        groomer_ids[groomer.slug] = groomer_id
         session.execute(delete(GroomerHours).where(GroomerHours.groomer_id == groomer_id))
         session.add_all(
             GroomerHours(groomer_id=groomer_id, **period.model_dump()) for period in groomer.hours
@@ -111,6 +114,21 @@ def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UU
         update(Service)
         .where(Service.business_id == business_id, Service.id.not_in(service_ids))
         .values(is_active=False)
+    )
+    # Staff left out of the file stop taking bookings; their past bookings keep their name.
+    session.execute(
+        update(Groomer)
+        .where(Groomer.business_id == business_id, Groomer.id.not_in(groomer_ids.values()))
+        .values(is_active=False)
+    )
+    service_id_by_slug = dict(zip((s.slug for s in seed.services), service_ids, strict=True))
+    session.execute(
+        delete(GroomerService).where(GroomerService.groomer_id.in_(groomer_ids.values()))
+    )
+    session.add_all(
+        GroomerService(groomer_id=groomer_ids[groomer.slug], service_id=service_id_by_slug[slug])
+        for groomer in seed.groomers
+        for slug in groomer.services
     )
     session.flush()
     return business_id

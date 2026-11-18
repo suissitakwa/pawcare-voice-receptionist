@@ -99,6 +99,8 @@ def booking_data(booking: Booking, business: Business, source: str | None = None
         "owner_email": booking.owner_email,
         "owner_phone": booking.owner_phone,
         "source": source or ("voice" if booking.voice_session_id else "form"),
+        # Who the appointment is with, at a business with more than one staff member.
+        "staff": summary.get("staff"),
     }
 
 

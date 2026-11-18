@@ -76,10 +76,10 @@ function fail(status: number, code: string, message = "Error"): Reply {
 
 /** Routes fetch calls by path. Each route takes a queue of replies, reusing the last. */
 function mockApi(routes: Record<string, Reply[]>) {
-  const calls: { path: string; init?: RequestInit }[] = [];
+  const calls: { path: string; init?: RequestInit; url: string }[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const path = new URL(url).pathname;
-    calls.push({ path, init });
+    calls.push({ path, init, url });
     const queue = routes[path];
     if (!queue) throw new Error(`Unexpected request to ${path}`);
     const reply = queue.length > 1 ? queue.shift()! : queue[0];
@@ -145,6 +145,43 @@ describe("BookingForm", () => {
     expect(await screen.findByText("PC-ABCD2345")).toBeInTheDocument();
     const confirmCall = calls.find((c) => c.path.endsWith("confirm"))!;
     expect((confirmCall.init!.headers as Record<string, string>)["Idempotency-Key"]).toBeTruthy();
+  });
+
+  it("with several staff, offers a choice and books the chosen person", async () => {
+    const team = {
+      ...CATALOG,
+      staff: [
+        { slug: "alex", name: "Alex", services: ["full-groom"] },
+        { slug: "bo", name: "Bo", services: [] },
+      ],
+    };
+    const calls = mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [{ status: 201, body: { ...PREPARED, summary: { ...SUMMARY, staff: "Alex" } } }],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={BUSINESS} catalog={team} />);
+    const who = screen.getByLabelText("Who would you like?");
+    // Bo doesn't do full grooms, so isn't offered for one.
+    expect(screen.getAllByRole("option", { name: /Alex|Bo|Anyone/ }).map((o) => o.textContent)).toEqual([
+      "Anyone available",
+      "Alex",
+    ]);
+    await user.selectOptions(who, "alex");
+    await chooseSlot(user);
+    const availability = calls.filter((c) => c.path.endsWith("availability")).pop();
+    expect(new URL(availability!.url).searchParams.get("staff")).toBe("alex");
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    expect(await screen.findByText("Alex")).toBeInTheDocument();
+    const prepareBody = JSON.parse(calls.find((c) => c.path.endsWith("prepare"))!.init!.body as string);
+    expect(prepareBody.staff).toBe("alex");
+  });
+
+  it("with one staff member, offers no choice", () => {
+    mockApi({});
+    render(<BookingForm business={BUSINESS} catalog={CATALOG} />);
+    expect(screen.queryByLabelText("Who would you like?")).not.toBeInTheDocument();
   });
 
   it("nothing is booked before the customer confirms", async () => {
