@@ -4,6 +4,23 @@ How to set up a new business on an existing deployment, from its details to its 
 
 This suits a **pet groomer with one or more groomers**. The receptionist talks about dogs, and a connected Google Calendar blocks every groomer at once (each groomer's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
 
+## From a sign-up
+
+If the owner signed up and submitted a profile, start from it instead of the template:
+
+```bash
+uv run python -m app.provision list
+uv run python -m app.provision draft owner@example.com > happy-tails.json
+```
+
+The draft has their name, phone, email and FAQs. Complete timezone, address, hours, groomers, sizes, services and prices with them (steps below), then:
+
+```bash
+uv run python -m app.provision create owner@example.com happy-tails.json
+```
+
+This replaces steps 2 and 3: it creates the business, links their profile, and lets them sign in to `/b/<slug>/staff` with the password they signed up with. Their profile page then shows their booking page and dashboard. It prints what's left (calendar, phone number). If they change their sign-up password later, the dashboard password doesn't change with it. Only pet grooming profiles can be provisioned for now.
+
 ## 0. Before the first real business
 
 Once per deployment:

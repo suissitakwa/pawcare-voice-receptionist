@@ -701,3 +701,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 461 passed (local PostgreSQL 14), 17 of them new: two people booked at the same time, a time stays open while anyone is free, no preference goes to the less busy person, requested person named in the summary, only qualified staff offered, unknown staff refused, no staff in a one-person summary, catalog lists staff only with a choice, blocks for one person or everyone, dashboard staff column and team list, phone tools and instructions, reloading a file without someone stops their bookings, file checks for staff services, and a phone change staying with the same person. Migrations `0001`–`0017` upgrade and downgrade cleanly |
 | Frontend | Typecheck and build pass; 74 tests pass (Node 22), 4 of them new |
 | Live | Not deployed |
+
+## A sign-up becomes a live business (2026-11-17)
+
+**Outcome:** a subscriber's submitted profile can be turned into a business after review. Migration `0018` links `business_profiles` to `businesses`. `python -m app.provision draft <email>` writes a business file with the profile's name, phone, email and FAQs over the template; after completing hours, staff, services and prices with the owner, `create <email> <file>` creates the business, links the profile and adds a staff login with the owner's sign-up password, then lists what's left (calendar, phone number, web pages to turn into FAQs). The owner's profile page shows "Your receptionist is live" with links to their booking page and dashboard. Only pet grooming profiles are accepted; hair salons and barbershops wait for industry packages. Step 9 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 467 passed (local PostgreSQL 14), 6 of them new: the draft carries the profile's details, create makes the business live and the sign-up password opens its dashboard, a taken name gets a free address, only submitted pet grooming profiles are accepted, a file with problems creates nothing, slugs are web-safe. Migrations `0001`–`0018` upgrade and downgrade cleanly |
+| Frontend | Typecheck and build pass; 76 tests pass (Node 22), 2 of them new |
+| Live | Not deployed |

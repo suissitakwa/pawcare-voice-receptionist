@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ApiRequestError } from "./api";
+import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
 
 // Session storage keeps the token for this tab only, and it is cleared when the tab closes.
@@ -372,6 +373,21 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
       >
         <h2>{current.title}</h2>
 
+        {profile.business_slug && (
+          <div className="form-info" role="status">
+            <p>
+              <strong>Your receptionist is live.</strong> Your booking page is{" "}
+              <a href={siteRoot(profile.business_slug)}>{window.location.origin}{siteRoot(profile.business_slug)}</a>.
+            </p>
+            <p>
+              See bookings and callback requests on{" "}
+              <a href={`${siteRoot(profile.business_slug)}/staff`}>your staff dashboard</a>. Sign in with this
+              account's email and password. Changes you make here reach us; we update your receptionist after
+              checking them.
+            </p>
+          </div>
+        )}
+
         {current.id === "business" && (
           <>
             <Field label="Business name">
@@ -471,7 +487,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
 
         {current.id === "review" && (
           <>
-            {profile.status === "submitted" ? (
+            {profile.business_slug ? null : profile.status === "submitted" ? (
               <p className="form-info" role="status">
                 Submitted. We'll contact you to connect your phone and calendar. You can still edit your profile.
               </p>
