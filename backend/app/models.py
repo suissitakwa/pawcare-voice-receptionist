@@ -433,6 +433,8 @@ class VoiceSession(Base):
         ForeignKey("booking_drafts.id", ondelete="SET NULL")
     )
     lookup_failures: Mapped[int] = mapped_column(server_default=text("0"))
+    # Answered after the business's daily limit: it may only take a callback request.
+    message_only: Mapped[bool] = mapped_column(server_default=false())
 
 
 class CallbackRequest(Base):

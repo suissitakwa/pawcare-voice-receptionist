@@ -722,3 +722,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 476 passed (local PostgreSQL 14), 10 new: a booking and a callback request are emailed with their details and dashboard link, sent once, the demo doesn't email, nothing is lost without a mail server, failures retried then given up, old notices dropped, SMTP uses STARTTLS and signs in, staff see the address and count, files check the address, sign-up drafts set it. Migrations `0001`–`0019` upgrade and downgrade cleanly |
 | Frontend | Typecheck and build pass; 77 tests pass (Node 22), 1 new |
 | Live | Not deployed. Needs `SMTP_*` and `EMAIL_FROM` on Railway |
+
+## Calls that can't be answered normally (2026-11-17)
+
+**Outcome:** over a business's daily call limit, calls are no longer turned away. A short message-taking receptionist (OpenAI and Vapi) takes the caller's name, number and need as a callback request, which reaches the owner by email. It can only save that request: the backend refuses other tools on a message-only call (migration `0020` marks them), and Vapi ends it after 3 minutes. Abuse and cost limits still decline. [fallback.md](fallback.md) covers the settings for real outages: Vapi's fallback destination for each number (not the forwarding number, to avoid a loop) and a Twilio voicemail TwiML Bin.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 478 passed (local PostgreSQL 14), 2 new and 1 changed: over the limit an OpenAI or Vapi call gets only the message tool and wording, a retried Vapi request gets the same, the backend refuses booking tools on it, the deployment ceiling still declines. Migrations `0001`–`0020` upgrade and downgrade cleanly |
+| Live | Not deployed. Vapi fallback destination and Twilio voicemail need setting by hand |

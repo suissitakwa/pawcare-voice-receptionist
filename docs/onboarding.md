@@ -88,6 +88,8 @@ uv run python -m app.phone_numbers add happy-tails-austin +15125550100
 
 Once any number is registered, register the demo's number too (or keep `PHONE_NUMBER` set), or calls to it are declined. See [phone.md](phone.md#numbers-for-several-businesses).
 
+Then set the number's fallbacks in Vapi and Twilio ([fallback.md](fallback.md)), so callers reach voicemail or another phone if the receptionist is ever down.
+
 ## 5. Calendar and automations (optional)
 
 With `INTEGRATIONS_KEY` set on the deployment:
