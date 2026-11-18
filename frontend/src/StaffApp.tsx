@@ -11,6 +11,7 @@ import {
   type StaffCallback,
   type StaffMetrics,
   type StaffUser,
+  type TeamMember,
   type WebhookStatus,
 } from "./staffApi";
 import { businessSlug, siteRoot } from "./site";
@@ -115,10 +116,12 @@ function BookingsTable({
   bookings,
   onCancel,
   busyReference,
+  showStaff = false,
 }: {
   bookings: StaffBooking[];
   onCancel?: (reference: string) => void;
   busyReference: string | null;
+  showStaff?: boolean;
 }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   if (bookings.length === 0) return <p className="muted">No bookings.</p>;
@@ -129,6 +132,7 @@ function BookingsTable({
           <tr>
             <th scope="col">When</th>
             <th scope="col">Service</th>
+            {showStaff && <th scope="col">With</th>}
             <th scope="col">Dog</th>
             <th scope="col">Owner</th>
             <th scope="col">Reference</th>
@@ -147,6 +151,7 @@ function BookingsTable({
                   {booking.size}, {formatPrice(booking.price_cents)}
                 </span>
               </td>
+              {showStaff && <td>{booking.staff}</td>}
               <td>{booking.pet_name}</td>
               <td>
                 {booking.owner_name}
@@ -192,9 +197,9 @@ function BookingsTable({
   );
 }
 
-function BlockForm({ onAdd }: { onAdd: (input: BlockInput) => Promise<void> }) {
+function BlockForm({ onAdd, team }: { onAdd: (input: BlockInput) => Promise<void>; team: TeamMember[] }) {
   const id = useId();
-  const [input, setInput] = useState<BlockInput>({ start_date: "", start_time: "09:00", end_date: "", end_time: "17:00", reason: "" });
+  const [input, setInput] = useState<BlockInput>({ start_date: "", start_time: "09:00", end_date: "", end_time: "17:00", reason: "", staff: "" });
   const [busy, setBusy] = useState(false);
   function set(key: keyof BlockInput, value: string) {
     setInput((current) => ({ ...current, [key]: value, ...(key === "start_date" && !current.end_date ? { end_date: value } : {}) }));
@@ -231,6 +236,19 @@ function BlockForm({ onAdd }: { onAdd: (input: BlockInput) => Promise<void> }) {
           <input id={`${id}-et`} type="time" value={input.end_time} onChange={(e) => set("end_time", e.target.value)} required />
         </div>
       </div>
+      {team.length > 1 && (
+        <div className="field">
+          <label htmlFor={`${id}-staff`}>Who</label>
+          <select id={`${id}-staff`} value={input.staff} onChange={(e) => set("staff", e.target.value)}>
+            <option value="">Everyone (the business is closed)</option>
+            {team.map((member) => (
+              <option key={member.slug} value={member.slug}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="field">
         <label htmlFor={`${id}-reason`}>Reason (optional, staff only)</label>
         <input id={`${id}-reason`} value={input.reason} maxLength={200} onChange={(e) => set("reason", e.target.value)} />
@@ -250,6 +268,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
   const [blocks, setBlocks] = useState<StaffBlock[]>([]);
   const [metrics, setMetrics] = useState<StaffMetrics | null>(null);
   const [callbacks, setCallbacks] = useState<StaffCallback[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const [busyReference, setBusyReference] = useState<string | null>(null);
 
@@ -266,12 +285,14 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
 
   const load = useCallback(async () => {
     try {
-      const [nextBookings, nextBlocks, nextMetrics, nextCallbacks] = await Promise.all([
+      const [nextBookings, nextBlocks, nextMetrics, nextCallbacks, nextTeam] = await Promise.all([
         staffApi.bookings(token, scope),
         staffApi.blocks(token),
         staffApi.metrics(token),
         staffApi.callbacks(token),
+        staffApi.team(token),
       ]);
+      setTeam(nextTeam);
       setBookings(nextBookings);
       setBlocks(nextBlocks);
       setMetrics(nextMetrics);
@@ -420,7 +441,12 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
         {bookings === null ? (
           <p className="muted">Loading…</p>
         ) : (
-          <BookingsTable bookings={bookings} onCancel={scope === "upcoming" ? cancel : undefined} busyReference={busyReference} />
+          <BookingsTable
+            bookings={bookings}
+            onCancel={scope === "upcoming" ? cancel : undefined}
+            busyReference={busyReference}
+            showStaff={team.length > 1}
+          />
         )}
       </section>
       <section aria-labelledby="staff-callbacks">
@@ -457,6 +483,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
               <li key={block.id}>
                 <span>
                   {when(block.local_start)} to {when(block.local_end)}
+                  {team.length > 1 && <span className="size-note">{block.staff ?? "Everyone"}</span>}
                   {block.reason && <span className="size-note">{block.reason}</span>}
                 </span>
                 <button type="button" className="button button-secondary" onClick={() => removeBlock(block.id)}>
@@ -466,7 +493,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             ))}
           </ul>
         )}
-        <BlockForm onAdd={addBlock} />
+        <BlockForm onAdd={addBlock} team={team} />
       </section>
       <AutomationPanel token={token} />
     </div>

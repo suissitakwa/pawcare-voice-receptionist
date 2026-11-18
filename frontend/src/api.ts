@@ -42,9 +42,18 @@ export interface Service {
   options: ServiceOption[];
 }
 
+export interface StaffMember {
+  slug: string;
+  name: string;
+  /** Service slugs this person does. */
+  services: string[];
+}
+
 export interface Catalog {
   size_categories: SizeCategory[];
   services: Service[];
+  /** Empty unless the business has more than one staff member to choose from. */
+  staff?: StaffMember[];
 }
 
 export interface Faq {
@@ -103,6 +112,8 @@ export interface BookingDetails {
   owner_email: string | null;
   owner_phone: string | null;
   pet_name: string;
+  /** A staff member's slug, only when the customer chose someone. */
+  staff?: string | null;
 }
 
 export interface BookingSummary {
@@ -118,6 +129,8 @@ export interface BookingSummary {
   timezone: string;
   duration_minutes: number;
   price_cents: number;
+  /** Who the appointment is with, at a business with more than one staff member. */
+  staff?: string | null;
 }
 
 export interface PreparedBooking {
@@ -170,8 +183,9 @@ export function fetchAvailability(
   size: string,
   date: string,
   signal?: AbortSignal,
+  staff = "",
 ): Promise<Availability> {
-  const query = new URLSearchParams({ service, size, date });
+  const query = new URLSearchParams({ service, size, date, ...(staff ? { staff } : {}) });
   return request<Availability>(publicApi(`/availability?${query}`), { signal });
 }
 

@@ -63,10 +63,17 @@ def problems(seed: BusinessSeed) -> list[str]:
     for hours in seed.hours:
         if hours.closes_at <= hours.opens_at:
             found.append(f"weekday {hours.weekday} closes before it opens")
+    service_slugs = {service.slug for service in seed.services}
     for groomer in seed.groomers:
         for period in [*groomer.hours, *groomer.breaks]:
             if period.ends_at <= period.starts_at:
                 found.append(f"{groomer.slug}: a period on weekday {period.weekday} ends early")
+        for slug in sorted(set(groomer.services) - service_slugs):
+            found.append(f"{groomer.slug}: service {slug!r} is not in services")
+    if seed.groomers:
+        for service in seed.services:
+            if not any(not g.services or service.slug in g.services for g in seed.groomers):
+                found.append(f"nobody does {service.slug}, so it could never be booked")
     for service in seed.services:
         if not service.options:
             found.append(f"{service.slug} has no size with a price and duration")

@@ -12,7 +12,8 @@
 ## Strong signals (raise fit score)
 - Booking is "call us" or phone-first, or the site has no online booking.
 - Google reviews mention "never answer", "hard to reach", "voicemail full", "took days to call back".
-- Uses **Square** or **Vagaro**, or no booking software. We serve these best.
+- Books with **Google Calendar**, paper, or no booking software. Those can start a pilot today.
+- Uses **Square** or **Vagaro**: good fit later, once we connect them. For now only if they'll keep bookings in Google Calendar during the pilot, or the receptionist and their software could book the same slot.
 - Active business: recent reviews, a working website or social page.
 
 ## Weak or no fit
@@ -22,10 +23,10 @@
 - Closed or inactive.
 
 ## Fit score
-- 5: phone-first, complaints about reachability, uses Square/Vagaro/none, 1–5 groomers.
+- 5: phone-first, complaints about reachability, uses Google Calendar/paper/none, 1–5 groomers.
 - 4: three of those four.
 - 3: two of them.
 - 1–2: don't add to leads.
 
 ## Pitch angle
-"Never miss a booking while you're mid-groom." Free 30-day pilot. Books by breed and size, into the calendar they already use.
+"Never miss a booking while you're mid-groom." Free 30-day pilot. Books by breed and size, straight into their Google Calendar.

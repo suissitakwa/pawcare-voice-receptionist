@@ -26,6 +26,7 @@ const BOOKING = {
   created_at: "2027-01-04T16:00:00Z",
   cancelled_at: null,
   source: "voice",
+  staff: "Main groomer",
 };
 const METRICS = {
   upcoming_bookings: 1,
@@ -90,6 +91,7 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     "GET /api/v1/staff/metrics": () => ({ status: 200, body: METRICS }),
     "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK] }),
     "GET /api/v1/staff/webhooks": () => ({ status: 200, body: WEBHOOKS }),
+    "GET /api/v1/staff/team": () => ({ status: 200, body: [{ slug: "main-groomer", name: "Main groomer" }] }),
     ...overrides,
   };
 }
@@ -177,7 +179,7 @@ describe("StaffApp", () => {
         "POST /api/v1/staff/blocks": () => ({
           status: 201,
           body: {
-            block: { id: "b1", starts_at: "", ends_at: "", local_start: "2027-01-05T09:00:00-08:00", local_end: "2027-01-05T12:00:00-08:00", reason: "" },
+            block: { id: "b1", starts_at: "", ends_at: "", local_start: "2027-01-05T09:00:00-08:00", local_end: "2027-01-05T12:00:00-08:00", reason: "", staff: null },
             conflicts: [BOOKING],
           },
         }),
@@ -190,6 +192,48 @@ describe("StaffApp", () => {
     await user.type(from, "2027-01-05");
     await user.click(screen.getByRole("button", { name: "Block this time" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("1 existing booking overlaps it: PC-ABCD2345");
+  });
+
+  it("with several staff, shows who each booking is with and blocks one person", async () => {
+    const calls = mockApi(
+      dashboardRoutes({
+        "GET /api/v1/staff/team": () => ({
+          status: 200,
+          body: [
+            { slug: "alex", name: "Alex" },
+            { slug: "bo", name: "Bo" },
+          ],
+        }),
+        "GET /api/v1/staff/bookings": () => ({ status: 200, body: [{ ...BOOKING, staff: "Bo" }] }),
+        "POST /api/v1/staff/blocks": () => ({
+          status: 201,
+          body: {
+            block: { id: "b1", starts_at: "", ends_at: "", local_start: "2027-01-05T09:00:00-08:00", local_end: "2027-01-05T12:00:00-08:00", reason: "", staff: "Alex" },
+            conflicts: [],
+          },
+        }),
+      }),
+    );
+    render(<StaffApp />);
+    const user = await signIn();
+    await screen.findByText("PC-ABCD2345");
+    expect(screen.getByRole("columnheader", { name: "With" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Bo" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("From date"), "2027-01-05");
+    await user.selectOptions(screen.getByLabelText("Who"), "alex");
+    await user.click(screen.getByRole("button", { name: "Block this time" }));
+    await waitFor(() => expect(calls.some((c) => c.key === "POST /api/v1/staff/blocks")).toBe(true));
+    const sent = calls.find((c) => c.key === "POST /api/v1/staff/blocks");
+    expect(JSON.parse(String(sent?.init?.body)).staff).toBe("alex");
+  });
+
+  it("with one staff member, has no staff column or choice", async () => {
+    mockApi(dashboardRoutes());
+    render(<StaffApp />);
+    await signIn();
+    await screen.findByText("PC-ABCD2345");
+    expect(screen.queryByRole("columnheader", { name: "With" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Who")).not.toBeInTheDocument();
   });
 
   it("shows callback requests and voice figures, and marks a callback done", async () => {

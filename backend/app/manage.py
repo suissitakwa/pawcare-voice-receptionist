@@ -15,7 +15,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.availability import check_booking_window, resolve_option, slot_is_open
+from app.availability import (
+    check_booking_window,
+    does_service,
+    resolve_option,
+    slot_is_open,
+    staff_services,
+)
 from app.booking import slot_unavailable, summary_hash
 from app.format_text import format_time
 from app.models import Booking, Business, Service, SizeCategory, VoiceSession
@@ -68,7 +74,7 @@ def contact_matches(booking: Booking, contact: str) -> bool:
 
 def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
     start = datetime.fromisoformat(booking_summary["local_start"]).astimezone(timezone)
-    return {
+    described = {
         "service": booking_summary["service"],
         "size": booking_summary["size"],
         "pet_name": booking_summary["pet_name"],
@@ -79,6 +85,9 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
         "duration_minutes": booking_summary["duration_minutes"],
         "price_dollars": booking_summary["price_cents"] / 100,
     }
+    if booking_summary.get("staff"):
+        described["with"] = booking_summary["staff"]
+    return described
 
 
 def managed_booking(session: Session, record: VoiceSession, lock: bool = False) -> Booking | None:
@@ -171,6 +180,13 @@ def prepare_change(
     service, size, rule = resolve_option(
         session, business.id, args.service or current_service, args.size or current_size
     )
+    # A change stays with the same staff member, who must also do the new service.
+    if not does_service(staff_services(session, business.id), booking.groomer_id, service.id):
+        return error(
+            "staff_not_qualified",
+            f"{booking.summary.get('staff') or 'The staff member'} doesn't do that service. Offer "
+            "to cancel and book it again with someone else.",
+        )
     timezone = ZoneInfo(business.timezone)
     starts_at = (args.starts_at or booking.starts_at).astimezone(ZoneInfo("UTC"))
     duration = timedelta(minutes=rule.duration_minutes)
@@ -179,7 +195,9 @@ def prepare_change(
         # Only a new time or a longer service needs the time checked again; a corrected
         # name keeps the slot the booking already holds.
         check_booking_window(business, starts_at.astimezone(timezone).date(), now)
-        if not slot_is_open(session, business, starts_at, duration, now, ignore_booking=booking.id):
+        if not slot_is_open(
+            session, business, starts_at, duration, now, booking.groomer_id, booking.id
+        ):
             raise slot_unavailable()
     owner_name = args.owner_name or booking.owner_name
     pet_name = args.pet_name or booking.pet_name
@@ -196,6 +214,7 @@ def prepare_change(
         timezone=business.timezone,
         duration_minutes=rule.duration_minutes,
         price_cents=rule.price_cents,
+        staff=booking.summary.get("staff"),
     ).model_dump(mode="json")
     record.pending_change = {
         "booking_id": str(booking.id),
@@ -252,7 +271,7 @@ def confirm_change(
     ends_at = datetime.fromisoformat(pending["ends_at"])
     moved = starts_at != booking.starts_at or ends_at != booking.ends_at
     if moved and not slot_is_open(
-        session, business, starts_at, ends_at - starts_at, now, ignore_booking=booking.id
+        session, business, starts_at, ends_at - starts_at, now, booking.groomer_id, booking.id
     ):
         record.pending_change = None
         raise slot_unavailable()

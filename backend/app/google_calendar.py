@@ -267,6 +267,7 @@ def event_for(booking: Booking, business: Business) -> dict:
                 f"Reference: {booking.reference}",
                 f"Dog: {booking.pet_name}, {summary.get('size', '')}".rstrip(", "),
                 f"Owner: {booking.owner_name}, {contact}",
+                *([f"With: {summary['staff']}"] if summary.get("staff") else []),
                 f"Price: ${booking.price_cents / 100:.2f}",
                 f"Booked through {business.name}.",
             ]

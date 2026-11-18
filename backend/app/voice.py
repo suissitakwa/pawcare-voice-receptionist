@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.availability import active_staff, does_service, staff_services
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time, weekday_name
@@ -141,6 +142,14 @@ class ToolCatalog:
     sizes: tuple[str, ...]
     # Sizes that can be booked without a staff assessment first.
     bookable_sizes: tuple[str, ...]
+    # Staff slugs a caller can ask for. Empty with one staff member: there's no choice.
+    staff: tuple[str, ...] = ()
+
+
+STAFF_PROPERTY = {
+    "type": "string",
+    "description": "Only if the caller asked for a particular person",
+}
 
 
 def tool_catalog(session: Session, business_id: uuid.UUID) -> ToolCatalog:
@@ -154,10 +163,12 @@ def tool_catalog(session: Session, business_id: uuid.UUID) -> ToolCatalog:
         .where(SizeCategory.business_id == business_id)
         .order_by(SizeCategory.display_order)
     ).all()
+    staff = active_staff(session, business_id)
     return ToolCatalog(
         services=tuple(services),
         sizes=tuple(slug for slug, _ in sizes),
         bookable_sizes=tuple(slug for slug, assessed in sizes if not assessed),
+        staff=tuple(member.slug for member in staff) if len(staff) > 1 else (),
     )
 
 
@@ -173,6 +184,12 @@ def with_catalog(tools: list[dict], catalog: ToolCatalog | None) -> list[dict]:
     result = []
     for tool in tools:
         tool = copy.deepcopy(tool)
+        if catalog.staff and tool["name"] in allowed:
+            # Only a business with a choice of staff offers one.
+            tool["parameters"]["properties"]["staff"] = {
+                **STAFF_PROPERTY,
+                "enum": list(catalog.staff),
+            }
         for field, values in allowed.get(tool["name"], {}).items():
             schema = tool["parameters"]["properties"][field]
             if values:
@@ -365,6 +382,19 @@ def build_instructions(
         select(Faq).where(Faq.business_id == business.id).order_by(Faq.display_order)
     ).all()
     faq_lines = [f"- Q: {faq.question} A: {faq.answer}" for faq in faqs]
+    staff_lines = []
+    staff = active_staff(session, business.id)
+    if len(staff) > 1:
+        limits = staff_services(session, business.id)
+        staff_lines = [
+            "Staff. If the caller asks for someone by name, pass that person's staff value to "
+            "check_availability and prepare_booking. Otherwise leave staff out and anyone free "
+            "is booked. When you read the summary, say who the appointment is with.",
+        ]
+        for member in staff:
+            does = [s.name for s in services if does_service(limits, member.id, s.id)]
+            what = "every service" if len(does) == len(services) else ", ".join(does) or "nothing"
+            staff_lines.append(f"- {member.name} (staff: {member.slug}): {what}.")
 
     return "\n".join(
         [
@@ -411,6 +441,7 @@ def build_instructions(
             *size_lines,
             "Services with demo prices:",
             *service_lines,
+            *staff_lines,
             "Approved answers:",
             *faq_lines,
             "You have already greeted the caller. Don't greet them again; answer what they say."

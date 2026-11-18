@@ -17,11 +17,10 @@ from sqlalchemy.orm import Session
 
 from app.availability import (
     check_booking_window,
-    compute_slots,
+    day_openings,
     load_business,
-    load_day_rules,
     resolve_option,
-    working_window,
+    staff_for,
 )
 from app.booking import confirm_prepared, prepare_booking
 from app.booking import sha256 as booking_sha256
@@ -58,6 +57,7 @@ class AvailabilityArgs(BaseModel):
     size: str = Field(max_length=32)
     date: date
     preferred_time: time | None = None
+    staff: str | None = Field(default=None, max_length=64)
 
 
 class CallbackArgs(BaseModel):
@@ -105,11 +105,14 @@ def tool_error(code: str, message: str) -> VoiceToolResult:
 
 def check_availability(session: Session, business, raw: dict, now: datetime) -> VoiceToolResult:
     args = AvailabilityArgs.model_validate(raw)
-    _, _, rule = resolve_option(session, business.id, args.service, args.size)
+    service, _, rule = resolve_option(session, business.id, args.service, args.size)
+    staff = staff_for(session, business.id, service.id, args.staff)
     check_booking_window(business, args.date, now)
-    rules = load_day_rules(session, business, args.date)
     timezone = ZoneInfo(business.timezone)
-    slots = compute_slots(args.date, timedelta(minutes=rule.duration_minutes), rules, now)
+    openings = day_openings(
+        session, business, args.date, timedelta(minutes=rule.duration_minutes), now, staff
+    )
+    slots = openings.slots
     result: dict = {}
     if args.preferred_time is not None:
         wanted = args.preferred_time.replace(second=0, microsecond=0)
@@ -124,7 +127,7 @@ def check_availability(session: Session, business, raw: dict, now: datetime) -> 
         result={
             **result,
             "date": args.date.isoformat(),
-            "closed": working_window(args.date, rules) is None,
+            "closed": openings.closed,
             "duration_minutes": rule.duration_minutes,
             "price_dollars": rule.price_cents / 100,
             "times": [
@@ -172,6 +175,7 @@ def prepare(
             "time": format_time(summary.local_start.astimezone(timezone).time()),
             "duration_minutes": summary.duration_minutes,
             "price_dollars": summary.price_cents / 100,
+            **({"with": summary.staff} if summary.staff else {}),
             "next_step": (
                 "Read this summary to the caller and ask whether to book it. It is not booked yet."
                 if record.channel == "phone"

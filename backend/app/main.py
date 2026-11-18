@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -20,12 +21,14 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.availability import (
+    active_staff,
     check_booking_window,
-    compute_slots,
+    day_openings,
+    does_service,
     load_business,
-    load_day_rules,
     resolve_option,
-    working_window,
+    staff_for,
+    staff_services,
 )
 from app.booking import confirm_booking, prepare_booking
 from app.clock import get_now
@@ -54,6 +57,7 @@ from app.schemas import (
     ServicePublic,
     SizeCategoryPublic,
     SlotPublic,
+    StaffMemberPublic,
     VoiceEndRequest,
     VoiceSessionStarted,
     VoiceToolRequest,
@@ -233,7 +237,19 @@ def list_services(db: DbSession, business_id: CurrentBusinessId) -> CatalogPubli
             selectinload(Service.size_rules).options(joinedload(ServiceSizeRule.size_category))
         )
     ).all()
+    staff = active_staff(db, business_id)
+    limits = staff_services(db, business_id)
     return CatalogPublic(
+        staff=[
+            StaffMemberPublic(
+                slug=member.slug,
+                name=member.name,
+                services=[s.slug for s in services if does_service(limits, member.id, s.id)],
+            )
+            for member in staff
+        ]
+        if len(staff) > 1
+        else [],
         size_categories=[SizeCategoryPublic.model_validate(size) for size in sizes],
         services=[
             ServicePublic(
@@ -272,29 +288,34 @@ def get_availability(
     service: Annotated[str, Query(max_length=64)],
     size: Annotated[str, Query(max_length=32)],
     day: Annotated[date, Query(alias="date")],
+    staff: Annotated[str | None, Query(max_length=64)] = None,
 ) -> AvailabilityPublic:
-    """Open appointment starts for one service, dog size, and local date."""
+    """Open appointment starts for one service, dog size, and local date: with anyone who
+    does the service, or with one staff member."""
     business = load_business(db, business_id)
-    _, _, rule = resolve_option(db, business_id, service, size)
-    rules = load_day_rules(db, business, day)
+    found_service, _, rule = resolve_option(db, business_id, service, size)
+    members = staff_for(db, business_id, found_service.id, staff)
     check_booking_window(business, day, now)
 
-    duration = timedelta(minutes=rule.duration_minutes)
+    timezone = ZoneInfo(business.timezone)
+    openings = day_openings(
+        db, business, day, timedelta(minutes=rule.duration_minutes), now, members
+    )
     return AvailabilityPublic(
         date=day,
         timezone=business.timezone,
         service=service,
         size=size,
         duration_minutes=rule.duration_minutes,
-        closed=working_window(day, rules) is None,
+        closed=openings.closed,
         slots=[
             SlotPublic(
                 starts_at=slot.starts_at,
                 ends_at=slot.ends_at,
-                local_start=slot.starts_at.astimezone(rules.timezone),
-                local_end=slot.ends_at.astimezone(rules.timezone),
+                local_start=slot.starts_at.astimezone(timezone),
+                local_end=slot.ends_at.astimezone(timezone),
             )
-            for slot in compute_slots(day, duration, rules, now)
+            for slot in openings.slots
         ],
     )
 

@@ -25,6 +25,7 @@ export interface StaffBooking {
   created_at: string;
   cancelled_at: string | null;
   source: "form" | "voice";
+  staff: string;
 }
 
 export interface StaffCallback {
@@ -46,6 +47,13 @@ export interface StaffBlock {
   local_start: string;
   local_end: string;
   reason: string;
+  /** null: the whole business. */
+  staff: string | null;
+}
+
+export interface TeamMember {
+  slug: string;
+  name: string;
 }
 
 export interface BlockInput {
@@ -54,6 +62,8 @@ export interface BlockInput {
   end_date: string;
   end_time: string;
   reason: string;
+  /** A staff member's slug; empty blocks the whole business. */
+  staff?: string;
 }
 
 export interface StaffMetrics {
@@ -114,6 +124,7 @@ export const staffApi = {
     authed<StaffBooking>(token, `/bookings/${encodeURIComponent(reference)}/cancel`, {
       method: "POST",
     }),
+  team: (token: string) => authed<TeamMember[]>(token, "/team"),
   blocks: (token: string) => authed<StaffBlock[]>(token, "/blocks"),
   addBlock: (token: string, input: BlockInput) =>
     authed<{ block: StaffBlock; conflicts: StaffBooking[] }>(token, "/blocks", json(input)),

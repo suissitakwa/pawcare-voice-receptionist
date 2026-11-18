@@ -249,3 +249,66 @@ def test_a_browser_session_cannot_manage_bookings(client: TestClient, db: Sessio
         app.dependency_overrides.pop(get_settings, None)
         app.dependency_overrides.pop(get_now, None)
     assert response.json()["result"]["error"] == "unknown_tool"
+
+
+def test_a_change_stays_with_the_same_staff_member(db: Session) -> None:
+    from app.models import BlockedPeriod, Groomer
+    from app.seed import load_seed, seed_business
+
+    seed = load_seed()
+    seed.groomers = [
+        seed.groomers[0],
+        seed.groomers[0].model_copy(
+            update={"slug": "bo", "display_name": "Bo", "services": ["bath-and-tidy"]}
+        ),
+    ]
+    shop_id = seed_business(db, seed)
+    db.commit()
+    shop = business(db)
+    prepared = prepare_booking(
+        db,
+        shop,
+        PrepareBookingRequest(
+            service="bath-and-tidy",
+            size="medium",
+            starts_at=NINE,
+            owner_name="Jordan",
+            pet_name="Biscuit",
+            owner_phone=CALLER,
+            staff="bo",
+        ),
+        NOW - timedelta(days=1),
+    )
+    assert prepared.summary.staff == "Bo"
+    confirmation, _ = confirm_booking(
+        db,
+        shop,
+        prepared.confirmation_token,
+        prepared.summary_hash,
+        "bo-1",
+        NOW - timedelta(days=1),
+    )
+    bo = db.scalar(select(Groomer.id).where(Groomer.business_id == shop_id, Groomer.slug == "bo"))
+    db.add(
+        BlockedPeriod(
+            business_id=shop_id,
+            groomer_id=bo,
+            starts_at=TWO_PM,
+            ends_at=TWO_PM + timedelta(hours=2),
+        )
+    )
+    db.commit()
+    socket = ScriptedSocket(
+        [
+            find(spoken(confirmation.reference)),
+            # The demo groomer is free at 2 PM, but the booking is Bo's.
+            tool_call("prepare_change", {"starts_at": TWO_PM.isoformat()}, "c2"),
+            # Bo doesn't do full grooms.
+            tool_call("prepare_change", {"service": "full-groom"}, "c3"),
+        ]
+    )
+    play(db, socket)
+    found, moved, regroomed = outputs(socket)
+    assert found["ok"]
+    assert moved["error"] == "slot_unavailable"
+    assert regroomed["error"] == "staff_not_qualified"
