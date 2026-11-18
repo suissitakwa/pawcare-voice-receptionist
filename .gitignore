@@ -21,6 +21,7 @@ coverage/
 company/leads.csv
 company/outreach/
 company/ops-log.md
+company/customers/
 
 .DS_Store
 .idea/
