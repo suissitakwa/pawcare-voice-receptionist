@@ -269,3 +269,28 @@ def test_a_resend_refusal_is_recorded_and_retried(client, db, monkeypatch) -> No
     assert stored.email_error.startswith("Resend answered HTTP 403")
     assert "domain not verified" in stored.email_error
     assert stored.email_next_attempt_at is not None and stored.email_failed_at is None
+
+
+def test_an_appointment_request_says_so(db) -> None:
+    from app.models import CallbackRequest
+    from app.webhooks import callback_data, enqueue
+
+    notify(db)
+    business_id = db.scalar(select(Business.id).where(Business.slug == "pawcare-demo"))
+    callback = CallbackRequest(
+        business_id=business_id,
+        name="Takwa",
+        phone="+16693331241",
+        email=None,
+        reason="booking_help",
+        note="Wants a Full Groom for Mila, a large dog.",
+    )
+    db.add(callback)
+    db.flush()
+    enqueue(db, business_id, "callback.requested", callback_data(callback), NOW)
+    db.commit()
+    outbox = Outbox()
+    send_due(db, settings(), NOW, outbox)
+    [message] = outbox.sent
+    assert message["Subject"] == "Please call back: Takwa (wants an appointment)"
+    assert "Reason: wants an appointment" in message.get_content()

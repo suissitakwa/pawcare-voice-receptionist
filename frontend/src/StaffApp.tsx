@@ -46,7 +46,7 @@ const REASONS: Record<string, string> = {
   behavior: "Behaviour",
   special_handling: "Special handling",
   large_dog: "Extra large dog",
-  booking_help: "Booking help",
+  booking_help: "Wants an appointment",
   other: "Other",
 };
 

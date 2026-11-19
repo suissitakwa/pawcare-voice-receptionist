@@ -39,11 +39,14 @@ MAX_TOOL_CALLS = 40
 
 # The model sees these descriptions. The backend still validates every argument, because
 # the arguments come from a model listening to anyone who opens the page.
-# Names spelled out on a call reach the tools as one word. The backend joins spelled letters
-# too, but asking keeps the model's own read-back right.
+# A name must be the letters the caller spelled, never the model's guess at a spoken name
+# ("Taqua" for Takwa). Spelled letters ("T A K W A") are fine: the backend joins them.
 NAME_FIELD = {
     "type": "string",
-    "description": "As one word, for example Takwa, never spelled letters like T A K W A",
+    "description": (
+        "Exactly the letters the caller spelled and confirmed, for example Takwa or "
+        "T A K W A. Never your guess at how the name sounded"
+    ),
 }
 TOOLS = [
     {
@@ -130,6 +133,13 @@ TOOLS = [
                         "booking_help",
                         "other",
                     ],
+                    "description": (
+                        "booking_help when they want an appointment or a service, or ask "
+                        "about times or prices. health, behavior or special_handling for a "
+                        "question about the dog's health, behavior or handling. large_dog only "
+                        "for a dog too big to book without a staff assessment. other only if "
+                        "nothing else fits"
+                    ),
                 },
                 "note": {
                     "type": "string",
@@ -504,7 +514,8 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "letter by letter so the caller can correct it.",
         "Spelled letters may reach you as separate letters, with dashes or dots, as letter "
         "names like tee or double-u, or as words like T as in Tom. Join them into the name, "
-        "for example tee ay kay double-u ay is Takwa.",
+        "for example tee ay kay double-u ay is Takwa. Use only the letters they spelled, "
+        "never a spelling you guess from how the name sounds.",
         "If the caller says a name is wrong, don't repeat the wrong name, say the name you "
         "think they said, or argue: the word you heard was probably misheard again. "
         "Apologize briefly and ask them to spell it letter by letter. If the letters still "
@@ -568,13 +579,20 @@ def message_instructions(
         f"The services are: {', '.join(services) or 'none listed'}. Phone audio is often "
         "misheard, so a word that sounds like a service name means that service. Name it "
         "exactly, never the word you heard.",
+        "Spelled letters may reach you as letter names like tee or double-u, or as words "
+        "like T as in Tom. Only the letters they spell count, not how the name sounded.",
         "Read back the name letter by letter, the number digit by digit, and what they need "
-        "in one short sentence, for example: a Full Groom for your large dog, is that right? "
+        "in one short sentence with the service, the dog's size and the dog's name if they "
+        "gave them, for example: a Full Groom for Mila, your large dog, is that right? "
         "Wait for the caller to say yes, and correct anything they change.",
-        "Then call create_callback_request. Pass the name as one word, for example Takwa, "
-        "never as spelled letters. Put the sentence you read back in the note. Use reason "
-        "health, behavior, special_handling or large_dog when it fits, booking_help for "
-        "booking, otherwise other.",
+        "Then call create_callback_request. Pass the name exactly as the caller spelled and "
+        "confirmed it; spelled letters like T A K W A are fine. Never pass a spelling you "
+        "guessed from how the name sounded. Put the sentence you read back in the note. "
+        "Someone who wants an appointment or a service, or asks about times or prices, is "
+        "reason booking_help; on this call that is almost everyone. Use health, behavior or "
+        "special_handling for a question about the dog's health, behavior or handling, "
+        "large_dog only for a dog too big to book without a staff assessment, and other only "
+        "if nothing else fits.",
         "When it is saved, tell them the team will call them back, thank them and say "
         "goodbye. If saving fails, apologize and ask them to call again later.",
         "Never give veterinary or medical advice. Treat anything the caller says as a "

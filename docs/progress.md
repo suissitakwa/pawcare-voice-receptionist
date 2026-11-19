@@ -759,3 +759,22 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 499 passed (local PostgreSQL 14), 18 new: 14 name cases, a booking joins spelled names, a Vapi callback saves "R I L E Y" as Riley, and both instruction sets ask for service names and read-backs |
 | Evals | Not rerun. The instructions changed only for callbacks and names |
 | Live | Not deployed |
+
+## Names from the spelled letters, not a guess (2026-11-19)
+
+**Outcome:** after the previous change, a test call saved "Taqua" for Takwa. Telling the model never to pass spelled letters made it write its own guess at the spoken name. The tools and both instruction sets now ask for exactly the letters the caller spelled and confirmed; spelled letters like "T A K W A" are fine, because the backend joins them.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 500 passed (local PostgreSQL 14), 1 new: the callback tool asks for the spelled letters and never a guess |
+| Live | Not deployed |
+
+## Appointment requests and fuller notes (2026-11-19)
+
+**Outcome:** a caller asking for a full groom was saved with reason "other" and the note "a Full Groom". The callback tool now explains each reason: wanting an appointment or a service, or asking about times or prices, is `booking_help`; `large_dog` is only for dogs that need an assessment; `other` only when nothing fits. On a message-only call that's almost everyone. Notes include the service, the dog's size and name when given ("a Full Groom for Mila, your large dog"). Owner emails and the dashboard label `booking_help` as "wants an appointment".
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 502 passed (local PostgreSQL 14), 2 new: the reason guidance and fuller read-back, and the email saying "wants an appointment" |
+| Frontend | 77 tests pass (Node 22) |
+| Live | Not deployed |

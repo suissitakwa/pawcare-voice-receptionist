@@ -41,7 +41,7 @@ REASONS = {
     "behavior": "behavior question",
     "special_handling": "special handling",
     "large_dog": "large dog",
-    "booking_help": "help with booking",
+    "booking_help": "wants an appointment",
     "other": "other",
 }
 
