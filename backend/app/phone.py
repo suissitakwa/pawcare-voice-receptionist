@@ -30,11 +30,14 @@ from app.config import Settings
 from app.models import Business, VoiceSession
 from app.schemas import VoiceToolResult, VoiceUsage
 from app.voice import (
+    MESSAGE_ONLY_PROBLEMS,
     TRANSCRIPTION_MODEL,
     build_instructions,
     daily_limit,
     deployment_total,
     local_day_start,
+    message_instructions,
+    message_tools,
     phone_tools,
     sha256,
     tool_catalog,
@@ -247,9 +250,11 @@ def handle_incoming(
     number = caller_number(sip_headers if isinstance(sip_headers, list) else [])
     caller_hash = hash_caller(business, number)
     limited = limit_problem(session, business, settings, caller_hash, now)
-    if limited is not None:
+    if limited is not None and limited not in MESSAGE_ONLY_PROBLEMS:
         decline(BUSY, limited)
         return None
+    if limited is not None:
+        logger.info("Taking a message on a call: %s", limited)
 
     record = VoiceSession(
         id=uuid.uuid4(),
@@ -260,12 +265,20 @@ def handle_incoming(
         client_hash=caller_hash,
         token_hash=token_hash,
         started_at=now,
+        message_only=limited is not None,
     )
     session.add(record)
     session.flush()
-    instructions = build_instructions(session, business, today, "phone", number)
+    if record.message_only:
+        instructions = message_instructions(business, number, greeted=False)
+    else:
+        instructions = build_instructions(session, business, today, "phone", number)
     try:
-        tools = phone_tools(tool_catalog(session, business.id))
+        tools = (
+            message_tools()
+            if record.message_only
+            else phone_tools(tool_catalog(session, business.id))
+        )
         calls.accept(call_id, accept_body(settings, instructions, tools))
     except CallControlError as error:
         logger.error("Accepting a call failed: %s", error)

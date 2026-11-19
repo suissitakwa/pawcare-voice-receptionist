@@ -248,13 +248,22 @@ def test_calls_are_declined_when_voice_is_not_live(
     assert phone["calls"].rejected == [("rtc_abc123", 603)]
 
 
-def test_the_daily_limit_sends_busy(client: TestClient, phone: dict, db: Session) -> None:
+def test_over_the_daily_limit_a_call_only_takes_a_message(
+    client: TestClient, phone: dict, db: Session
+) -> None:
     phone["settings"] = phone_settings(phone_daily_call_limit=1)
     post_event(client, incoming("rtc_first", "+13235550101"))
     assert post_event(client, incoming("rtc_second", "+13235550102")).json() == {
-        "status": "declined"
+        "status": "answered"
     }
-    assert phone["calls"].rejected == [("rtc_second", 486)]
+    assert phone["calls"].rejected == []
+    _, body = phone["calls"].accepted[1]
+    names = [tool["name"] for tool in body["tools"]]
+    assert names == ["create_callback_request"]
+    assert "take a message" in body["instructions"]
+    assert "Start by saying: Hi, thanks for calling" in body["instructions"]
+    db.expire_all()
+    assert sorted(s.message_only for s in phone_sessions(db)) == [False, True]
 
 
 def test_one_caller_is_limited_per_hour(client: TestClient, phone: dict, db: Session) -> None:

@@ -1,7 +1,8 @@
 """Subscriber sign-up, sign-in, and the business profile that configures a receptionist.
 
-A profile is collected and stored here. It does not yet drive live calls: website import,
-document reading, calendar connection, and the phone line are later steps.
+A profile is collected and stored here. After review, `python -m app.provision` turns a
+submitted profile into a live business; the profile then names it. Website import and
+document reading are later steps.
 """
 
 import hashlib
@@ -20,7 +21,13 @@ from sqlalchemy.orm import Session
 from app.clock import get_now
 from app.db import get_db
 from app.errors import ApiError
-from app.models import BusinessProfile, ProfileDocument, SubscriberAccount, SubscriberSession
+from app.models import (
+    Business,
+    BusinessProfile,
+    ProfileDocument,
+    SubscriberAccount,
+    SubscriberSession,
+)
 from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME, hasher
 from app.subscriber_schemas import (
     BUSINESS_TYPE_LABELS,
@@ -147,6 +154,9 @@ def to_public(db: Session, profile: BusinessProfile) -> ProfilePublic:
         missing=missing_fields(profile, details, len(documents)),
         submitted_at=profile.submitted_at,
         updated_at=profile.updated_at,
+        business_slug=db.scalar(select(Business.slug).where(Business.id == profile.business_id))
+        if profile.business_id
+        else None,
     )
 
 

@@ -35,6 +35,8 @@ class Business(Base):
     about: Mapped[str] = mapped_column(Text)
     timezone: Mapped[str] = mapped_column(String(64))
     contact_email: Mapped[str] = mapped_column(String(254))
+    # Where owner notices go (new bookings, callback requests). Empty: contact_email.
+    notify_email: Mapped[str | None] = mapped_column(String(254))
     contact_phone: Mapped[str] = mapped_column(String(32))
     address: Mapped[str] = mapped_column(String(200))
     is_demo: Mapped[bool] = mapped_column(server_default=true())
@@ -431,6 +433,8 @@ class VoiceSession(Base):
         ForeignKey("booking_drafts.id", ondelete="SET NULL")
     )
     lookup_failures: Mapped[int] = mapped_column(server_default=text("0"))
+    # Answered after the business's daily limit: it may only take a callback request.
+    message_only: Mapped[bool] = mapped_column(server_default=false())
 
 
 class CallbackRequest(Base):
@@ -495,12 +499,17 @@ class SubscriberSession(Base):
 
 class BusinessProfile(Base):
     __tablename__ = "business_profiles"
+    __table_args__ = (UniqueConstraint("business_id", name="uq_business_profiles_business_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, server_default=text("gen_random_uuid()")
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("subscriber_accounts.id", ondelete="CASCADE"), unique=True
+    )
+    # The live business made from this profile, once it has been provisioned.
+    business_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("businesses.id", ondelete="SET NULL")
     )
     status: Mapped[str] = mapped_column(String(16), server_default="draft")
     business_name: Mapped[str | None] = mapped_column(String(120))
@@ -547,3 +556,9 @@ class WebhookEvent(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(String(200))
+    # The owner's email about this event, sent separately from the webhook.
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    email_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_error: Mapped[str | None] = mapped_column(String(200))

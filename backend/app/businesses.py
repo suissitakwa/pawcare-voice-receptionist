@@ -6,6 +6,7 @@ Usage:
   python -m app.businesses load <file.json>              create a new business
   python -m app.businesses load <file.json> --update     replace an existing one's details
   python -m app.businesses list
+  python -m app.businesses notify <slug> <email>        where owner emails go ("-": contact)
 
 Loading again with --update replaces the business's details, hours, FAQs and prices.
 Services missing from the file are switched off rather than deleted, so past bookings keep
@@ -42,6 +43,8 @@ def problems(seed: BusinessSeed) -> list[str]:
         found.append("name is empty")
     if not EMAIL_PATTERN.match(seed.contact_email):
         found.append(f"contact_email {seed.contact_email!r} is not an email address")
+    if seed.notify_email is not None and not EMAIL_PATTERN.match(seed.notify_email):
+        found.append(f"notify_email {seed.notify_email!r} is not an email address")
     if not seed.services:
         found.append("there are no services")
     if not seed.groomers:
@@ -133,6 +136,18 @@ def main() -> None:
                 ).all()
                 for slug, name, is_demo in rows:
                     print(f"{slug}  {name}{'  (demo)' if is_demo else ''}")
+            elif command == "notify" and len(args) == 2:
+                slug, email = args
+                if email != "-" and not EMAIL_PATTERN.match(email):
+                    raise ValueError(f"{email!r} is not an email address.")
+                business = session.scalar(select(Business).where(Business.slug == slug))
+                if business is None:
+                    raise ValueError(f"No business with slug {slug}.")
+                business.notify_email = None if email == "-" else email.strip().lower()
+                print(
+                    f"Owner emails for {slug} go to "
+                    f"{business.notify_email or business.contact_email}."
+                )
             elif command == "load" and len(args) in (1, 2) and args[1:] in ([], ["--update"]):
                 seed = read_seed(Path(args[0]))
                 load_business(session, seed, update=args[1:] == ["--update"])

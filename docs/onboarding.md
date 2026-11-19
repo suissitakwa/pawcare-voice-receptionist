@@ -4,12 +4,29 @@ How to set up a new business on an existing deployment, from its details to its 
 
 This suits a **pet groomer with one or more groomers**. The receptionist talks about dogs, and a connected Google Calendar blocks every groomer at once (each groomer's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
 
+## From a sign-up
+
+If the owner signed up and submitted a profile, start from it instead of the template:
+
+```bash
+uv run python -m app.provision list
+uv run python -m app.provision draft owner@example.com > happy-tails.json
+```
+
+The draft has their name, phone, email and FAQs. Complete timezone, address, hours, groomers, sizes, services and prices with them (steps below), then:
+
+```bash
+uv run python -m app.provision create owner@example.com happy-tails.json
+```
+
+This replaces steps 2 and 3: it creates the business, links their profile, and lets them sign in to `/b/<slug>/staff` with the password they signed up with. Their profile page then shows their booking page and dashboard. It prints what's left (calendar, phone number). If they change their sign-up password later, the dashboard password doesn't change with it. Only pet grooming profiles can be provisioned for now.
+
 ## 0. Before the first real business
 
 Once per deployment:
 
 - [ ] `INTEGRATIONS_KEY` set on Railway (`uv run python -m app.integrations generate-key`), so each business's calendar key and webhook secret can be stored.
-- [ ] A way for owners to hear about callback requests and bookings: an n8n workflow on the webhook that emails or texts them ([automations.md](automations.md)). Without it they must check the staff dashboard themselves.
+- [ ] Owner emails set up (`SMTP_*` and `EMAIL_FROM`, [email.md](email.md)), so owners hear about bookings and callback requests without checking the dashboard.
 - [ ] The phone daily ceiling (`PHONE_DAILY_TOTAL_LIMIT`) covers the demo plus every business's expected calls.
 
 Per business, go through [company/groomer-intake.md](../company/groomer-intake.md) with the owner. It collects everything below. Today the business must book in Google Calendar or on paper: Square, Vagaro and other software aren't connected, so they'd take the same slots as the receptionist.
@@ -28,6 +45,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `name`, `tagline`, `about` | What the receptionist says about the business. `about` is two or three plain sentences |
 | `timezone` | The business's time zone, e.g. `America/Chicago` |
 | `contact_email`, `contact_phone`, `address` | Shown on the site and given to callers who ask |
+| `notify_email` | Optional. Where booking and callback emails go; without it, `contact_email` |
 | `is_demo` | `false` for a real business |
 | `slot_increment_minutes`, `buffer_minutes`, `min_notice_minutes`, `booking_horizon_days` | Start times every 15 minutes, 15 minutes between appointments, at least 2 hours' notice, up to 30 days ahead. Change if the owner wants |
 | `hours` | Opening hours, one entry per open day. `weekday` 0 is Monday |
@@ -69,6 +87,8 @@ uv run python -m app.phone_numbers add happy-tails-austin +15125550100
 ```
 
 Once any number is registered, register the demo's number too (or keep `PHONE_NUMBER` set), or calls to it are declined. See [phone.md](phone.md#numbers-for-several-businesses).
+
+Then set the number's fallbacks in Vapi and Twilio ([fallback.md](fallback.md)), so callers reach voicemail or another phone if the receptionist is ever down.
 
 ## 5. Calendar and automations (optional)
 

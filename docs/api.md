@@ -219,7 +219,7 @@ Business owners sign up and fill in the profile that will configure their recept
 | `POST /api/v1/subscribers/login` | `{email, password}` returns a token. Five failures lock the account for 15 minutes |
 | `POST /api/v1/subscribers/logout` | Ends the session |
 | `GET /api/v1/subscribers/me` | The signed-in account |
-| `GET /api/v1/subscribers/profile` | The profile, its documents, and `missing`: what must be filled in before submitting |
+| `GET /api/v1/subscribers/profile` | The profile, its documents, and `missing`: what must be filled in before submitting. `business_slug` is set once the receptionist is live at `/b/{business_slug}` |
 | `PATCH /api/v1/subscribers/profile` | `{business_name?, business_type?, details?}`. Detail fields sent replace the stored ones; others are kept. The merged result is validated, and errors name the fields |
 | `POST /api/v1/subscribers/profile/submit` | Marks the profile submitted, or `422 profile_incomplete` listing the missing sections |
 | `POST /api/v1/subscribers/profile/documents?filename=…` | The body is the raw file, with its `Content-Type`: PDF, .docx, plain text, or Markdown, up to 5 MB, 10 per profile |

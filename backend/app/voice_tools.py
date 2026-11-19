@@ -35,7 +35,7 @@ from app.schemas import (
     PrepareBookingRequest,
     VoiceToolResult,
 )
-from app.voice import MAX_TOOL_CALLS, SESSION_GRACE, sha256
+from app.voice import MAX_TOOL_CALLS, MESSAGE_TOOLS, SESSION_GRACE, sha256
 from app.webhooks import callback_data, enqueue
 
 logger = logging.getLogger("pawcare.voice")
@@ -272,7 +272,12 @@ def run_tool(
         raw = json.loads(arguments) if arguments else {}
         if not isinstance(raw, dict):
             raise ValueError("arguments must be an object")
-        if name == "check_availability":
+        if record.message_only and name not in MESSAGE_TOOLS:
+            # A message-only call is checked here, not just by the tools it was given.
+            outcome = tool_error(
+                "message_only", "Only take a message on this call: call create_callback_request."
+            )
+        elif name == "check_availability":
             outcome = check_availability(session, business, raw, now)
         elif name == "prepare_booking":
             outcome = prepare(session, business, record, raw, now)

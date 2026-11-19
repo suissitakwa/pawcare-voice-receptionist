@@ -27,7 +27,17 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.models import Business, VoiceSession
 from app.phone import CALL_ID_PATTERN, hash_caller, limit_problem
-from app.voice import ToolCatalog, build_instructions, phone_tools, sha256, tool_catalog
+from app.voice import (
+    MESSAGE_ONLY_PROBLEMS,
+    ToolCatalog,
+    build_instructions,
+    message_first_line,
+    message_instructions,
+    message_tools,
+    phone_tools,
+    sha256,
+    tool_catalog,
+)
 from app.voice_tools import run_tool
 
 logger = logging.getLogger("pawcare.vapi")
@@ -41,6 +51,8 @@ END_REASONS = {
     "exceeded-max-duration": "time_limit",
     "silence-timed-out": "silence",
 }
+# A message only needs a minute or two.
+MESSAGE_CALL_SECONDS = 180
 DECLINED_MESSAGE = (
     "Sorry, our assistant can't take calls right now. Please try again later or book on our "
     "website."
@@ -62,9 +74,9 @@ def call_token(call_id: str) -> str:
     return f"vapi:{call_id}"
 
 
-def vapi_tools(catalog: ToolCatalog | None = None) -> list[dict]:
-    """The phone tools in Vapi's shape. With no server of their own, calls come to the
-    assistant's server, this backend."""
+def vapi_shape(tools: list[dict]) -> list[dict]:
+    """Tools in Vapi's shape. With no server of their own, calls come to the assistant's
+    server, this backend."""
     return [
         {
             "type": "function",
@@ -74,8 +86,12 @@ def vapi_tools(catalog: ToolCatalog | None = None) -> list[dict]:
                 "parameters": tool["parameters"],
             },
         }
-        for tool in phone_tools(catalog)
+        for tool in tools
     ]
+
+
+def vapi_tools(catalog: ToolCatalog | None = None) -> list[dict]:
+    return vapi_shape(phone_tools(catalog))
 
 
 def first_message(business: Business) -> str:
@@ -88,16 +104,17 @@ def assistant(
     instructions: str,
     server_url: str,
     catalog: ToolCatalog | None = None,
+    message_only: bool = False,
 ) -> dict:
     config: dict = {
         "name": f"{business.name} receptionist"[:40],
-        "firstMessage": first_message(business),
+        "firstMessage": message_first_line(business) if message_only else first_message(business),
         "model": {
             "provider": "openai",
             "model": settings.vapi_model,
             "temperature": 0.4,
             "messages": [{"role": "system", "content": instructions}],
-            "tools": vapi_tools(catalog),
+            "tools": vapi_shape(message_tools()) if message_only else vapi_tools(catalog),
         },
         "voice": {"provider": settings.vapi_voice_provider, "voiceId": settings.vapi_voice_id},
         "transcriber": {
@@ -105,7 +122,9 @@ def assistant(
             "model": settings.vapi_transcriber_model,
             "language": TRANSCRIPTION_LANGUAGE,
         },
-        "maxDurationSeconds": settings.phone_max_call_seconds,
+        "maxDurationSeconds": min(MESSAGE_CALL_SECONDS, settings.phone_max_call_seconds)
+        if message_only
+        else settings.phone_max_call_seconds,
         "serverMessages": SERVER_MESSAGES,
         # Tool calls and the end-of-call report come back here, with the secret, because a
         # per-call assistant gets no stored credential.
@@ -169,10 +188,13 @@ def answer_call(
     if record is None:
         caller_hash = hash_caller(business, number)
         limited = limit_problem(session, business, settings, caller_hash, now)
-        if limited is not None:
+        if limited is not None and limited not in MESSAGE_ONLY_PROBLEMS:
             logger.info("Declining a Vapi call: %s", limited)
             return {"error": DECLINED_MESSAGE}
+        if limited is not None:
+            logger.info("Taking a message on a Vapi call: %s", limited)
         record = VoiceSession(
+            message_only=limited is not None,
             id=uuid.uuid4(),
             business_id=business.id,
             mode="live",
@@ -186,6 +208,11 @@ def answer_call(
         session.add(record)
         session.flush()
     # A retried request gets the same assistant for the same call.
+    if record.message_only:
+        instructions = message_instructions(business, number)
+        return {
+            "assistant": assistant(settings, business, instructions, server_url, message_only=True)
+        }
     today = now.astimezone(ZoneInfo(business.timezone)).date()
     instructions = build_instructions(session, business, today, "phone", number, greeted=True)
     catalog = tool_catalog(session, business.id)

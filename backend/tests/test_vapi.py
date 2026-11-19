@@ -139,6 +139,46 @@ def test_one_caller_is_limited_per_hour(client: TestClient, vapi, db) -> None:
     assert "assistant" in assistant_request(client, "call-3", number="+13235550111")
 
 
+def test_over_the_daily_limit_a_call_only_takes_a_message(client: TestClient, vapi, db) -> None:
+    vapi["settings"] = vapi_settings(phone_daily_call_limit=1)
+    assert "assistant" in assistant_request(client, "call-1")
+    message = assistant_request(client, "call-2", number="+13235550111")["assistant"]
+    assert message["firstMessage"].startswith("Hi, thanks for calling PawCare Grooming Studio!")
+    assert "take a message" in message["firstMessage"]
+    assert [t["function"]["name"] for t in message["model"]["tools"]] == ["create_callback_request"]
+    assert message["maxDurationSeconds"] == 180
+    # A retried request for the same call gets the same message-taker.
+    again = assistant_request(client, "call-2", number="+13235550111")["assistant"]
+    assert again["model"]["tools"] == message["model"]["tools"]
+    assert sorted(s.message_only for s in sessions(db)) == [False, True]
+
+    # Even if the model tries, it can't check times or book on this call.
+    [refused] = tools(
+        client,
+        (
+            "check_availability",
+            json.dumps({"service": "full-groom", "size": "small", "date": "2027-01-05"}),
+        ),
+        call_id="call-2",
+    )
+    assert refused["error"] == "message_only"
+    [saved] = tools(
+        client,
+        (
+            "create_callback_request",
+            json.dumps({"name": "Riley", "phone": "+13235550111", "reason": "booking_help"}),
+        ),
+        call_id="call-2",
+    )
+    assert saved["status"] == "callback_requested"
+
+
+def test_the_deployment_ceiling_still_declines(client: TestClient, vapi) -> None:
+    vapi["settings"] = vapi_settings(phone_daily_total_limit=1)
+    assert "assistant" in assistant_request(client, "call-1")
+    assert "can't take calls" in assistant_request(client, "call-2", number="+13235550111")["error"]
+
+
 def test_overrides_tune_the_assistant(client: TestClient, vapi) -> None:
     overrides = {"voice": {"voiceId": "another-voice"}, "startSpeakingPlan": {"waitSeconds": 0.8}}
     vapi["settings"] = vapi_settings(vapi_assistant_overrides=json.dumps(overrides))

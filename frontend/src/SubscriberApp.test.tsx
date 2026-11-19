@@ -97,6 +97,30 @@ describe("SubscriberApp", () => {
     });
   });
 
+  it("tells the owner when their receptionist is live, with its links", async () => {
+    mockApi(
+      routes({
+        "GET /api/v1/subscribers/profile": () => ({
+          status: 200,
+          body: { ...PROFILE, status: "submitted", business_name: "Shaggy Chic", missing: [], business_slug: "shaggy-chic" },
+        }),
+      }),
+    );
+    render(<SubscriberApp />);
+    await signUp();
+    expect(await screen.findByText("Your receptionist is live.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /\/b\/shaggy-chic$/ })).toHaveAttribute("href", "/b/shaggy-chic");
+    expect(screen.getByRole("link", { name: "your staff dashboard" })).toHaveAttribute("href", "/b/shaggy-chic/staff");
+  });
+
+  it("shows no live notice before the receptionist is set up", async () => {
+    mockApi(routes());
+    render(<SubscriberApp />);
+    await signUp();
+    await screen.findByRole("heading", { name: "Your business" });
+    expect(screen.queryByText("Your receptionist is live.")).not.toBeInTheDocument();
+  });
+
   it("shows the server's reason when the email is already registered", async () => {
     mockApi(
       routes({

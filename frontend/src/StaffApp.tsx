@@ -6,6 +6,7 @@ import {
   login,
   staffApi,
   type BlockInput,
+  type EmailStatus,
   type StaffBlock,
   type StaffBooking,
   type StaffCallback,
@@ -495,12 +496,41 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
         )}
         <BlockForm onAdd={addBlock} team={team} />
       </section>
+      <EmailPanel token={token} />
       <AutomationPanel token={token} />
     </div>
   );
 }
 
 // Delivery of booking and callback events to an automation tool such as n8n.
+function EmailPanel({ token }: { token: string }) {
+  const [status, setStatus] = useState<EmailStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    staffApi.emails(token).then(setStatus, () => setFailed(true));
+  }, [token]);
+
+  return (
+    <section aria-labelledby="staff-emails">
+      <h2 id="staff-emails">Email notices</h2>
+      {failed && <p className="muted">Email status is unavailable.</p>}
+      {status &&
+        (!status.enabled ? (
+          <p className="muted">Email notices are not set up on this service yet.</p>
+        ) : !status.address ? (
+          <p className="muted">No address is set, so nobody is emailed about bookings.</p>
+        ) : (
+          <p className="muted">
+            New, changed and cancelled bookings and callback requests are emailed to <strong>{status.address}</strong>.{" "}
+            {status.sent_last_7_days} sent in the last 7 days.
+            {status.last_error && <span className="size-note">Last problem: {status.last_error}</span>}
+          </p>
+        ))}
+    </section>
+  );
+}
+
 function AutomationPanel({ token }: { token: string }) {
   const [status, setStatus] = useState<WebhookStatus | null>(null);
   const [message, setMessage] = useState("");

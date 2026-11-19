@@ -1,6 +1,6 @@
 # 0010: Serve many businesses from one deployment
 
-Status: accepted. PRs 1–4, pilot steps 5–8 and step 10a done; plan re-ordered for a first pilot.
+Status: accepted. PRs 1–4, pilot steps 5–8, step 9 and step 10a done; plan re-ordered for a first pilot.
 
 ## Context
 
@@ -55,7 +55,7 @@ Then a real test call to a second number and a connected second calendar, and th
 
 After the pilot:
 
-9. **Provisioning from subscriber profiles.** Link `business_profiles` to businesses.
+9. **Provisioning from subscriber profiles (done).** `business_profiles.business_id` links a profile to its business. `python -m app.provision draft` prefills a business file from a submitted profile; `create` makes the business after review, links it and gives the owner a staff login with their sign-up password. The owner's profile page then shows their booking page and dashboard. Only pet grooming for now. Self-serve (no review) and per-business voice choice come later.
 10. **Several staff.** Needed before multi-groomer shops and hair salons.
     - **10a (done).** Any qualified staff member or a requested one, which services each person does (`groomer_services`), blocks for one person or the whole business, staff in the booking site, dashboard, phone tools and instructions. A change by phone stays with the same person.
     - **10b.** Each person's own Google Calendar for busy times and events. Until then a business's calendar blocks everyone, which can hide times but never double-books.

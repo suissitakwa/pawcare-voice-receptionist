@@ -710,3 +710,33 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 463 passed (local PostgreSQL 14), 2 new: a real business's web and phone instructions contain no "fictional", "demonstration" or "demo", while the demo's still say it is fictional |
 | Live | Not deployed |
+
+## A sign-up becomes a live business (2026-11-17)
+
+**Outcome:** a subscriber's submitted profile can be turned into a business after review. Migration `0018` links `business_profiles` to `businesses`. `python -m app.provision draft <email>` writes a business file with the profile's name, phone, email and FAQs over the template; after completing hours, staff, services and prices with the owner, `create <email> <file>` creates the business, links the profile and adds a staff login with the owner's sign-up password, then lists what's left (calendar, phone number, web pages to turn into FAQs). The owner's profile page shows "Your receptionist is live" with links to their booking page and dashboard. Only pet grooming profiles are accepted; hair salons and barbershops wait for industry packages. Step 9 of [decision 0010](decisions/0010-multiple-businesses.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 467 passed (local PostgreSQL 14), 6 of them new: the draft carries the profile's details, create makes the business live and the sign-up password opens its dashboard, a taken name gets a free address, only submitted pet grooming profiles are accepted, a file with problems creates nothing, slugs are web-safe. Migrations `0001`–`0018` upgrade and downgrade cleanly |
+| Frontend | Typecheck and build pass; 76 tests pass (Node 22), 2 of them new |
+| Live | Not deployed |
+
+## Owner emails (2026-11-17)
+
+**Outcome:** each owner is emailed about every new, changed and cancelled booking and every callback request, through any SMTP server (Gmail app password for a pilot, Resend or similar later), with no automation tool. Emails come from the event outbox, are retried up to 6 times with growing delays and given up after 24 hours. They go to the business's new `notify_email` (migration `0019`), or its `contact_email`; the demo never emails its made-up address. Businesses made from a sign-up email the owner's sign-up address. `python -m app.businesses notify <slug> <email>` changes it. The staff dashboard has an "Email notices" section. See [email.md](email.md).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 476 passed (local PostgreSQL 14), 10 new: a booking and a callback request are emailed with their details and dashboard link, sent once, the demo doesn't email, nothing is lost without a mail server, failures retried then given up, old notices dropped, SMTP uses STARTTLS and signs in, staff see the address and count, files check the address, sign-up drafts set it. Migrations `0001`–`0019` upgrade and downgrade cleanly |
+| Frontend | Typecheck and build pass; 77 tests pass (Node 22), 1 new |
+| Live | Not deployed. Needs `SMTP_*` and `EMAIL_FROM` on Railway |
+
+## Calls that can't be answered normally (2026-11-17)
+
+**Outcome:** over a business's daily call limit, calls are no longer turned away. A short message-taking receptionist (OpenAI and Vapi) takes the caller's name, number and need as a callback request, which reaches the owner by email. It can only save that request: the backend refuses other tools on a message-only call (migration `0020` marks them), and Vapi ends it after 3 minutes. Abuse and cost limits still decline. [fallback.md](fallback.md) covers the settings for real outages: Vapi's fallback destination for each number (not the forwarding number, to avoid a loop) and a Twilio voicemail TwiML Bin.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 478 passed (local PostgreSQL 14), 2 new and 1 changed: over the limit an OpenAI or Vapi call gets only the message tool and wording, a retried Vapi request gets the same, the backend refuses booking tools on it, the deployment ceiling still declines. Migrations `0001`–`0020` upgrade and downgrade cleanly |
+| Live | Not deployed. Vapi fallback destination and Twilio voicemail need setting by hand |

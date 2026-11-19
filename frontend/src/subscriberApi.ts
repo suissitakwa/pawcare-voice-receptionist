@@ -57,6 +57,8 @@ export interface Profile {
   missing: string[];
   submitted_at: string | null;
   updated_at: string;
+  /** Set once the receptionist is live at /b/{business_slug}. */
+  business_slug?: string | null;
 }
 
 export interface ProfileUpdate {

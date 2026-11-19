@@ -28,10 +28,12 @@ from app.models import (
     VoiceSession,
     WebhookEvent,
 )
+from app.owner_email import email_problem, owner_address
 from app.schemas import (
     SLUG_PATTERN,
     BlockCreated,
     BlockRequest,
+    EmailStatus,
     StaffBlock,
     StaffBooking,
     StaffCallback,
@@ -402,6 +404,32 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
         callback.resolved_by = context.staff.id
         db.commit()
     return callback
+
+
+@router.get("/emails", response_model=EmailStatus)
+def email_status(
+    context: Staff, db: DbSession, now: Now, settings: Annotated[Settings, Depends(get_settings)]
+) -> EmailStatus:
+    """Where emails about bookings and callback requests go, and whether they are sent."""
+    business_id = context.staff.business_id
+    week_ago = now - timedelta(days=7)
+    mine = WebhookEvent.business_id == business_id
+    last_error = db.execute(
+        select(WebhookEvent.email_error)
+        .where(mine, WebhookEvent.email_error.is_not(None), WebhookEvent.created_at >= week_ago)
+        .order_by(WebhookEvent.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    return EmailStatus(
+        address=owner_address(db.get(Business, business_id)),
+        enabled=email_problem(settings) is None,
+        sent_last_7_days=db.scalar(
+            select(func.count())
+            .select_from(WebhookEvent)
+            .where(mine, WebhookEvent.email_sent_at >= week_ago)
+        ),
+        last_error=last_error,
+    )
 
 
 @router.get("/webhooks", response_model=WebhookStatus)
