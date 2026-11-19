@@ -13,6 +13,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.names import clean_name
+
 
 class SeedModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -225,6 +227,9 @@ class PrepareBookingRequest(BaseModel):
     pet_name: str = Field(min_length=1, max_length=40)
     # A staff member's slug, only when the customer asked for someone. Otherwise anyone free.
     staff: str | None = Field(default=None, max_length=64)
+
+    # Names spelled out on a call ("T A K W A") are joined into one word.
+    _names = field_validator("owner_name", "pet_name")(clean_name)
 
     @field_validator("owner_email")
     @classmethod

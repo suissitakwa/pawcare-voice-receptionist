@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.main import app, get_now
-from app.models import Booking, VoiceSession
+from app.models import Booking, CallbackRequest, VoiceSession
 
 LA = ZoneInfo("America/Los_Angeles")
 NOW = datetime(2027, 1, 4, 8, 0, tzinfo=LA)
@@ -166,11 +166,14 @@ def test_over_the_daily_limit_a_call_only_takes_a_message(client: TestClient, va
         client,
         (
             "create_callback_request",
-            json.dumps({"name": "Riley", "phone": "+13235550111", "reason": "booking_help"}),
+            json.dumps({"name": "R I L E Y", "phone": "+13235550111", "reason": "booking_help"}),
         ),
         call_id="call-2",
     )
     assert saved["status"] == "callback_requested"
+    # The spelled name is saved joined, as staff will read it.
+    db.expire_all()
+    assert db.scalar(select(CallbackRequest.name)) == "Riley"
 
 
 def test_the_deployment_ceiling_still_declines(client: TestClient, vapi) -> None:

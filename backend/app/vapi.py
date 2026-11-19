@@ -209,7 +209,7 @@ def answer_call(
         session.flush()
     # A retried request gets the same assistant for the same call.
     if record.message_only:
-        instructions = message_instructions(business, number)
+        instructions = message_instructions(session, business, number)
         return {
             "assistant": assistant(settings, business, instructions, server_url, message_only=True)
         }

@@ -749,3 +749,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 482 passed (local PostgreSQL 14), 2 new: with a key, a notice is posted to Resend with the owner, sender, subject, body and idempotency key; a Resend refusal is recorded and retried |
 | Live | Not deployed. Needs `RESEND_API_KEY` and `EMAIL_FROM` on Railway |
+
+## Spelled names and callback notes (2026-11-19)
+
+**Outcome:** a test call over the daily limit saved the caller as "T A K W A" and the need "full groom" as "Full grown". Names spelled letter by letter ("T A K W A", "T-A-K-W-A", "t. a. k. w. a.") are now joined before they're saved, for bookings, phone changes and callback requests; ordinary names and initials ("A J Smith") are left alone. The message-taker now knows the business's service names, treats a word that sounds like one as that service, and reads the need back before saving; the normal receptionist reads back a callback note too. The tools ask for names as one word.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 499 passed (local PostgreSQL 14), 18 new: 14 name cases, a booking joins spelled names, a Vapi callback saves "R I L E Y" as Riley, and both instruction sets ask for service names and read-backs |
+| Evals | Not rerun. The instructions changed only for callbacks and names |
+| Live | Not deployed |
