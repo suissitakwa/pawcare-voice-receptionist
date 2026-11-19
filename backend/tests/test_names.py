@@ -75,4 +75,7 @@ def test_a_request_for_a_service_is_an_appointment_request(db: Session) -> None:
     demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
     text = message_instructions(db, demo, None)
     assert "is reason booking_help; on this call that is almost everyone" in text
-    assert "a Full Groom for Mila, your large dog, is that right?" in text
+    assert "Don't ask for the dog's name, size or any other detail" in text
+    assert "made only from what the caller said" in text
+    # No example names or sentences for the model to copy.
+    assert "Mila" not in text and "T A K W A" not in text
