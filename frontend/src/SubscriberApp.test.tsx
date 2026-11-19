@@ -121,6 +121,13 @@ describe("SubscriberApp", () => {
     expect(screen.queryByText("Your receptionist is live.")).not.toBeInTheDocument();
   });
 
+  it("links the terms and privacy policy from the sign-up checkbox", () => {
+    mockApi(routes());
+    render(<SubscriberApp />);
+    expect(screen.getByRole("link", { name: "terms of service" })).toHaveAttribute("href", "https://helloeverai.com/terms/");
+    expect(screen.getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "https://helloeverai.com/privacy/");
+  });
+
   it("shows the server's reason when the email is already registered", async () => {
     mockApi(
       routes({

@@ -3,6 +3,9 @@ import { ApiRequestError } from "./api";
 import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
 
+// The terms and privacy policy live on the company website.
+const LEGAL_SITE = (import.meta.env.VITE_LEGAL_SITE_URL as string | undefined) || "https://helloeverai.com";
+
 // Session storage keeps the token for this tab only, and it is cleared when the tab closes.
 const TOKEN_KEY = "receptionist-subscriber-token";
 
@@ -130,7 +133,17 @@ function AuthForm({ onSignedIn }: { onSignedIn: (token: string, account: Account
       {mode === "signup" && (
         <div className="field check-field">
           <input id={`${id}-terms`} type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} required />
-          <label htmlFor={`${id}-terms`}>I accept the terms of service and privacy policy.</label>
+          <label htmlFor={`${id}-terms`}>
+            I accept the{" "}
+            <a href={LEGAL_SITE + "/terms/"} target="_blank" rel="noopener noreferrer">
+              terms of service
+            </a>{" "}
+            and{" "}
+            <a href={LEGAL_SITE + "/privacy/"} target="_blank" rel="noopener noreferrer">
+              privacy policy
+            </a>
+            .
+          </label>
         </div>
       )}
       {error && (

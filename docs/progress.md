@@ -778,3 +778,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 502 passed (local PostgreSQL 14), 2 new: the reason guidance and fuller read-back, and the email saying "wants an appointment" |
 | Frontend | 77 tests pass (Node 22) |
 | Live | Not deployed |
+
+## Pilot paperwork and no call recording (2026-11-19)
+
+**Outcome:** Vapi records every call unless told not to, and callers weren't told, which California's all-party consent rule doesn't allow. The Vapi assistant now turns recording off (`artifactPlan.recordingEnabled: false`); nothing here stores audio or transcripts. A pilot agreement template is in `company/legal/pilot-agreement.md`. The privacy policy and terms of service are published on the company website (helloeverai.com/privacy/ and /terms/, in the separate site repo), and the sign-up checkbox now links to them. These are drafts to have reviewed by a lawyer before paid customers.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 503 passed (local PostgreSQL 14), 1 new: the Vapi assistant turns recording off |
+| Frontend | 78 tests pass (Node 22), 1 new: the sign-up checkbox links the terms and privacy policy |
+| Live | Not deployed |

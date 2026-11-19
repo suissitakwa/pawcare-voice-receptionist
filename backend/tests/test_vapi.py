@@ -182,6 +182,10 @@ def test_the_deployment_ceiling_still_declines(client: TestClient, vapi) -> None
     assert "can't take calls" in assistant_request(client, "call-2", number="+13235550111")["error"]
 
 
+def test_calls_are_not_recorded(client: TestClient, vapi) -> None:
+    assert assistant_request(client)["assistant"]["artifactPlan"] == {"recordingEnabled": False}
+
+
 def test_overrides_tune_the_assistant(client: TestClient, vapi) -> None:
     overrides = {"voice": {"voiceId": "another-voice"}, "startSpeakingPlan": {"waitSeconds": 0.8}}
     vapi["settings"] = vapi_settings(vapi_assistant_overrides=json.dumps(overrides))
