@@ -126,6 +126,9 @@ def assistant(
         if message_only
         else settings.phone_max_call_seconds,
         "serverMessages": SERVER_MESSAGES,
+        # Vapi records every call unless told not to. Callers aren't told they're recorded
+        # (California needs everyone's consent), and nothing here uses the audio.
+        "artifactPlan": {"recordingEnabled": False},
         # Tool calls and the end-of-call report come back here, with the secret, because a
         # per-call assistant gets no stored credential.
         "server": {
