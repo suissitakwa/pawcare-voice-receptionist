@@ -63,3 +63,16 @@ def test_tools_ask_for_the_spelled_letters_not_a_guess() -> None:
     description = callback["parameters"]["properties"]["name"]["description"]
     assert "Exactly the letters the caller spelled" in description
     assert "Never your guess" in description
+
+
+def test_a_request_for_a_service_is_an_appointment_request(db: Session) -> None:
+    from app.voice import TOOLS
+
+    callback = next(t for t in TOOLS if t["name"] == "create_callback_request")
+    reason = callback["parameters"]["properties"]["reason"]["description"]
+    assert reason.startswith("booking_help when they want an appointment or a service")
+    assert "other only if nothing else fits" in reason
+    demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
+    text = message_instructions(db, demo, None)
+    assert "is reason booking_help; on this call that is almost everyone" in text
+    assert "a Full Groom for Mila, your large dog, is that right?" in text

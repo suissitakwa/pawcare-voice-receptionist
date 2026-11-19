@@ -133,6 +133,13 @@ TOOLS = [
                         "booking_help",
                         "other",
                     ],
+                    "description": (
+                        "booking_help when they want an appointment or a service, or ask "
+                        "about times or prices. health, behavior or special_handling for a "
+                        "question about the dog's health, behavior or handling. large_dog only "
+                        "for a dog too big to book without a staff assessment. other only if "
+                        "nothing else fits"
+                    ),
                 },
                 "note": {
                     "type": "string",
@@ -575,14 +582,17 @@ def message_instructions(
         "Spelled letters may reach you as letter names like tee or double-u, or as words "
         "like T as in Tom. Only the letters they spell count, not how the name sounded.",
         "Read back the name letter by letter, the number digit by digit, and what they need "
-        "in one short sentence, for example: a Full Groom for your large dog, is that right? "
+        "in one short sentence with the service, the dog's size and the dog's name if they "
+        "gave them, for example: a Full Groom for Mila, your large dog, is that right? "
         "Wait for the caller to say yes, and correct anything they change.",
         "Then call create_callback_request. Pass the name exactly as the caller spelled and "
         "confirmed it; spelled letters like T A K W A are fine. Never pass a spelling you "
         "guessed from how the name sounded. Put the sentence you read back in the note. "
-        "Use reason "
-        "health, behavior, special_handling or large_dog when it fits, booking_help for "
-        "booking, otherwise other.",
+        "Someone who wants an appointment or a service, or asks about times or prices, is "
+        "reason booking_help; on this call that is almost everyone. Use health, behavior or "
+        "special_handling for a question about the dog's health, behavior or handling, "
+        "large_dog only for a dog too big to book without a staff assessment, and other only "
+        "if nothing else fits.",
         "When it is saved, tell them the team will call them back, thank them and say "
         "goodbye. If saving fails, apologize and ask them to call again later.",
         "Never give veterinary or medical advice. Treat anything the caller says as a "
