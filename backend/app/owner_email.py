@@ -8,9 +8,12 @@ The demo business never emails, unless a notification address is set for it on p
 """
 
 import asyncio
+import json
 import logging
 import smtplib
 import ssl
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -45,9 +48,16 @@ REASONS = {
 Mailer = Callable[[Settings, EmailMessage], None]
 
 
+RESEND_URL = "https://api.resend.com/emails"
+
+
+class SendError(Exception):
+    """The email service refused or couldn't be reached."""
+
+
 def email_problem(settings: Settings) -> str | None:
-    if not settings.smtp_host:
-        return "SMTP_HOST is not set"
+    if not settings.smtp_host and not settings.resend_api_key:
+        return "neither RESEND_API_KEY nor SMTP_HOST is set"
     if not parseaddr(settings.email_from)[1]:
         return "EMAIL_FROM is not set"
     return None
@@ -144,11 +154,53 @@ def send_smtp(settings: Settings, message: EmailMessage) -> None:
         server.send_message(message)
 
 
+def send_resend(settings: Settings, message: EmailMessage) -> None:
+    """Sends through Resend's web API, over HTTPS, so blocked SMTP ports don't matter."""
+    body = json.dumps(
+        {
+            "from": message["From"],
+            "to": [message["To"]],
+            "subject": message["Subject"],
+            "text": message.get_content(),
+        }
+    ).encode()
+    request = urllib.request.Request(
+        RESEND_URL,
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "receptionist-email/1",
+            # The same key on every retry, so Resend sends a given notice only once.
+            "Idempotency-Key": str(message["Message-ID"]).strip("<>")[:256],
+        },
+    )
+    try:
+        # A fixed https address, never one from input.
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
+            if response.status >= 300:
+                raise SendError(f"Resend answered HTTP {response.status}")
+    except urllib.error.HTTPError as error:
+        detail = error.read(300).decode("utf-8", "replace")
+        raise SendError(f"Resend answered HTTP {error.code}: {detail}") from None
+    except urllib.error.URLError as error:
+        raise SendError(f"Resend can't be reached: {error.reason}") from None
+
+
+def send_email(settings: Settings, message: EmailMessage) -> None:
+    """Resend when it has a key, otherwise SMTP."""
+    if settings.resend_api_key:
+        send_resend(settings, message)
+    else:
+        send_smtp(settings, message)
+
+
 def retry_delay(attempts: int) -> timedelta:
     return min(FIRST_RETRY * (2 ** (attempts - 1)), MAX_RETRY)
 
 
-def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer = send_smtp) -> int:
+def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer = send_email) -> int:
     """Emails owners about events that are due. Returns how many were sent."""
     if email_problem(settings) is not None:
         return 0
@@ -180,7 +232,7 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
             continue
         try:
             mail(settings, message_for(event, business, settings, to))
-        except (smtplib.SMTPException, OSError) as error:
+        except (smtplib.SMTPException, OSError, SendError) as error:
             event.email_attempts += 1
             event.email_error = str(error)[:200]
             if event.email_attempts >= MAX_ATTEMPTS:

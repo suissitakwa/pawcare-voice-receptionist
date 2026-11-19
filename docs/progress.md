@@ -740,3 +740,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 478 passed (local PostgreSQL 14), 2 new and 1 changed: over the limit an OpenAI or Vapi call gets only the message tool and wording, a retried Vapi request gets the same, the backend refuses booking tools on it, the deployment ceiling still declines. Migrations `0001`–`0020` upgrade and downgrade cleanly |
 | Live | Not deployed. Vapi fallback destination and Twilio voicemail need setting by hand |
+
+## Owner emails through Resend (2026-11-18)
+
+**Outcome:** on Railway the first owner email failed with `Network is unreachable`: Railway blocks outgoing SMTP below the Pro plan. Emails can now go through Resend's web API over HTTPS (`RESEND_API_KEY`), which takes priority over SMTP when set, with an idempotency key per notice so a retry never sends twice. Resend's refusals (for example an unverified sender domain) show in the dashboard's Email notices. The docs explain Resend's limit before a domain is verified, and running commands from Railway's web console with `/opt/venv/bin/python`.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 482 passed (local PostgreSQL 14), 2 new: with a key, a notice is posted to Resend with the owner, sender, subject, body and idempotency key; a Resend refusal is recorded and retried |
+| Live | Not deployed. Needs `RESEND_API_KEY` and `EMAIL_FROM` on Railway |

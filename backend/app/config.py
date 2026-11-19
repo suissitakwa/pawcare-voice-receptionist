@@ -81,8 +81,11 @@ class Settings(BaseSettings):
     # still serve the deployment's own business when it has none stored.
     integrations_key: str = Field(default="", repr=False)
 
-    # Owner emails about bookings and callback requests, through any SMTP server. Port 465
-    # uses TLS from the start, any other port STARTTLS. Empty host or sender: no emails.
+    # Owner emails about bookings and callback requests. With a Resend API key they go
+    # through Resend's web API, which works where outgoing SMTP is blocked (Railway below
+    # Pro); otherwise through the SMTP server below. Port 465 uses TLS from the start, any
+    # other port STARTTLS. Neither, or no sender: no emails.
+    resend_api_key: str = Field(default="", repr=False)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
