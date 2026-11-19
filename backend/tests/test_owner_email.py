@@ -215,3 +215,57 @@ def test_business_files_check_the_notify_address() -> None:
     data = json.loads(TEMPLATE_FILE.read_text())
     seed = BusinessSeed.model_validate({**data, "notify_email": "not-an-email"})
     assert "notify_email 'not-an-email' is not an email address" in problems(seed)
+
+
+class FakeResponse:
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+
+def test_resend_is_used_when_it_has_a_key(client, db, monkeypatch) -> None:
+    sent = []
+
+    def fake_urlopen(request, timeout):
+        sent.append(request)
+        return FakeResponse()
+
+    monkeypatch.setattr(owner_email.urllib.request, "urlopen", fake_urlopen)
+    notify(db)
+    book(client)
+    resend = Settings(resend_api_key="re_test", email_from="Pilot <onboarding@resend.dev>")
+    assert owner_email.email_problem(resend) is None
+    assert send_due(db, resend, NOW) == 1
+    [request] = sent
+    assert request.full_url == "https://api.resend.com/emails"
+    assert request.get_header("Authorization") == "Bearer re_test"
+    assert request.get_header("Idempotency-key")
+    body = json.loads(request.data)
+    assert body["to"] == [OWNER]
+    assert body["from"] == "Pilot <onboarding@resend.dev>"
+    assert body["subject"].startswith("New booking: Full Groom for Biscuit")
+    assert "Reference: " in body["text"]
+
+
+def test_a_resend_refusal_is_recorded_and_retried(client, db, monkeypatch) -> None:
+    import io
+    import urllib.error
+
+    def refuse(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url, 403, "Forbidden", {}, io.BytesIO(b'{"message":"domain not verified"}')
+        )
+
+    monkeypatch.setattr(owner_email.urllib.request, "urlopen", refuse)
+    notify(db)
+    book(client)
+    resend = Settings(resend_api_key="re_test", email_from="Pilot <bookings@example.com>")
+    assert send_due(db, resend, NOW) == 0
+    stored = event(db)
+    assert stored.email_error.startswith("Resend answered HTTP 403")
+    assert "domain not verified" in stored.email_error
+    assert stored.email_next_attempt_at is not None and stored.email_failed_at is None
