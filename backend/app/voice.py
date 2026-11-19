@@ -40,12 +40,12 @@ MAX_TOOL_CALLS = 40
 # The model sees these descriptions. The backend still validates every argument, because
 # the arguments come from a model listening to anyone who opens the page.
 # A name must be the letters the caller spelled, never the model's guess at a spoken name
-# ("Taqua" for Takwa). Spelled letters ("T A K W A") are fine: the backend joins them.
+# Spelled-out letters are fine: the backend joins them.
 NAME_FIELD = {
     "type": "string",
     "description": (
-        "Exactly the letters the caller spelled and confirmed, for example Takwa or "
-        "T A K W A. Never your guess at how the name sounded"
+        "Exactly the letters the caller spelled and confirmed; spelled-out letters are "
+        "fine. Never your guess at how the name sounded"
     ),
 }
 TOOLS = [
@@ -576,17 +576,19 @@ def message_instructions(
         "other questions beyond saying the team will call back.",
         "Ask for the caller's name and ask them to spell it. Ask for the best phone number "
         "to call them back, and ask what they need. Ask one thing at a time.",
+        "Ask only for those three things. Don't ask for the dog's name, size or any other "
+        "detail: note what the caller tells you, and the team will ask the rest when they "
+        "call back.",
         f"The services are: {', '.join(services) or 'none listed'}. Phone audio is often "
         "misheard, so a word that sounds like a service name means that service. Name it "
         "exactly, never the word you heard.",
         "Spelled letters may reach you as letter names like tee or double-u, or as words "
         "like T as in Tom. Only the letters they spell count, not how the name sounded.",
         "Read back the name letter by letter, the number digit by digit, and what they need "
-        "in one short sentence with the service, the dog's size and the dog's name if they "
-        "gave them, for example: a Full Groom for Mila, your large dog, is that right? "
-        "Wait for the caller to say yes, and correct anything they change.",
+        "in one short sentence made only from what the caller said. Wait for the caller to "
+        "say yes, and correct anything they change.",
         "Then call create_callback_request. Pass the name exactly as the caller spelled and "
-        "confirmed it; spelled letters like T A K W A are fine. Never pass a spelling you "
+        "confirmed it; spelled-out letters are fine. Never pass a spelling you "
         "guessed from how the name sounded. Put the sentence you read back in the note. "
         "Someone who wants an appointment or a service, or asks about times or prices, is "
         "reason booking_help; on this call that is almost everyone. Use health, behavior or "

@@ -771,7 +771,7 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 
 ## Appointment requests and fuller notes (2026-11-19)
 
-**Outcome:** a caller asking for a full groom was saved with reason "other" and the note "a Full Groom". The callback tool now explains each reason: wanting an appointment or a service, or asking about times or prices, is `booking_help`; `large_dog` is only for dogs that need an assessment; `other` only when nothing fits. On a message-only call that's almost everyone. Notes include the service, the dog's size and name when given ("a Full Groom for Mila, your large dog"). Owner emails and the dashboard label `booking_help` as "wants an appointment".
+**Outcome:** a caller asking for a full groom was saved with reason "other" and the note "a Full Groom". The callback tool now explains each reason: wanting an appointment or a service, or asking about times or prices, is `booking_help`; `large_dog` is only for dogs that need an assessment; `other` only when nothing fits. On a message-only call that's almost everyone. Notes are built only from what the caller said: after a test call kept asking for the dog's name and size, the message-taker asks only for the name, a callback number and what they need, and its instructions carry no example names or sentences for the model to copy. Owner emails and the dashboard label `booking_help` as "wants an appointment".
 
 | Check | Result |
 | --- | --- |
