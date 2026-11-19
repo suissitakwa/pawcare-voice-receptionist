@@ -10,7 +10,7 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,6 +25,7 @@ from app.availability import (
 from app.booking import slot_unavailable, summary_hash
 from app.format_text import format_time
 from app.models import Booking, Business, Service, SizeCategory, VoiceSession
+from app.names import clean_name
 from app.schemas import BookingSummary, VoiceToolResult
 from app.webhooks import booking_data, enqueue
 
@@ -47,6 +48,8 @@ class ChangeArgs(BaseModel):
     size: str | None = Field(default=None, max_length=32)
     owner_name: str | None = Field(default=None, min_length=1, max_length=80)
     pet_name: str | None = Field(default=None, min_length=1, max_length=40)
+
+    _names = field_validator("owner_name", "pet_name")(clean_name)
 
 
 def error(code: str, message: str) -> VoiceToolResult:

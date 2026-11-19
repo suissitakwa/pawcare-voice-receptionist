@@ -270,7 +270,7 @@ def handle_incoming(
     session.add(record)
     session.flush()
     if record.message_only:
-        instructions = message_instructions(business, number, greeted=False)
+        instructions = message_instructions(session, business, number, greeted=False)
     else:
         instructions = build_instructions(session, business, today, "phone", number)
     try:

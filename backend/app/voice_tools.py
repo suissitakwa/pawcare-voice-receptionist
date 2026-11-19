@@ -11,7 +11,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -29,6 +29,7 @@ from app.errors import ApiError
 from app.format_text import format_time
 from app.manage import cancel, confirm_change, find_booking, prepare_change
 from app.models import BookingDraft, CallbackRequest, VoiceSession
+from app.names import clean_name
 from app.schemas import (
     EMAIL_PATTERN,
     PHONE_PATTERN,
@@ -68,6 +69,8 @@ class CallbackArgs(BaseModel):
     email: str | None = Field(default=None, max_length=254)
     reason: str = Field(pattern="^(health|behavior|special_handling|large_dog|booking_help|other)$")
     note: str = Field(default="", max_length=300)
+
+    _name = field_validator("name")(clean_name)
 
 
 def authorize(
