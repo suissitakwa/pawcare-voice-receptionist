@@ -702,6 +702,15 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Frontend | Typecheck and build pass; 74 tests pass (Node 22), 4 of them new |
 | Live | Not deployed |
 
+## Real businesses aren't called a demo (2026-11-17)
+
+**Outcome:** the receptionist's instructions called every business "a fictional dog grooming business on a demonstration line" and quoted "demo prices", even when `is_demo` was false; the website already checked it. Now only the demo business gets that wording, for browser voice and phone (OpenAI and Vapi), and a real business's callers hear its prices as prices.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 463 passed (local PostgreSQL 14), 2 new: a real business's web and phone instructions contain no "fictional", "demonstration" or "demo", while the demo's still say it is fictional |
+| Live | Not deployed |
+
 ## A sign-up becomes a live business (2026-11-17)
 
 **Outcome:** a subscriber's submitted profile can be turned into a business after review. Migration `0018` links `business_profiles` to `businesses`. `python -m app.provision draft <email>` writes a business file with the profile's name, phone, email and FAQs over the template; after completing hours, staff, services and prices with the owner, `create <email> <file>` creates the business, links the profile and adds a staff login with the owner's sign-up password, then lists what's left (calendar, phone number, web pages to turn into FAQs). The owner's profile page shows "Your receptionist is live" with links to their booking page and dashboard. Only pet grooming profiles are accepted; hair salons and barbershops wait for industry packages. Step 9 of [decision 0010](decisions/0010-multiple-businesses.md).

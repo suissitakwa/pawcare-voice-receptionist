@@ -210,6 +210,21 @@ def test_instructions_contain_only_database_facts_and_the_rules(db) -> None:
     assert "@" not in text.replace("hello@pawcare.example", "")
 
 
+@pytest.mark.parametrize("channel", ["web", "phone"])
+def test_a_real_business_is_never_called_a_demo(db, second_business, channel) -> None:
+    real = db.scalar(select(Business).where(Business.slug == second_business))
+    text = build_instructions(db, real, NOW.date(), channel=channel)
+    assert "Second Studio, a dog grooming business" in text
+    assert "never claim to be a person" in text
+    for word in ("fictional", "demonstration", "demo"):
+        assert word not in text.lower()
+    assert "tell them its duration and price" in text
+    assert "Services with prices:" in text
+
+    demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
+    assert "fictional dog grooming" in build_instructions(db, demo, NOW.date(), channel=channel)
+
+
 def test_ending_records_the_outcome_once(client, db) -> None:
     use_settings(voice_mode="test")
     body = start(client).json()

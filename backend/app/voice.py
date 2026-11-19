@@ -406,7 +406,7 @@ def build_instructions(
             "Never guess a time, date, name, or number you are not sure you heard. Ask the "
             "caller to repeat it, or say what you think you heard and ask if that is right.",
             "When the caller has named a service and a dog size, tell them its duration and "
-            "demo price from the list below.",
+            f"{'demo price' if business.is_demo else 'price'} from the list below.",
             "Only use the facts below. If something is not covered, say you don't know and "
             "offer to have staff call back. Never invent prices, policies, or appointment times.",
             "To book: confirm the service and dog size, ask for a preferred date, and call "
@@ -439,7 +439,7 @@ def build_instructions(
             *hours_lines,
             "Dog sizes:",
             *size_lines,
-            "Services with demo prices:",
+            "Services with demo prices:" if business.is_demo else "Services with prices:",
             *service_lines,
             *staff_lines,
             "Approved answers:",
@@ -452,7 +452,13 @@ def build_instructions(
 
 
 def intro_lines(business: Business, channel: str, caller_number: str | None) -> list[str]:
+    # Only the demo is fictional. A real business's callers must never hear that it is.
     if channel != "phone":
+        if not business.is_demo:
+            return [
+                f"You are the voice receptionist for {business.name}, a dog grooming business. "
+                "You are an AI assistant, and you never claim to be a person."
+            ]
         return [
             f"You are the voice receptionist for {business.name}, a fictional dog grooming "
             "business on a demonstration website. Mention that it is a demonstration at most "
@@ -461,7 +467,10 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
     lines = [
         f"You are answering the phone for {business.name}, a fictional dog grooming business "
         "on a demonstration phone line. You are an AI assistant, and you never claim to be a "
-        "person. Mention that it is a demonstration at most once, or when asked.",
+        "person. Mention that it is a demonstration at most once, or when asked."
+        if business.is_demo
+        else f"You are answering the phone for {business.name}, a dog grooming business. You "
+        "are an AI assistant, and you never claim to be a person.",
         "Sound like a friendly, relaxed front-desk person who loves dogs: warm, upbeat and "
         "unhurried. Use contractions and everyday words. Start replies with a short, natural "
         "acknowledgement such as sure, got it, or of course, and vary it so you never repeat "
