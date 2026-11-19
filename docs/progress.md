@@ -759,3 +759,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 499 passed (local PostgreSQL 14), 18 new: 14 name cases, a booking joins spelled names, a Vapi callback saves "R I L E Y" as Riley, and both instruction sets ask for service names and read-backs |
 | Evals | Not rerun. The instructions changed only for callbacks and names |
 | Live | Not deployed |
+
+## Names from the spelled letters, not a guess (2026-11-19)
+
+**Outcome:** after the previous change, a test call saved "Taqua" for Takwa. Telling the model never to pass spelled letters made it write its own guess at the spoken name. The tools and both instruction sets now ask for exactly the letters the caller spelled and confirmed; spelled letters like "T A K W A" are fine, because the backend joins them.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 500 passed (local PostgreSQL 14), 1 new: the callback tool asks for the spelled letters and never a guess |
+| Live | Not deployed |

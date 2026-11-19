@@ -46,10 +46,20 @@ def test_the_message_taker_knows_the_services_and_reads_back(db: Session) -> Non
     assert "The services are: Bath and Tidy, Full Groom, Nail and Paw Care." in text
     assert "a word that sounds like a service name means that service" in text
     assert "what they need in one short sentence" in text
-    assert "never as spelled letters" in text
+    assert "Never pass a spelling you guessed from how the name sounded" in text
+    assert "Only the letters they spell count" in text
 
 
 def test_the_receptionist_reads_back_a_callback_note(db: Session) -> None:
     demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
     text = build_instructions(db, demo, NOW.date(), channel="phone")
     assert "including what they need in one short sentence using the service names" in text
+
+
+def test_tools_ask_for_the_spelled_letters_not_a_guess() -> None:
+    from app.voice import TOOLS
+
+    callback = next(t for t in TOOLS if t["name"] == "create_callback_request")
+    description = callback["parameters"]["properties"]["name"]["description"]
+    assert "Exactly the letters the caller spelled" in description
+    assert "Never your guess" in description
