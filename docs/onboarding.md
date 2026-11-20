@@ -6,20 +6,25 @@ This suits a **pet groomer with one or more groomers**. The receptionist talks a
 
 ## From a sign-up
 
-If the owner signed up and submitted a profile, start from it instead of the template:
+When an owner signs up and submits their profile, you get a "New sign-up" email. The profile now has everything a business needs: name, phone, time zone, address, opening hours, services with length and price for each dog size, the team and who does which service, calendar, voice, and answers to common questions.
+
+Check it with them (a short call), then in Railway's backend **Console**:
 
 ```bash
-uv run python -m app.provision list
-uv run python -m app.provision draft owner@example.com > happy-tails.json
+/opt/venv/bin/python -m app.provision list
+/opt/venv/bin/python -m app.provision approve owner@example.com
 ```
 
-The draft has their name, phone, email and FAQs. Complete timezone, address, hours, groomers, sizes, services and prices with them (steps below), then:
+`approve` prints what it will create (address, hours, every service and price, the team) and asks before creating it. It links the profile, and the owner signs in to `/b/<slug>/staff` with their sign-up password. It prints what's left (calendar, phone number). Everyone on the team works the opening hours for now; breaks and per-person hours are set in the business file afterwards.
+
+A profile submitted before hours and prices were asked for can't be approved. Either the owner fills them in (they get a "Profile updated" email to you), or use `draft` to get the business file, fill it in, and `create` it:
 
 ```bash
-uv run python -m app.provision create owner@example.com happy-tails.json
+/opt/venv/bin/python -m app.provision draft owner@example.com > /tmp/their-business.json
+/opt/venv/bin/python -m app.provision create owner@example.com /tmp/their-business.json
 ```
 
-This replaces steps 2 and 3: it creates the business, links their profile, and lets them sign in to `/b/<slug>/staff` with the password they signed up with. Their profile page then shows their booking page and dashboard. It prints what's left (calendar, phone number). If they change their sign-up password later, the dashboard password doesn't change with it. Only pet grooming profiles can be provisioned for now.
+Only pet grooming profiles can be provisioned for now.
 
 ## 0. Before the first real business
 

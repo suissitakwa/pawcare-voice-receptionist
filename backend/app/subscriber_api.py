@@ -42,6 +42,9 @@ from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME
 from app.subscriber_schemas import (
     BUSINESS_TYPE_LABELS,
     CALENDAR_LABELS,
+    SIZE_LABELS,
+    SIZES_BY_TYPE,
+    TIMEZONE_LABELS,
     VOICES,
     AccountPublic,
     DocumentPublic,
@@ -143,10 +146,17 @@ def missing_fields(profile: BusinessProfile, details: ProfileDetails, documents:
         "business_phone": bool(details.business_phone),
         "calendar_provider": details.calendar_provider is not None,
         "knowledge": bool(details.knowledge_urls or details.faqs or documents),
+        "hours": bool(details.hours),
+        "services": any(service.prices for service in details.services),
         "voice": bool(details.voice),
         "ai_disclosure_ack": details.ai_disclosure_ack,
     }
     return [name for name, done in checks.items() if not done]
+
+
+def current_missing(db: Session, profile: BusinessProfile) -> set[str]:
+    details = ProfileDetails.from_stored(profile.details)
+    return set(missing_fields(profile, details, count_documents(db, profile)))
 
 
 def to_public(db: Session, profile: BusinessProfile) -> ProfilePublic:
@@ -182,6 +192,11 @@ def options() -> ProfileOptions:
         calendar_providers=listed(CALENDAR_LABELS),
         document_types=list(DOCUMENT_TYPES),
         max_document_bytes=MAX_DOCUMENT_BYTES,
+        timezones=listed(TIMEZONE_LABELS),
+        sizes={
+            kind: [Option(value=s, label=SIZE_LABELS[s]) for s in sizes]
+            for kind, sizes in SIZES_BY_TYPE.items()
+        },
     )
 
 
@@ -307,6 +322,7 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
     """Saves part of the profile. Top-level detail fields sent replace the stored ones."""
     profile = load_profile(db, context[0].id)
     before = snapshot(db, profile)
+    missing_before = current_missing(db, profile)
     sent = body.model_fields_set
     if "business_name" in sent:
         profile.business_name = body.business_name
@@ -325,10 +341,9 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
                 422, "invalid_request", "Check these fields: " + ", ".join(fields) + "."
             ) from None
         profile.details = details.model_dump(mode="json")
-    if profile.status == "submitted" and missing_fields(
-        profile, ProfileDetails.from_stored(profile.details), count_documents(db, profile)
-    ):
-        # Editing a submitted profile is allowed, but it cannot become incomplete.
+    if profile.status == "submitted" and current_missing(db, profile) - missing_before:
+        # Editing a submitted profile is allowed, but it can't lose what it had. A profile
+        # submitted before a section existed may still leave that section empty.
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
     note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
@@ -459,11 +474,10 @@ def delete_document(document_id: uuid.UUID, context: Account, db: DbSession, now
     if document is None:
         raise ApiError(404, "document_not_found", "No document with that id.")
     before = snapshot(db, profile)
+    missing_before = current_missing(db, profile)
     db.delete(document)
     db.flush()
-    if profile.status == "submitted" and missing_fields(
-        profile, ProfileDetails.from_stored(profile.details), count_documents(db, profile)
-    ):
+    if profile.status == "submitted" and current_missing(db, profile) - missing_before:
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
     note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)

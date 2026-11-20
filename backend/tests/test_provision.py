@@ -118,3 +118,70 @@ def test_a_file_with_problems_creates_nothing(db, submitted) -> None:
 def test_slugs_are_web_safe() -> None:
     assert slugify("Paws & Claws — Austin!") == "paws-claws-austin"
     assert slugify("!!!") == "business"
+
+
+# Approving straight from the profile
+
+
+def test_approve_builds_the_whole_business_from_the_profile(client, db, submitted) -> None:
+    from app.models import Business, Groomer, GroomerService, Service, ServiceSizeRule
+    from app.provision import approve
+
+    seed, gaps, _ = approve(db, "sam@example.com")
+    db.commit()
+    assert gaps == []
+    business = db.scalar(select(Business).where(Business.slug == seed.slug))
+    assert business.timezone == "America/Los_Angeles"
+    assert business.address == "12 Market St, San Jose, CA"
+    assert business.notify_email == "sam@example.com"
+    assert [(h.weekday, str(h.opens_at)) for h in business.hours] == [
+        (1, "09:00:00"),
+        (2, "09:00:00"),
+    ]
+    prices = {
+        (name, size, minutes, cents)
+        for name, size, minutes, cents in db.execute(
+            select(
+                Service.name,
+                ServiceSizeRule.size_category_id,
+                ServiceSizeRule.duration_minutes,
+                ServiceSizeRule.price_cents,
+            )
+            .join(ServiceSizeRule, ServiceSizeRule.service_id == Service.id)
+            .where(Service.business_id == business.id)
+        )
+    }
+    assert {(n, m, c) for n, _, m, c in prices} == {
+        ("Full Groom", 90, 6500),
+        ("Full Groom", 150, 10500),
+        ("Nail Trim", 15, 1500),
+    }
+    staff = dict(
+        db.execute(
+            select(Groomer.display_name, Groomer.id).where(Groomer.business_id == business.id)
+        ).all()
+    )
+    assert set(staff) == {"Sam", "Jo"}
+    jo_services = db.scalars(
+        select(Service.name)
+        .join(GroomerService, GroomerService.service_id == Service.id)
+        .where(GroomerService.groomer_id == staff["Jo"])
+    ).all()
+    assert jo_services == ["Nail Trim"]
+    # It's bookable: the public catalog lists both services and both people.
+    catalog = client.get(f"/api/v1/b/{seed.slug}/services").json()
+    assert [s["name"] for s in catalog["services"]] == ["Full Groom", "Nail Trim"]
+    assert [m["name"] for m in catalog["staff"]] == ["Jo", "Sam"]
+
+
+def test_approve_refuses_a_profile_without_hours_or_services(client, db, submitted) -> None:
+    from sqlalchemy import update
+
+    from app.provision import approve
+
+    profile = db.scalar(select(BusinessProfile))
+    details = {**profile.details, "hours": [], "services": []}
+    db.execute(update(BusinessProfile).values(details=details))
+    db.commit()
+    with pytest.raises(ProvisionError, match="no opening hours or services and prices"):
+        approve(db, "sam@example.com")

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
+import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
 import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
 
@@ -13,6 +14,9 @@ const TOKEN_KEY = "receptionist-subscriber-token";
 // Kept short on purpose. More options are added as businesses ask for them.
 export const STEPS = [
   { id: "business", title: "Your business" },
+  { id: "hours", title: "Where and when" },
+  { id: "services", title: "Services and prices" },
+  { id: "team", title: "Your team" },
   { id: "calendar", title: "Your calendar" },
   { id: "knowledge", title: "What the receptionist should know" },
   { id: "voice", title: "Voice" },
@@ -24,10 +28,12 @@ const MISSING: Record<string, { step: number; label: string }> = {
   business_name: { step: 0, label: "Business name" },
   business_type: { step: 0, label: "Business type" },
   business_phone: { step: 0, label: "Business phone number" },
-  calendar_provider: { step: 1, label: "Calendar" },
-  knowledge: { step: 2, label: "A website, document, or question and answer" },
-  voice: { step: 3, label: "Choose a voice" },
-  ai_disclosure_ack: { step: 4, label: "AI disclosure agreement" },
+  hours: { step: 1, label: "Opening hours" },
+  services: { step: 2, label: "At least one service with a length and price" },
+  calendar_provider: { step: 4, label: "Calendar" },
+  knowledge: { step: 5, label: "A website, document, or question and answer" },
+  voice: { step: 6, label: "Choose a voice" },
+  ai_disclosure_ack: { step: 7, label: "AI disclosure agreement" },
 };
 
 function readToken(): string | null {
@@ -271,6 +277,9 @@ function FaqEditor({ faqs, onChange }: { faqs: FaqItem[]; onChange: (faqs: FaqIt
 function cleanDetails(details: ProfileDetails, urls: string): ProfileDetails {
   return {
     ...details,
+    ...cleanSections(details),
+    address: orNull(details.address ?? null),
+    hours: (details.hours ?? []).map((h) => ({ ...h, opens_at: h.opens_at.slice(0, 5), closes_at: h.closes_at.slice(0, 5) })),
     business_phone: orNull(details.business_phone),
     website_url: orNull(details.website_url),
     calendar_other: details.calendar_provider === "other" ? orNull(details.calendar_other) : null,
@@ -434,6 +443,57 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
                 <input {...props} type="url" placeholder="https://" value={details.website_url ?? ""} onChange={(e) => setDetails({ website_url: e.target.value })} />
               )}
             </Field>
+          </>
+        )}
+
+        {current.id === "hours" && (
+          <>
+            <Field label="Time zone">
+              {(props) => (
+                <select {...props} value={details.timezone ?? ""} onChange={(e) => setDetails({ timezone: e.target.value || null })}>
+                  <option value="">Choose your time zone</option>
+                  {(options.timezones ?? []).map((zone) => (
+                    <option key={zone.value} value={zone.value}>
+                      {zone.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Address (optional)" hint="Where customers come. Leave empty if you're mobile.">
+              {(props) => (
+                <input {...props} maxLength={200} value={details.address ?? ""} onChange={(e) => setDetails({ address: e.target.value })} />
+              )}
+            </Field>
+            <HoursEditor hours={details.hours ?? []} onChange={(hours) => setDetails({ hours })} />
+          </>
+        )}
+
+        {current.id === "services" && (
+          <>
+            <p className="muted">
+              List what customers can book, how long each takes and what it costs. The receptionist quotes these and
+              books by them, so use your real prices.
+            </p>
+            <ServicesEditor
+              services={details.services ?? []}
+              sizes={options.sizes?.[draft.business_type || "pet_grooming"]}
+              onChange={(services) => setDetails({ services })}
+            />
+          </>
+        )}
+
+        {current.id === "team" && (
+          <>
+            <p className="muted">
+              Who takes appointments? Customers can ask for someone by name, or take anyone free. Leave this empty if it's
+              just you.
+            </p>
+            <TeamEditor
+              team={details.team ?? []}
+              serviceNames={(details.services ?? []).map((s) => s.name.trim()).filter(Boolean)}
+              onChange={(team) => setDetails({ team })}
+            />
           </>
         )}
 

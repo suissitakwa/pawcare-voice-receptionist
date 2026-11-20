@@ -24,6 +24,27 @@ COMPLETE_DETAILS = {
     "faqs": [{"question": "Do you groom cats?", "answer": "Dogs only."}],
     "voice": "cedar",
     "ai_disclosure_ack": True,
+    "timezone": "America/Los_Angeles",
+    "address": "12 Market St, San Jose, CA",
+    "hours": [
+        {"weekday": 1, "opens_at": "09:00", "closes_at": "17:00"},
+        {"weekday": 2, "opens_at": "09:00", "closes_at": "17:00"},
+    ],
+    "services": [
+        {
+            "name": "Full Groom",
+            "description": "Bath, haircut, nails.",
+            "prices": [
+                {"size": "small", "duration_minutes": 90, "price_cents": 6500},
+                {"size": "large", "duration_minutes": 150, "price_cents": 10500},
+            ],
+        },
+        {
+            "name": "Nail Trim",
+            "prices": [{"size": "small", "duration_minutes": 15, "price_cents": 1500}],
+        },
+    ],
+    "team": [{"name": "Sam"}, {"name": "Jo", "services": ["Nail Trim"]}],
 }
 
 
@@ -225,7 +246,8 @@ def test_a_profile_saved_with_older_fields_still_opens_and_keeps_what_is_valid(
     body = client.get(f"{API}/profile", headers=headers).json()
     assert body["details"]["business_phone"] == "(415) 555-0134"
     assert body["details"]["voice"] is None
-    assert "hours" not in body["details"]
+    # Hours saved in an old shape are dropped, not shown half-read.
+    assert body["details"]["hours"] == []
     saved = client.patch(f"{API}/profile", headers=headers, json={"details": {"voice": "marin"}})
     assert saved.status_code == 200
     db.refresh(profile)

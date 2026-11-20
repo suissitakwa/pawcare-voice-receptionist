@@ -2,10 +2,18 @@
 
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 from typing import Annotated, Literal
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from app.schemas import EMAIL_PATTERN, PHONE_PATTERN
 
@@ -107,6 +115,63 @@ class FaqItem(Strict):
     answer: str = Field(min_length=1, max_length=1000)
 
 
+# Pet groomers price by dog size; other businesses have one price per service.
+ServiceSize = Literal["small", "medium", "large", "any"]
+SIZE_LABELS = {"small": "Small dog", "medium": "Medium dog", "large": "Large dog", "any": "Any"}
+SIZES_BY_TYPE = {
+    "pet_grooming": ["small", "medium", "large"],
+    "hair_salon": ["any"],
+    "barbershop": ["any"],
+}
+TIMEZONE_LABELS = {
+    "America/Los_Angeles": "Pacific",
+    "America/Denver": "Mountain",
+    "America/Phoenix": "Arizona",
+    "America/Chicago": "Central",
+    "America/New_York": "Eastern",
+    "America/Anchorage": "Alaska",
+    "Pacific/Honolulu": "Hawaii",
+}
+
+
+class OpeningHours(Strict):
+    weekday: int = Field(ge=0, le=6, description="0 is Monday")
+    opens_at: time
+    closes_at: time
+
+    @model_validator(mode="after")
+    def closes_after_opening(self) -> "OpeningHours":
+        if self.closes_at <= self.opens_at:
+            raise ValueError("Closing time must be after opening time.")
+        return self
+
+
+class ServicePrice(Strict):
+    size: ServiceSize
+    duration_minutes: int = Field(ge=5, le=480)
+    price_cents: int = Field(ge=0, le=1_000_000)
+
+
+class ServiceItem(Strict):
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=300)
+    prices: list[ServicePrice] = Field(default_factory=list, max_length=4)
+
+    @field_validator("prices")
+    @classmethod
+    def one_price_per_size(cls, value: list[ServicePrice]) -> list[ServicePrice]:
+        sizes = [p.size for p in value]
+        if len(sizes) != len(set(sizes)):
+            raise ValueError("Give each size one price.")
+        return value
+
+
+class TeamMember(Strict):
+    name: str = Field(min_length=1, max_length=80)
+    # Names of the services this person does. Empty: every service.
+    services: list[str] = Field(default_factory=list, max_length=30)
+
+
 class ProfileDetails(Strict):
     """Everything about the business beyond its name and type. Every field is optional while
     the profile is a draft; submitting checks the required ones."""
@@ -119,6 +184,33 @@ class ProfileDetails(Strict):
     faqs: list[FaqItem] = Field(default_factory=list, max_length=100)
     voice: Voice | None = None
     ai_disclosure_ack: bool = False
+    timezone: str | None = None
+    address: str | None = Field(default=None, max_length=200)
+    hours: list[OpeningHours] = Field(default_factory=list, max_length=7)
+    services: list[ServiceItem] = Field(default_factory=list, max_length=30)
+    team: list[TeamMember] = Field(default_factory=list, max_length=20)
+
+    @field_validator("timezone")
+    @classmethod
+    def known_timezone(cls, value: str | None) -> str | None:
+        if value and value not in available_timezones():
+            raise ValueError("Choose a time zone from the list.")
+        return value or None
+
+    @field_validator("hours")
+    @classmethod
+    def one_entry_per_day(cls, value: list[OpeningHours]) -> list[OpeningHours]:
+        if len({h.weekday for h in value}) != len(value):
+            raise ValueError("Give each day one set of hours.")
+        return sorted(value, key=lambda h: h.weekday)
+
+    @field_validator("services")
+    @classmethod
+    def distinct_services(cls, value: list[ServiceItem]) -> list[ServiceItem]:
+        names = [s.name.strip().lower() for s in value]
+        if len(names) != len(set(names)):
+            raise ValueError("Give each service a different name.")
+        return value
 
     _phone = field_validator("business_phone")(clean_phone)
 
@@ -193,3 +285,6 @@ class ProfileOptions(BaseModel):
     calendar_providers: list[Option]
     document_types: list[str]
     max_document_bytes: int
+    timezones: list[Option] = []
+    # Price rows per business type: dog sizes for pet groomers, one row for the others.
+    sizes: dict[str, list[Option]] = {}
