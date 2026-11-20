@@ -177,6 +177,19 @@ describe("StaffApp", () => {
     expect(sessionStorage.getItem("pawcare-staff-token")).toBeNull();
   });
 
+  it("offers a password reset link from staff sign-in", async () => {
+    const calls = mockApi(
+      dashboardRoutes({ "POST /api/v1/staff/password/forgot": () => ({ status: 202, body: { status: "sent_if_account_exists" } }) }),
+    );
+    const user = userEvent.setup({ delay: null });
+    render(<StaffApp />);
+    await user.click(screen.getByRole("button", { name: "Forgot password?" }));
+    await user.type(screen.getByLabelText("Email"), "maya@pawcare.example");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("If there's an account for maya@pawcare.example");
+    expect(calls.some((c) => c.key === "POST /api/v1/staff/password/forgot")).toBe(true);
+  });
+
   it("warns when a new block overlaps existing bookings", async () => {
     mockApi(
       dashboardRoutes({

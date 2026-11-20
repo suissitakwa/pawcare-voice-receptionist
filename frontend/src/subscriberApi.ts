@@ -86,6 +86,9 @@ export const subscriberApi = {
     request<SessionResult>(`${BASE}/signup`, { method: "POST", ...json({ full_name, email, password, accept_terms }) }),
   signIn: (email: string, password: string) =>
     request<SessionResult>(`${BASE}/login`, { method: "POST", ...json({ email, password }) }),
+  forgotPassword: (email: string) => request<unknown>(`${BASE}/password/forgot`, { method: "POST", ...json({ email }) }),
+  resetPassword: (token: string, password: string) =>
+    request<void>(`${BASE}/password/reset`, { method: "POST", ...json({ token, password }) }),
   me: (token: string) => authed<Account>(token, "/me"),
   signOut: (token: string) => authed<void>(token, "/logout", { method: "POST" }),
   profile: (token: string) => authed<Profile>(token, "/profile"),

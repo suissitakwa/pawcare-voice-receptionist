@@ -797,3 +797,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 507 passed (local PostgreSQL 14) three times in a row, 4 new: both emails and their content, no repeat on resubmitting, the receipt still goes without `ADMIN_EMAIL`, sign-ups never reach a business webhook. Migrations `0001`–`0021` upgrade and downgrade cleanly |
 | Live | Not deployed. Needs `ADMIN_EMAIL` on Railway |
+
+## Forgotten passwords (2026-11-19)
+
+**Outcome:** there was no way back into an account after forgetting its password: sign-up accounts had none at all, and staff logins needed a reset by hand from Railway's console. Both sign-in pages now have **Forgot password?**: the same answer whatever the email, a one-time link valid for an hour (migration `0022` keeps only its hash), the newest link only, limits per account and per visitor, every other session signed out on change, and a "password was changed" email. See [email.md](email.md#forgotten-passwords).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 516 passed (local PostgreSQL 14), 9 new: the full reset with sign-out and both emails, the link erased once emailed, one use and one hour, only the newest link, unknown emails and businesses answered the same, limits, short passwords refused, no link without `PUBLIC_SITE_URL`, staff resets at their business and the two kinds of link kept apart. Migrations `0001`–`0022` upgrade and downgrade cleanly |
+| Frontend | 82 tests pass (Node 22), 4 new; the screens checked in the browser |
+| Live | Not deployed. Needs `PUBLIC_SITE_URL` (already set) |

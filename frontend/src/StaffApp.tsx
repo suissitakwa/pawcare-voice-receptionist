@@ -2,8 +2,11 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { ApiRequestError } from "./api";
 import { longDate, wallClock } from "./BookingForm";
 import { formatPrice } from "./format";
+import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
 import {
+  forgotPassword,
   login,
+  resetPassword,
   staffApi,
   type BlockInput,
   type EmailStatus,
@@ -59,7 +62,15 @@ function when(local: string, end?: string): string {
   return end ? `${day}, ${wallClock(local)} to ${wallClock(end)}` : `${day}, ${wallClock(local)}`;
 }
 
-function LoginForm({ onSignedIn, notice }: { onSignedIn: (token: string, staff: StaffUser) => void; notice?: string }) {
+function LoginForm({
+  onSignedIn,
+  onForgot,
+  notice,
+}: {
+  onSignedIn: (token: string, staff: StaffUser) => void;
+  onForgot: () => void;
+  notice?: string;
+}) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,6 +118,9 @@ function LoginForm({ onSignedIn, notice }: { onSignedIn: (token: string, staff: 
       <div className="actions">
         <button type="submit" className="button button-primary" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
+        </button>
+        <button type="button" className="link-button" onClick={onForgot}>
+          Forgot password?
         </button>
       </div>
     </form>
@@ -606,6 +620,8 @@ export default function StaffApp() {
   const [token, setToken] = useState<string | null>(readToken);
   const [staff, setStaff] = useState<StaffUser | null>(null);
   const [notice, setNotice] = useState<string | undefined>();
+  const [resetToken, setResetToken] = useState<string | null>(takeResetToken);
+  const [forgot, setForgot] = useState(false);
 
   const signOut = useCallback((text?: string) => {
     writeToken(null);
@@ -652,8 +668,12 @@ export default function StaffApp() {
         <Dashboard token={token} staff={staff} onSignedOut={signOut} />
       ) : token ? (
         <p className="muted">Loading…</p>
+      ) : resetToken ? (
+        <NewPasswordForm token={resetToken} reset={resetPassword} onDone={() => setResetToken(null)} />
+      ) : forgot ? (
+        <ForgotPasswordForm send={(email) => forgotPassword(email)} onBack={() => setForgot(false)} />
       ) : (
-        <LoginForm notice={notice} onSignedIn={accept} />
+        <LoginForm notice={notice} onSignedIn={accept} onForgot={() => setForgot(true)} />
       )}
       <p>
         <a href={`${siteRoot()}/`}>Back to the website</a>

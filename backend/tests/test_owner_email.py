@@ -160,7 +160,7 @@ def test_an_old_notice_is_not_sent(client, db) -> None:
     book(client)
     outbox = Outbox()
     assert send_due(db, settings(), NOW + timedelta(hours=25), outbox) == 0
-    assert event(db).email_error == "not sent within 24 hours"
+    assert event(db).email_error == "not sent in time"
 
 
 def test_smtp_uses_starttls_and_signs_in(monkeypatch) -> None:

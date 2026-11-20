@@ -565,3 +565,30 @@ class WebhookEvent(Base):
     email_attempts: Mapped[int] = mapped_column(server_default=text("0"))
     email_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email_error: Mapped[str | None] = mapped_column(String(200))
+
+
+class PasswordReset(Base):
+    """A one-time link to choose a new password. Exactly one of the two accounts is set."""
+
+    __tablename__ = "password_resets"
+    __table_args__ = (
+        CheckConstraint(
+            "(subscriber_account_id IS NULL) <> (staff_user_id IS NULL)",
+            name="password_reset_one_account",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    subscriber_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subscriber_accounts.id", ondelete="CASCADE")
+    )
+    staff_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="CASCADE")
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    client_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

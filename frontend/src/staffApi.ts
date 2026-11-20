@@ -105,6 +105,15 @@ export function login(email: string, password: string, slug: string | null = bus
   );
 }
 
+/** "Forgot password?" for this page's business. */
+export function forgotPassword(email: string, slug: string | null = businessSlug()) {
+  return request<unknown>(slug ? `/api/v1/b/${slug}/staff/password/forgot` : `${BASE}/password/forgot`, json({ email }));
+}
+
+export function resetPassword(token: string, password: string) {
+  return request<void>(`${BASE}/password/reset`, json({ token, password }));
+}
+
 export interface WebhookStatus {
   configured: boolean;
   problem: string | null;
