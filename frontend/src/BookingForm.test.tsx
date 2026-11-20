@@ -214,6 +214,12 @@ describe("BookingForm", () => {
     expect(body.pet_name).toBe("");
   });
 
+  it("doesn't pull focus to the form when the page opens", () => {
+    mockApi({});
+    render(<BookingForm business={BUSINESS} catalog={CATALOG} />);
+    expect(screen.getByRole("heading", { name: "Choose a time" })).not.toHaveFocus();
+  });
+
   it("with one staff member, offers no choice", () => {
     mockApi({});
     render(<BookingForm business={BUSINESS} catalog={CATALOG} />);

@@ -136,7 +136,12 @@ export default function BookingForm({ business, catalog }: { business: Business;
   const team = catalog.staff ?? [];
   const teamForService = team.filter((member) => member.services.includes(service));
 
+  // Moving to a new step moves focus there, for keyboard and screen reader users. Not on the
+  // first render, or the page would jump down to the form as soon as it opens.
+  const shownStep = useRef(step);
   useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
     headingRef.current?.focus();
   }, [step]);
 

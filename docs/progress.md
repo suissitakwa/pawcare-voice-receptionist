@@ -846,3 +846,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 527 passed (local PostgreSQL 14), 2 new: a salon with hidden dog-size prices is approved with its one visible price; switching to a barbershop drops dog-size prices and asks for its own |
 | Live | Not deployed |
+
+## A look for each kind of business (2026-11-20)
+
+**Outcome:** a salon's booking page still looked like a dog groomer's: a paw in the header and hero, the groomer's green scheme, and a paw tab icon. Each industry now has its own mark (paw, scissors, barber pole), colour scheme (green; plum and rose; navy and brass), tab icon and default headline. Salon and barbershop prices read as one line ("45 min · $55") rather than a one-row table. Pet grooming looks as before. Also fixed: every booking page jumped down to the booking form on load, because the form focused its heading on its first render; it now does that only when the step changes.
+
+| Check | Result |
+| --- | --- |
+| Frontend | 86 tests pass (Node 22), 1 new (no focus pulled on load). The groomer demo, a hair salon and a barbershop checked in the browser against a local backend |
+| Live | Not deployed |
