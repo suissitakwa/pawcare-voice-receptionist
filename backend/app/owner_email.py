@@ -236,6 +236,8 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
             ]
         if data.get("staff"):
             lines.append(f"With: {data['staff']}")
+        if data.get("service_address"):
+            lines.append(f"Address: {data['service_address']}")
         lines += [
             f"Price: ${data.get('price_cents', 0) / 100:.2f}",
             f"Reference: {data.get('reference')}",

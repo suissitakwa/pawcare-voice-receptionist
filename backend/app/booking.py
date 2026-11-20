@@ -8,6 +8,7 @@ first only so that callers get a clear error rather than a constraint violation.
 
 import hashlib
 import json
+import re
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -48,6 +49,28 @@ def new_reference() -> str:
     return "PC-" + "".join(secrets.choice(REFERENCE_ALPHABET) for _ in range(8))
 
 
+def check_service_address(business: Business, address: str | None) -> str | None:
+    """The address to groom at, for a mobile business. Elsewhere none is kept."""
+    if not business.is_mobile:
+        return None
+    address = " ".join((address or "").split())
+    if not address:
+        raise ApiError(422, "address_required", "Give the address where the appointment will be.")
+    zips = business.service_zip_codes or []
+    if zips:
+        found = re.findall(r"\b\d{5}\b", address)
+        if not found:
+            raise ApiError(422, "zip_required", "Include the ZIP code in the address.")
+        if found[-1] not in zips:
+            area = business.service_area or ", ".join(zips)
+            raise ApiError(
+                422,
+                "outside_service_area",
+                f"{business.name} doesn't travel to {found[-1]}. They cover {area}.",
+            )
+    return address
+
+
 def slot_unavailable() -> ApiError:
     return ApiError(
         409, "slot_unavailable", "That time is no longer available. Please choose another."
@@ -64,6 +87,7 @@ def prepare_booking(
     service, size, rule = resolve_option(session, business.id, request.service, request.size)
     if industry_of(business).has_pets and not request.pet_name:
         raise ApiError(422, "invalid_request", "Check these fields: pet_name.")
+    address = check_service_address(business, request.service_address)
     timezone = ZoneInfo(business.timezone)
     starts_at = request.starts_at.astimezone(UTC)
     check_booking_window(business, starts_at.astimezone(timezone).date(), now)
@@ -89,6 +113,7 @@ def prepare_booking(
         duration_minutes=rule.duration_minutes,
         price_cents=rule.price_cents,
         staff=member.name if len(active_staff(session, business.id)) > 1 else None,
+        service_address=address,
     ).model_dump(mode="json")
     token = secrets.token_urlsafe(32)
     draft = BookingDraft(
@@ -104,6 +129,7 @@ def prepare_booking(
         owner_email=request.owner_email,
         owner_phone=request.owner_phone,
         pet_name=request.pet_name,
+        service_address=address,
         summary=summary,
         summary_hash=summary_hash(summary),
         # Only a hash is stored, so the database alone cannot be used to confirm a draft.
@@ -218,6 +244,7 @@ def confirm_prepared(
             owner_email=draft.owner_email,
             owner_phone=draft.owner_phone,
             pet_name=draft.pet_name,
+            service_address=draft.service_address,
             summary=draft.summary,
             idempotency_key=idempotency_key,
             request_hash=request_hash,

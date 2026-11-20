@@ -299,3 +299,30 @@ def test_switching_business_type_drops_the_hidden_prices(client, db) -> None:
     assert all(service["prices"] == [] for service in services)
     profile = client.get(f"{API}/profile", headers=headers).json()
     assert "services" in profile["missing"]
+
+
+def test_a_mobile_groomer_profile_becomes_a_mobile_business(client, db) -> None:
+    from app.provision import approve
+
+    headers = auth(client)
+    complete(client, headers)
+    client.patch(
+        f"{API}/profile",
+        headers=headers,
+        json={
+            "details": {
+                "is_mobile": True,
+                "service_zip_codes": ["95126", "95008", "95126"],
+                "service_area": "San Jose and Campbell",
+            }
+        },
+    )
+    client.post(f"{API}/profile/submit", headers=headers)
+    db.expire_all()
+    seed, _, _ = approve(db, "sam@example.com")
+    db.commit()
+    business = db.scalar(select(Business).where(Business.slug == seed.slug))
+    assert business.is_mobile
+    assert business.service_zip_codes == ["95008", "95126"]
+    assert business.service_area == "San Jose and Campbell"
+    assert client.get(f"/api/v1/b/{seed.slug}/business").json()["is_mobile"] is True

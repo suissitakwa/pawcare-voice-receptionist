@@ -193,6 +193,10 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "address": details.address or "",
         "is_demo": False,
         "industry": profile.business_type,
+        # Only groomers can be mobile; a salon's or barbershop's leftover setting is ignored.
+        "is_mobile": pets and details.is_mobile,
+        "service_zip_codes": details.service_zip_codes if pets and details.is_mobile else [],
+        "service_area": (details.service_area or "") if pets and details.is_mobile else "",
         "hours": hours,
         "groomers": groomers,
         "size_categories": template["size_categories"] if pets else STANDARD_SIZES,

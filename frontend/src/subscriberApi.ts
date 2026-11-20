@@ -71,6 +71,10 @@ export interface ProfileDetails {
   hours?: OpeningHours[];
   services?: ServiceItem[];
   team?: TeamMember[];
+  /** Mobile groomers only: they go to the customer, within these ZIP codes. */
+  is_mobile?: boolean;
+  service_zip_codes?: string[];
+  service_area?: string | null;
 }
 
 export interface ProfileDocument {

@@ -214,6 +214,28 @@ describe("BookingForm", () => {
     expect(body.pet_name).toBe("");
   });
 
+  it("at a mobile groomer, asks where to come and sends it", async () => {
+    const calls = mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [
+        { status: 201, body: { ...PREPARED, summary: { ...SUMMARY, service_address: "12 Elm St, San Jose 95126" } } },
+      ],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={{ ...BUSINESS, is_mobile: true, service_area: "San Jose" }} catalog={CATALOG} />);
+    await chooseSlot(user);
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    // The address is needed before anything is sent.
+    expect(screen.getByText("Enter the address where we'll come.")).toBeInTheDocument();
+    expect(calls.some((c) => c.path.endsWith("prepare"))).toBe(false);
+    await user.type(screen.getByLabelText("Address where we'll come"), "12 Elm St, San Jose 95126");
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    expect(await screen.findByText("12 Elm St, San Jose 95126")).toBeInTheDocument();
+    const body = JSON.parse(calls.find((c) => c.path.endsWith("prepare"))!.init!.body as string);
+    expect(body.service_address).toBe("12 Elm St, San Jose 95126");
+  });
+
   it("doesn't pull focus to the form when the page opens", () => {
     mockApi({});
     render(<BookingForm business={BUSINESS} catalog={CATALOG} />);

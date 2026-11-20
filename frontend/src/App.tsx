@@ -310,10 +310,17 @@ function ContactDetails({ business }: { business: Business }) {
         <dt>Phone</dt>
         <dd>{business.contact_phone}</dd>
       </div>
-      <div>
-        <dt>Address</dt>
-        <dd>{business.address}</dd>
-      </div>
+      {business.is_mobile ? (
+        <div>
+          <dt>We come to you</dt>
+          <dd>{business.service_area || "Ask us whether we cover your area."}</dd>
+        </div>
+      ) : (
+        <div>
+          <dt>Address</dt>
+          <dd>{business.address}</dd>
+        </div>
+      )}
       <div>
         <dt>Time zone</dt>
         <dd>{business.timezone}</dd>

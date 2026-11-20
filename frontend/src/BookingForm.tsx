@@ -20,9 +20,10 @@ interface Contact {
   email: string;
   phone: string;
   petName: string;
+  address: string;
 }
 
-const EMPTY_CONTACT: Contact = { ownerName: "", email: "", phone: "", petName: "" };
+const EMPTY_CONTACT: Contact = { ownerName: "", email: "", phone: "", petName: "", address: "" };
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_PATTERN = /^\+?[0-9 ().-]{7,20}$/;
 
@@ -56,8 +57,9 @@ function newIdempotencyKey(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function validateContact(contact: Contact, pets: boolean): Record<string, string> {
+function validateContact(contact: Contact, pets: boolean, mobile = false): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (mobile && !contact.address.trim()) errors.address = "Enter the address where we'll come.";
   if (!contact.ownerName.trim()) errors.ownerName = "Enter your name.";
   if (pets && !contact.petName.trim()) errors.petName = "Enter your dog's name.";
   const email = contact.email.trim();
@@ -185,7 +187,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
 
   async function review(event: React.FormEvent) {
     event.preventDefault();
-    const errors = validateContact(contact, pets);
+    const errors = validateContact(contact, pets, business.is_mobile ?? false);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       setMessage({ tone: "error", text: "Please fix the highlighted fields." });
@@ -203,6 +205,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
         owner_phone: contact.phone.trim() || null,
         pet_name: contact.petName.trim(),
         ...(staff ? { staff } : {}),
+        ...(business.is_mobile ? { service_address: contact.address.trim() } : {}),
       });
       setPrepared(result);
       // One key per summary: retrying this summary can never create a second booking.
@@ -312,6 +315,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
       ...(summary.staff ? ([["With", summary.staff]] as [string, string][]) : []),
       ["Length", formatDuration(summary.duration_minutes)],
       ["Price", `${formatPrice(summary.price_cents)}${business.is_demo ? " (demo price)" : ""}`],
+      ...((summary.service_address ? [["Address", summary.service_address]] : []) as [string, string][]),
       ["Name", summary.owner_name],
       ["Contact", [summary.owner_email, summary.owner_phone].filter(Boolean).join(", ")],
     ];
@@ -371,6 +375,18 @@ export default function BookingForm({ business, catalog }: { business: Business;
           maxLength={80}
           onChange={(e) => setContact({ ...contact, ownerName: e.target.value })}
         />
+        {business.is_mobile && (
+          <Field
+            id={`${id}-address`}
+            label="Address where we'll come"
+            autoComplete="street-address"
+            hint={`Street, city and ZIP code.${business.service_area ? ` We cover ${business.service_area}.` : ""}`}
+            value={contact.address}
+            error={fieldErrors.address}
+            maxLength={200}
+            onChange={(e) => setContact({ ...contact, address: e.target.value })}
+          />
+        )}
         {pets && (
           <Field
             id={`${id}-pet`}

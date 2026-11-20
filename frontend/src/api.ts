@@ -19,6 +19,9 @@ export interface Business {
   is_demo: boolean;
   /** pet_grooming, hair_salon or barbershop. Missing means pet grooming. */
   industry?: string;
+  /** A mobile business comes to the customer, within its service area. */
+  is_mobile?: boolean;
+  service_area?: string;
   hours: BusinessHours[];
   /** The receptionist's number (E.164), only while the phone line answers. */
   assistant_phone?: string | null;
@@ -127,6 +130,8 @@ export interface BookingDetails {
   pet_name: string;
   /** A staff member's slug, only when the customer chose someone. */
   staff?: string | null;
+  /** Where the appointment happens, at a mobile business. */
+  service_address?: string | null;
 }
 
 export interface BookingSummary {
@@ -144,6 +149,7 @@ export interface BookingSummary {
   price_cents: number;
   /** Who the appointment is with, at a business with more than one staff member. */
   staff?: string | null;
+  service_address?: string | null;
 }
 
 export interface PreparedBooking {

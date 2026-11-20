@@ -51,6 +51,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `timezone` | The business's time zone, e.g. `America/Chicago` |
 | `contact_email`, `contact_phone`, `address` | Shown on the site and given to callers who ask |
 | `notify_email` | Optional. Where booking and callback emails go; without it, `contact_email` |
+| `is_mobile`, `service_zip_codes`, `service_area` | Mobile groomers only (`industry` pet grooming). They go to the customer: every booking needs the customer's address, and its ZIP code must be in `service_zip_codes` (leave the list empty to accept any address). `service_area` is how the receptionist describes the area, e.g. "San Jose and Campbell". Salons, barbershops and salon-based groomers never ask for an address |
 | `is_demo` | `false` for a real business |
 | `slot_increment_minutes`, `buffer_minutes`, `min_notice_minutes`, `booking_horizon_days` | Start times every 15 minutes, 15 minutes between appointments, at least 2 hours' notice, up to 30 days ahead. Change if the owner wants |
 | `hours` | Opening hours, one entry per open day. `weekday` 0 is Monday |

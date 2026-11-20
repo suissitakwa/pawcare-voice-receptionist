@@ -855,3 +855,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Frontend | 86 tests pass (Node 22), 1 new (no focus pulled on load). The groomer demo, a hair salon and a barbershop checked in the browser against a local backend |
 | Live | Not deployed |
+
+## Mobile groomers (2026-11-20)
+
+**Outcome:** a mobile groomer goes to the customer, so the receptionist needs the customer's address and must not book outside the groomer's area. A pet grooming business can now be mobile (migration `0024`: `is_mobile`, `service_zip_codes`, `service_area`; bookings keep a `service_address`). Its bookings need an address; if ZIP codes are set, the address's ZIP must be one of them, or booking is refused with "doesn't travel to … They cover …". The receptionist asks for the address with its ZIP, reads it back, and offers a callback outside the area; the booking form asks "Address where we'll come"; the page says "We come to you" with the area. The address appears on the dashboard, in owner emails and webhooks, and as the calendar event's location. Groomers tick "We're a mobile groomer" in the sign-up profile and give their ZIP codes; `approve` carries it over. Only pet grooming businesses can be mobile, so salons, barbershops and salon-based groomers never ask for an address.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 533 passed (local PostgreSQL 14), 6 new: address required, ZIP required and checked, the address on the booking, calendar location and webhook; any address when no ZIP codes are set; none kept at a salon-based business; the receptionist's instructions and tools; only groomers can be mobile; a mobile profile becomes a mobile business. Migrations `0001`–`0024` upgrade and downgrade cleanly |
+| Frontend | 87 tests pass (Node 22), 1 new: the mobile booking form needs the address and sends it |
+| Live | Not deployed. Not tried on a real call |

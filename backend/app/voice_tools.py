@@ -174,6 +174,7 @@ def prepare(
             # A booking without a pet (salons, barbershops) has no dog size to mention either.
             **({"size": summary.size, "pet_name": summary.pet_name} if summary.pet_name else {}),
             "owner_name": summary.owner_name,
+            **({"address": summary.service_address} if summary.service_address else {}),
             "date": summary.local_start.date().isoformat(),
             "time": format_time(summary.local_start.astimezone(timezone).time()),
             "duration_minutes": summary.duration_minutes,
