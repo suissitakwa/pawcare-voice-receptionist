@@ -63,6 +63,7 @@ Evidence for finished work is in [progress.md](progress.md).
 - [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
 - [x] Phone line through OpenAI's SIP connection, with spoken booking confirmation (working on a real number; one booking made by phone)
 - [ ] Website import, document reading, calendar connection, and billing
+- [x] Customer texts: booking, change and cancellation confirmations and a reminder the day before, per business through Twilio
 - [x] Signed automation webhook for bookings, cancellations, and callbacks, for n8n notifications
 - [x] Local test mode and scripted evaluation suite
 - [x] Results from a real evaluation run
