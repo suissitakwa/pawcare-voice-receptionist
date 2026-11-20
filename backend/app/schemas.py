@@ -161,6 +161,8 @@ class BusinessPublic(BaseModel):
     hours: list[HoursPublic]
     # The receptionist's phone number, only while the phone line can answer.
     assistant_phone: str | None = None
+    # Customers who give a phone number get booking texts and a reminder, so the form says so.
+    texts_customers: bool = False
 
 
 class SizeCategoryPublic(BaseModel):

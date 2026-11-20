@@ -886,3 +886,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 578 passed (local PostgreSQL 14), 28 of them new: the text for each event and the reminder, staff and address in the text, once only, texts off, no phone, no number to text from, Messaging Service, no Twilio settings, retry with delays then give up, refusal final, late events dropped, reminder a day ahead once, moved booking gets a new reminder, none inside the window, none for cancelled or imminent bookings, reminder retry, the Twilio request, which Twilio errors are retried, and the `texts` switch. Migrations `0001`–`0025` upgrade and downgrade cleanly |
 | Frontend | Unchanged |
 | Live | Not deployed. Needs Twilio settings and a registered sending number (A2P 10DLC or toll-free); no real text sent yet |
+
+## The booking form says a text is coming (2026-11-20)
+
+**Outcome:** customers booking on the website are told, before they give a number, that it will get the confirmation and a reminder, with opt-out wording. The confirmation screen then says the details are being texted to that number. Both show only while the business really texts: the public profile's new `texts_customers` is true only when texts are on for the business, Twilio is set up and there is a number to text from. See [texts.md](texts.md#what-the-booking-form-says).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 5 new in `test_customer_texts.py` (33 pass): `texts_customers` is true only when texts are on, Twilio is set and there is a number or Messaging Service |
+| Frontend | Typecheck and build pass; 91 tests pass (Node 22), 2 new: the notice under the phone field and the line on the confirmation screen, and nothing promised when the business doesn't text |
+| Live | Not deployed |

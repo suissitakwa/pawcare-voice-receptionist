@@ -23,7 +23,11 @@ interface Contact {
   address: string;
 }
 
-const EMPTY_CONTACT: Contact = { ownerName: "", email: "", phone: "", petName: "", address: "" };
+/** Shown by the phone field when the business texts customers. */
+export const TEXT_NOTICE =
+  "We'll text your confirmation and a reminder the day before. Message and data rates may apply. Reply STOP to opt out.";
+
+const EMPTY_CONTACT: Contact ={ ownerName: "", email: "", phone: "", petName: "", address: "" };
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_PATTERN = /^\+?[0-9 ().-]{7,20}$/;
 
@@ -281,6 +285,12 @@ export default function BookingForm({ business, catalog }: { business: Business;
           {summary.staff ? ` with ${summary.staff}` : ""} on{" "}
           {longDate(summary.local_start.slice(0, 10))} at {wallClock(summary.local_start)}.
         </p>
+        {business.texts_customers && summary.owner_phone && (
+          <p>
+            We're texting the details to {summary.owner_phone}, and we'll send a reminder the day
+            before.
+          </p>
+        )}
         <p className="muted">
           {business.is_demo
             ? "This is a demonstration, so no appointment will take place and nothing will be sent to you. Keep the reference if you'd like to mention it to staff."
@@ -414,6 +424,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
           label="Phone"
           type="tel"
           autoComplete="off"
+          hint={business.texts_customers ? TEXT_NOTICE : undefined}
           value={contact.phone}
           error={fieldErrors.phone}
           maxLength={20}
