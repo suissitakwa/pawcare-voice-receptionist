@@ -41,6 +41,15 @@ With a key set, the `SMTP_*` variables are ignored, so they can stay or go.
 
 Without `RESEND_API_KEY` or `SMTP_HOST`, or without `EMAIL_FROM`, no emails are sent, and the dashboard says so.
 
+## Sign-ups
+
+When someone submits their profile for the first time, two emails go out:
+
+- **To you**, at `ADMIN_EMAIL` (for example `takwa@helloeverai.com`): "New sign-up: <business> (<type>)", with their contact details, calendar, and the `python -m app.provision draft <email>` command to start from.
+- **To them**: "We received your profile for <business>", saying you'll be in touch within one business day, with replies going to `ADMIN_EMAIL`.
+
+Without `ADMIN_EMAIL`, only their receipt is sent. `SERVICE_NAME` (default `HelloEver AI`) names the sender and signs the receipt.
+
 ## Per business
 
 The address comes from the business file (`notify_email`, optional) or, for a business made from a sign-up, the owner's sign-up email. To change it:

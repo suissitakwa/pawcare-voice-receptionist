@@ -45,6 +45,7 @@ from app.subscriber_schemas import (
     SignUpRequest,
     VoiceOption,
 )
+from app.webhooks import enqueue_notice
 
 router = APIRouter(prefix="/api/v1/subscribers", tags=["subscribers"])
 
@@ -316,8 +317,28 @@ def submit_profile(context: Account, db: DbSession, now: Now) -> ProfilePublic:
     if profile.status != "submitted":
         profile.status = "submitted"
         profile.submitted_at = now
+        # Only the first submission: you hear about the sign-up, and they get a receipt.
+        data = signup_data(context[0], profile, details, count_documents(db, profile))
+        enqueue_notice(db, "profile.submitted", data, now)
+        enqueue_notice(db, "profile.received", data, now)
     db.commit()
     return to_public(db, profile)
+
+
+def signup_data(
+    account: SubscriberAccount, profile: BusinessProfile, details: ProfileDetails, documents: int
+) -> dict:
+    return {
+        "owner_name": account.full_name,
+        "owner_email": account.email,
+        "business_name": profile.business_name,
+        "business_type": BUSINESS_TYPE_LABELS.get(profile.business_type, profile.business_type),
+        "business_phone": details.business_phone,
+        "website": details.website_url,
+        "calendar": CALENDAR_LABELS.get(details.calendar_provider or "", details.calendar_other),
+        "faqs": len(details.faqs),
+        "documents": documents,
+    }
 
 
 def clean_filename(name: str) -> str:

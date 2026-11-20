@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.main import app, get_now
 from app.models import BlockedPeriod, Booking, BookingDraft, Groomer
-from tests.factories import make_booking
+from tests.factories import demo_groomer_id, make_booking
 
 LA = ZoneInfo("America/Los_Angeles")
 NOW = datetime(2027, 1, 4, 8, 0, tzinfo=LA)
@@ -256,8 +256,10 @@ def test_block_added_after_prepare_is_respected(client: TestClient, db: Session)
     prepared = prepare(client).json()
     db.add(
         BlockedPeriod(
-            business_id=db.scalar(select(Groomer.business_id)),
-            groomer_id=db.scalar(select(Groomer.id)),
+            business_id=db.scalar(
+                select(Groomer.business_id).where(Groomer.id == demo_groomer_id(db))
+            ),
+            groomer_id=demo_groomer_id(db),
             starts_at=datetime(2027, 1, 5, 10, 0, tzinfo=LA),
             ends_at=datetime(2027, 1, 5, 10, 30, tzinfo=LA),
         )

@@ -6,6 +6,18 @@ from sqlalchemy.orm import Session
 from app.models import Booking, Business, Groomer, Service, SizeCategory
 
 
+def demo_groomer_id(db: Session):
+    """The demo's own groomer. Other tests may leave inactive extra staff or other businesses
+    behind, so "the first groomer" isn't safe."""
+    business_id = db.scalar(select(Business.id).where(Business.slug == "pawcare-demo"))
+    return db.scalar(
+        select(Groomer.id)
+        .where(Groomer.business_id == business_id, Groomer.is_active)
+        .order_by(Groomer.slug)
+        .limit(1)
+    )
+
+
 def make_booking(
     db: Session,
     start: datetime,
@@ -19,7 +31,7 @@ def make_booking(
     end = start + timedelta(minutes=minutes)
     booking = Booking(
         business_id=business_id,
-        groomer_id=db.scalar(select(Groomer.id).where(Groomer.business_id == business_id)),
+        groomer_id=demo_groomer_id(db),
         service_id=db.scalar(select(Service.id).where(Service.slug == "nail-and-paw")),
         size_category_id=db.scalar(select(SizeCategory.id).where(SizeCategory.slug == "small")),
         starts_at=start,
