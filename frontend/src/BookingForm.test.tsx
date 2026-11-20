@@ -178,6 +178,42 @@ describe("BookingForm", () => {
     expect(prepareBody.staff).toBe("alex");
   });
 
+  it("at a hair salon, asks no dog size or dog name", async () => {
+    const salon = {
+      size_categories: [{ slug: "standard", label: "Standard", description: "", requires_staff_assessment: false }],
+      services: [
+        {
+          slug: "cut",
+          name: "Haircut",
+          description: "",
+          options: [{ size: "standard", duration_minutes: 45, price_cents: 5500 }],
+        },
+      ],
+    };
+    const calls = mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [
+        { status: 201, body: { ...PREPARED, summary: { ...SUMMARY, service: "Haircut", pet_name: "", size: "Standard" } } },
+      ],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={{ ...BUSINESS, industry: "hair_salon" }} catalog={salon} />);
+    expect(screen.queryByLabelText("Dog size")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-01-05" } });
+    await user.click(await screen.findByRole("radio", { name: "9 AM" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText("Your dog's name")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Your name"), "Jordan");
+    await user.type(screen.getByLabelText("Email"), "jordan@example.com");
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    expect(await screen.findByText("Haircut")).toBeInTheDocument();
+    expect(screen.queryByText("Dog")).not.toBeInTheDocument();
+    const availability = calls.find((c) => c.path.endsWith("availability"))!;
+    expect(new URL(availability.url).searchParams.get("size")).toBe("standard");
+    const body = JSON.parse(calls.find((c) => c.path.endsWith("prepare"))!.init!.body as string);
+    expect(body.pet_name).toBe("");
+  });
+
   it("with one staff member, offers no choice", () => {
     mockApi({});
     render(<BookingForm business={BUSINESS} catalog={CATALOG} />);

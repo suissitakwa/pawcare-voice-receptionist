@@ -2,7 +2,7 @@
 
 How to set up a new business on an existing deployment, from its details to its phone number. Every command runs from `backend/` with `DATABASE_URL` pointing at the production database.
 
-This suits a **pet groomer with one or more groomers**. The receptionist talks about dogs, and a connected Google Calendar blocks every groomer at once (each groomer's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
+This suits a **pet groomer, hair salon or barbershop** with one or more staff. Set `"industry"` in the business file (`pet_grooming`, `hair_salon` or `barbershop`; pet grooming if left out). A connected Google Calendar blocks every staff member at once (each person's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
 
 ## From a sign-up
 
@@ -24,7 +24,7 @@ A profile submitted before hours and prices were asked for can't be approved. Ei
 /opt/venv/bin/python -m app.provision create owner@example.com /tmp/their-business.json
 ```
 
-Only pet grooming profiles can be provisioned for now.
+Pet groomers, hair salons and barbershops can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner".
 
 ## 0. Before the first real business
 

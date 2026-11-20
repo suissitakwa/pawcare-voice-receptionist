@@ -37,6 +37,8 @@ class Business(Base):
     contact_email: Mapped[str] = mapped_column(String(254))
     # Where owner notices go (new bookings, callback requests). Empty: contact_email.
     notify_email: Mapped[str | None] = mapped_column(String(254))
+    # pet_grooming, hair_salon or barbershop: what the receptionist talks about.
+    industry: Mapped[str] = mapped_column(String(20), server_default="pet_grooming")
     contact_phone: Mapped[str] = mapped_column(String(32))
     address: Mapped[str] = mapped_column(String(200))
     is_demo: Mapped[bool] = mapped_column(server_default=true())

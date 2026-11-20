@@ -79,8 +79,11 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
     start = datetime.fromisoformat(booking_summary["local_start"]).astimezone(timezone)
     described = {
         "service": booking_summary["service"],
-        "size": booking_summary["size"],
-        "pet_name": booking_summary["pet_name"],
+        **(
+            {"size": booking_summary["size"], "pet_name": booking_summary["pet_name"]}
+            if booking_summary.get("pet_name")
+            else {}
+        ),
         "owner_name": booking_summary["owner_name"],
         "date": start.date().isoformat(),
         "weekday": f"{start:%A}",

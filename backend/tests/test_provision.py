@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Business, BusinessProfile
 from app.provision import ProvisionError, create, draft, slugify
 from app.schemas import BusinessSeed
-from tests.test_subscribers import API, PASSWORD, auth, complete
+from tests.test_subscribers import API, NOW, PASSWORD, auth, complete, fixed_clock  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -91,18 +91,81 @@ def test_a_taken_name_gets_a_free_address(db, submitted) -> None:
     assert draft(db, "sam@example.com")["slug"] == "shaggy-chic-2"
 
 
-def test_only_submitted_pet_grooming_profiles_are_provisioned(client, db) -> None:
-    headers = auth(client)
+def test_only_submitted_profiles_are_provisioned(client, db) -> None:
+    auth(client)
     with pytest.raises(ProvisionError, match="hasn't submitted"):
-        draft(db, "sam@example.com")
-    complete(client, headers)
-    client.patch(f"{API}/profile", headers=headers, json={"business_type": "hair_salon"})
-    client.post(f"{API}/profile/submit", headers=headers)
-    db.expire_all()
-    with pytest.raises(ProvisionError, match="only handles pet grooming"):
         draft(db, "sam@example.com")
     with pytest.raises(ProvisionError, match="No subscriber"):
         draft(db, "nobody@example.com")
+
+
+def test_a_hair_salon_gets_its_own_receptionist(client, db) -> None:
+    from app.provision import approve
+    from app.voice import build_instructions, phone_tools, tool_catalog
+
+    headers = auth(client)
+    complete(client, headers)
+    salon_services = [
+        {
+            "name": "Haircut",
+            "prices": [{"size": "any", "duration_minutes": 45, "price_cents": 5500}],
+        },
+        {
+            "name": "Color",
+            "prices": [{"size": "any", "duration_minutes": 120, "price_cents": 14000}],
+        },
+    ]
+    client.patch(
+        f"{API}/profile",
+        headers=headers,
+        json={
+            "business_type": "hair_salon",
+            "details": {
+                "services": salon_services,
+                "team": [{"name": "Rosa"}],
+                "faqs": [{"question": "Do you take walk-ins?", "answer": "Appointments only."}],
+            },
+        },
+    )
+    assert client.post(f"{API}/profile/submit", headers=headers).status_code == 200
+    db.expire_all()
+    seed, _, _ = approve(db, "sam@example.com")
+    db.commit()
+    salon = db.scalar(select(Business).where(Business.slug == seed.slug))
+    assert salon.industry == "hair_salon"
+
+    # The booking site has one size and no dog anywhere.
+    catalog = client.get(f"/api/v1/b/{seed.slug}/services").json()
+    assert [s["slug"] for s in catalog["size_categories"]] == ["standard"]
+    assert client.get(f"/api/v1/b/{seed.slug}/business").json()["industry"] == "hair_salon"
+
+    # The receptionist talks about a salon, and asks no dog size or name.
+    text = build_instructions(db, salon, NOW.date(), channel="phone")
+    assert f"{seed.name}, a hair salon" in text
+    assert "dog" not in text.lower()
+    tools = {t["name"]: t for t in phone_tools(tool_catalog(db, salon.id))}
+    for name in ("check_availability", "prepare_booking"):
+        properties = tools[name]["parameters"]["properties"]
+        assert "size" not in properties and "pet_name" not in properties
+    reasons = tools["create_callback_request"]["parameters"]["properties"]["reason"]["enum"]
+    assert "large_dog" not in reasons
+
+    # A booking needs no size or pet name.
+    day = "2027-01-05"  # a Tuesday, when the test profile is open
+    slots = client.get(
+        f"/api/v1/b/{seed.slug}/availability", params={"service": "haircut", "date": day}
+    ).json()["slots"]
+    prepared = client.post(
+        f"/api/v1/b/{seed.slug}/bookings/prepare",
+        json={
+            "service": "haircut",
+            "starts_at": slots[0]["starts_at"],
+            "owner_name": "Jordan",
+            "owner_phone": "(408) 555-0100",
+        },
+    )
+    assert prepared.status_code == 201, prepared.text
+    assert prepared.json()["summary"]["pet_name"] == ""
 
 
 def test_a_file_with_problems_creates_nothing(db, submitted) -> None:

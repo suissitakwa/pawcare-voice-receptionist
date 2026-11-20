@@ -55,7 +55,7 @@ class AvailabilityArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     service: str = Field(max_length=64)
-    size: str = Field(max_length=32)
+    size: str | None = Field(default=None, max_length=32)
     date: date
     preferred_time: time | None = None
     staff: str | None = Field(default=None, max_length=64)
@@ -171,8 +171,8 @@ def prepare(
         result={
             "status": "awaiting_caller_confirmation",
             "service": summary.service,
-            "size": summary.size,
-            "pet_name": summary.pet_name,
+            # A booking without a pet (salons, barbershops) has no dog size to mention either.
+            **({"size": summary.size, "pet_name": summary.pet_name} if summary.pet_name else {}),
             "owner_name": summary.owner_name,
             "date": summary.local_start.date().isoformat(),
             "time": format_time(summary.local_start.astimezone(timezone).time()),

@@ -132,11 +132,14 @@ function BookingsTable({
   onCancel,
   busyReference,
   showStaff = false,
+  pets = true,
 }: {
   bookings: StaffBooking[];
   onCancel?: (reference: string) => void;
   busyReference: string | null;
   showStaff?: boolean;
+  /** Salons and barbershops have no dog column or dog size. */
+  pets?: boolean;
 }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   if (bookings.length === 0) return <p className="muted">No bookings.</p>;
@@ -148,8 +151,8 @@ function BookingsTable({
             <th scope="col">When</th>
             <th scope="col">Service</th>
             {showStaff && <th scope="col">With</th>}
-            <th scope="col">Dog</th>
-            <th scope="col">Owner</th>
+            {pets && <th scope="col">Dog</th>}
+            <th scope="col">{pets ? "Owner" : "Client"}</th>
             <th scope="col">Reference</th>
             <th scope="col">Via</th>
             <th scope="col">Status</th>
@@ -163,11 +166,12 @@ function BookingsTable({
               <td>
                 {booking.service}
                 <span className="size-note">
-                  {booking.size}, {formatPrice(booking.price_cents)}
+                  {pets ? `${booking.size}, ` : ""}
+                  {formatPrice(booking.price_cents)}
                 </span>
               </td>
               {showStaff && <td>{booking.staff}</td>}
-              <td>{booking.pet_name}</td>
+              {pets && <td>{booking.pet_name}</td>}
               <td>
                 {booking.owner_name}
                 <span className="size-note">{[booking.owner_email, booking.owner_phone].filter(Boolean).join(", ")}</span>
@@ -461,6 +465,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
             onCancel={scope === "upcoming" ? cancel : undefined}
             busyReference={busyReference}
             showStaff={team.length > 1}
+            pets={(staff.business_industry ?? "pet_grooming") === "pet_grooming"}
           />
         )}
       </section>

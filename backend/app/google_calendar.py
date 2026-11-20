@@ -260,13 +260,21 @@ def event_for(booking: Booking, business: Business) -> dict:
     summary = booking.summary or {}
     contact = " / ".join(c for c in (booking.owner_phone, booking.owner_email) if c)
     return {
-        "summary": f"{summary.get('service', 'Grooming')}: {booking.pet_name} "
-        f"({booking.owner_name})",
+        "summary": f"{summary.get('service', 'Appointment')}: {booking.pet_name} "
+        f"({booking.owner_name})"
+        if booking.pet_name
+        else f"{summary.get('service', 'Appointment')}: {booking.owner_name}",
         "description": "\n".join(
             [
                 f"Reference: {booking.reference}",
-                f"Dog: {booking.pet_name}, {summary.get('size', '')}".rstrip(", "),
-                f"Owner: {booking.owner_name}, {contact}",
+                *(
+                    [
+                        f"Dog: {booking.pet_name}, {summary.get('size', '')}".rstrip(", "),
+                        f"Owner: {booking.owner_name}, {contact}",
+                    ]
+                    if booking.pet_name
+                    else [f"Client: {booking.owner_name}, {contact}"]
+                ),
                 *([f"With: {summary['staff']}"] if summary.get("staff") else []),
                 f"Price: ${booking.price_cents / 100:.2f}",
                 f"Booked through {business.name}.",

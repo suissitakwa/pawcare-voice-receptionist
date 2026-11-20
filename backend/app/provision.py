@@ -26,13 +26,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.businesses import TEMPLATE_FILE, load_business, read_seed
+from app.industries import STANDARD_SIZE
 from app.models import Business, BusinessProfile, SubscriberAccount
 from app.schemas import BusinessSeed
 from app.staff import upsert_staff
 from app.subscriber_schemas import ProfileDetails
 
-# The receptionist talks about dogs and dog sizes. Other types wait for industry packages.
-SUPPORTED_TYPES = {"pet_grooming"}
+# Every kind of business the receptionist has wording and booking rules for.
+SUPPORTED_TYPES = {"pet_grooming", "hair_salon", "barbershop"}
+# A salon or barbershop books every service as this one size.
+STANDARD_SIZES = [
+    {
+        "slug": STANDARD_SIZE,
+        "label": "Standard",
+        "description": "",
+        "requires_staff_assessment": False,
+    }
+]
 BUSINESS_KINDS = {
     "pet_grooming": "pet grooming",
     "hair_salon": "hair salon",
@@ -68,10 +78,7 @@ def submitted_profile(session: Session, email: str) -> tuple[SubscriberAccount, 
     if profile.status != "submitted":
         raise ProvisionError(f"{email} hasn't submitted their profile yet.")
     if profile.business_type not in SUPPORTED_TYPES:
-        raise ProvisionError(
-            f"{email} is a {profile.business_type}. The receptionist only handles pet grooming "
-            "for now."
-        )
+        raise ProvisionError(f"{email} is a {profile.business_type}, which isn't supported.")
     return account, profile
 
 
@@ -99,6 +106,7 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
     empty, which are filled from the template's examples and need checking with the owner."""
     details = ProfileDetails.from_stored(profile.details)
     template = json.loads(TEMPLATE_FILE.read_text())
+    pets = profile.business_type == "pet_grooming"
     gaps = []
 
     hours = [
@@ -129,7 +137,11 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
                 "options": [
                     {
                         # Businesses without dog sizes book every service as one size.
-                        "size": "medium" if price.size == "any" else price.size,
+                        "size": (
+                            ("medium" if price.size == "any" else price.size)
+                            if pets
+                            else STANDARD_SIZE
+                        ),
                         "duration_minutes": price.duration_minutes,
                         "price_cents": price.price_cents,
                     }
@@ -183,9 +195,10 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "contact_phone": details.business_phone or "",
         "address": details.address or "",
         "is_demo": False,
+        "industry": profile.business_type,
         "hours": hours,
         "groomers": groomers,
-        "size_categories": template["size_categories"],
+        "size_categories": template["size_categories"] if pets else STANDARD_SIZES,
         "services": services,
         "faqs": faqs or template["faqs"],
     }

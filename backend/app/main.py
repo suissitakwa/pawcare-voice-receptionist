@@ -288,14 +288,14 @@ def get_availability(
     business_id: CurrentBusinessId,
     now: Annotated[datetime, Depends(get_now)],
     service: Annotated[str, Query(max_length=64)],
-    size: Annotated[str, Query(max_length=32)],
     day: Annotated[date, Query(alias="date")],
+    size: Annotated[str | None, Query(max_length=32)] = None,
     staff: Annotated[str | None, Query(max_length=64)] = None,
 ) -> AvailabilityPublic:
     """Open appointment starts for one service, dog size, and local date: with anyone who
     does the service, or with one staff member."""
     business = load_business(db, business_id)
-    found_service, _, rule = resolve_option(db, business_id, service, size)
+    found_service, found_size, rule = resolve_option(db, business_id, service, size)
     members = staff_for(db, business_id, found_service.id, staff)
     check_booking_window(business, day, now)
 
@@ -307,7 +307,7 @@ def get_availability(
         date=day,
         timezone=business.timezone,
         service=service,
-        size=size,
+        size=found_size.slug,
         duration_minutes=rule.duration_minutes,
         closed=openings.closed,
         slots=[

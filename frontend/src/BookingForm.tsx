@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ApiRequestError,
   confirmBooking,
+  hasPets,
   fetchAvailability,
   prepareBooking,
   type Availability,
@@ -55,10 +56,10 @@ function newIdempotencyKey(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function validateContact(contact: Contact): Record<string, string> {
+function validateContact(contact: Contact, pets: boolean): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!contact.ownerName.trim()) errors.ownerName = "Enter your name.";
-  if (!contact.petName.trim()) errors.petName = "Enter your dog's name.";
+  if (pets && !contact.petName.trim()) errors.petName = "Enter your dog's name.";
   const email = contact.email.trim();
   const phone = contact.phone.trim();
   if (email && !EMAIL_PATTERN.test(email)) errors.email = "Enter a valid email address.";
@@ -110,7 +111,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
 
   const [step, setStep] = useState<Step>("choose");
   const [service, setService] = useState(catalog.services[0]?.slug ?? "");
-  const [size, setSize] = useState("");
+  const pets = hasPets(business);
+  // Salons and barbershops book every service as their one size, without asking.
+  const [size, setSize] = useState(pets ? "" : (catalog.size_categories[0]?.slug ?? ""));
   // Empty: anyone who does the service.
   const [staff, setStaff] = useState("");
   const [date, setDate] = useState("");
@@ -177,7 +180,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
 
   async function review(event: React.FormEvent) {
     event.preventDefault();
-    const errors = validateContact(contact);
+    const errors = validateContact(contact, pets);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       setMessage({ tone: "error", text: "Please fix the highlighted fields." });
@@ -265,7 +268,8 @@ export default function BookingForm({ business, catalog }: { business: Business;
           Reference <strong>{confirmation.reference}</strong>
         </p>
         <p>
-          {summary.service} for {summary.pet_name}
+          {summary.service}
+          {summary.pet_name ? ` for ${summary.pet_name}` : ""}
           {summary.staff ? ` with ${summary.staff}` : ""} on{" "}
           {longDate(summary.local_start.slice(0, 10))} at {wallClock(summary.local_start)}.
         </p>
@@ -292,8 +296,12 @@ export default function BookingForm({ business, catalog }: { business: Business;
   if (step === "review" && prepared) {
     const summary = prepared.summary;
     const rows: [string, string][] = [
-      ["Service", `${summary.service}, ${summary.size.toLowerCase()} dog`],
-      ["Dog", summary.pet_name],
+      ...((summary.pet_name
+        ? [
+            ["Service", `${summary.service}, ${summary.size.toLowerCase()} dog`],
+            ["Dog", summary.pet_name],
+          ]
+        : [["Service", summary.service]]) as [string, string][]),
       ["Date", longDate(summary.local_start.slice(0, 10))],
       ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
       ...(summary.staff ? ([["With", summary.staff]] as [string, string][]) : []),
@@ -358,15 +366,17 @@ export default function BookingForm({ business, catalog }: { business: Business;
           maxLength={80}
           onChange={(e) => setContact({ ...contact, ownerName: e.target.value })}
         />
-        <Field
-          id={`${id}-pet`}
-          label="Your dog's name"
-          autoComplete="off"
-          value={contact.petName}
-          error={fieldErrors.petName}
-          maxLength={40}
-          onChange={(e) => setContact({ ...contact, petName: e.target.value })}
-        />
+        {pets && (
+          <Field
+            id={`${id}-pet`}
+            label="Your dog's name"
+            autoComplete="off"
+            value={contact.petName}
+            error={fieldErrors.petName}
+            maxLength={40}
+            onChange={(e) => setContact({ ...contact, petName: e.target.value })}
+          />
+        )}
         <Field
           id={`${id}-email`}
           label="Email"
@@ -440,17 +450,19 @@ export default function BookingForm({ business, catalog }: { business: Business;
         </div>
       </fieldset>
       <div className="field-row">
-        <div className="field">
-          <label htmlFor={`${id}-size`}>Dog size</label>
-          <select id={`${id}-size`} value={size} onChange={(e) => setSize(e.target.value)}>
-            <option value="">Choose a size</option>
-            {catalog.size_categories.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.label}, {item.description.split(".")[0].toLowerCase()}
-              </option>
-            ))}
-          </select>
-        </div>
+        {pets && (
+          <div className="field">
+            <label htmlFor={`${id}-size`}>Dog size</label>
+            <select id={`${id}-size`} value={size} onChange={(e) => setSize(e.target.value)}>
+              <option value="">Choose a size</option>
+              {catalog.size_categories.map((item) => (
+                <option key={item.slug} value={item.slug}>
+                  {item.label}, {item.description.split(".")[0].toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {team.length > 1 && (
           <div className="field">
             <label htmlFor={`${id}-staff`}>Who would you like?</label>

@@ -79,6 +79,7 @@ class BusinessSeed(SeedModel):
     is_demo: bool
     # Where owner notices go; leave out to use contact_email.
     notify_email: str | None = None
+    industry: Literal["pet_grooming", "hair_salon", "barbershop"] = "pet_grooming"
     slot_increment_minutes: int = Field(gt=0)
     buffer_minutes: int = Field(ge=0)
     min_notice_minutes: int = Field(ge=0)
@@ -131,6 +132,8 @@ class BusinessPublic(BaseModel):
     contact_phone: str
     address: str
     is_demo: bool
+    # pet_grooming, hair_salon or barbershop: which fields the booking form asks for.
+    industry: str = "pet_grooming"
     hours: list[HoursPublic]
     # The receptionist's phone number, only while the phone line can answer.
     assistant_phone: str | None = None
@@ -219,12 +222,14 @@ class PrepareBookingRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     service: str = Field(min_length=1, max_length=64)
-    size: str = Field(min_length=1, max_length=32)
+    # Leave out at a business with one size (salons and barbershops).
+    size: str | None = Field(default=None, min_length=1, max_length=32)
     starts_at: AwareDatetime
     owner_name: str = Field(min_length=1, max_length=80)
     owner_email: str | None = Field(default=None, max_length=254)
     owner_phone: str | None = Field(default=None, max_length=20)
-    pet_name: str = Field(min_length=1, max_length=40)
+    # Needed at a pet business only.
+    pet_name: str = Field(default="", max_length=40)
     # A staff member's slug, only when the customer asked for someone. Otherwise anyone free.
     staff: str | None = Field(default=None, max_length=64)
 
@@ -306,6 +311,7 @@ class StaffPublic(BaseModel):
     business_slug: str
     business_name: str
     business_is_demo: bool
+    business_industry: str = "pet_grooming"
 
 
 class StaffLoginResult(BaseModel):
