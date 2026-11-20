@@ -36,6 +36,7 @@ EMAILED_EVENTS = {
     # About the service itself, with no business yet.
     "profile.submitted",
     "profile.received",
+    "profile.updated",
     "password.reset",
     "password.changed",
 }
@@ -84,7 +85,7 @@ def owner_address(business: Business) -> str | None:
 
 def notice_address(event: WebhookEvent, settings: Settings) -> str | None:
     """Where a notice that belongs to no business goes."""
-    if event.event_type == "profile.submitted":
+    if event.event_type in ("profile.submitted", "profile.updated"):
         return settings.admin_email or None
     if event.event_type in TO_THE_ACCOUNT:
         data = event.payload.get("data", {})
@@ -113,12 +114,28 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             f"Phone: {data.get('business_phone') or '-'}",
             f"Website: {data.get('website') or '-'}",
             f"Calendar: {data.get('calendar') or '-'}",
+            f"Web pages to learn from: {', '.join(data.get('web_pages') or []) or '-'}",
             f"Answers to common questions: {data.get('faqs', 0)}, documents: "
             f"{data.get('documents', 0)}",
             "",
-            "Next: go through the intake with them, then from the backend:",
-            f"python -m app.provision draft {data.get('owner_email')}",
+            "Next: go through the intake with them, then in Railway's backend Console:",
+            f"/opt/venv/bin/python -m app.provision draft {data.get('owner_email')}",
         ]
+    elif event.event_type == "profile.updated":
+        subject = f"Profile updated: {business}"
+        lines = [f"{data.get('owner_name')} ({data.get('owner_email')}) changed their profile:", ""]
+        for section, value in data.get("changes", {}).items():
+            lines.append(f"{section}:")
+            lines += [f"  {line}" for line in (value.splitlines() or ["(removed)"])]
+            lines.append("")
+        if data.get("business_slug"):
+            lines.append(
+                f"Their receptionist is live at /b/{data['business_slug']} and doesn't change by "
+                "itself. Update their business file and load it with "
+                f"python -m app.businesses load <file> --update."
+            )
+        else:
+            lines.append("They aren't live yet. Use these when you prepare their business file.")
     elif event.event_type == "password.reset":
         subject = f"Reset your {settings.service_name} password"
         lines = [
