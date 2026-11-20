@@ -49,6 +49,32 @@ Redeploy. Upcoming bookings made before connecting are added too.
 2. Book a time. Within a few seconds the event appears in the calendar.
 3. Cancel it from the staff dashboard. The event disappears.
 
+## Owners connect their own calendar
+
+Businesses connect their calendar themselves, in the **Your calendar** step of their profile, by sharing it with HelloEver's service account. Nobody handles a key file per business.
+
+**Once per deployment:** create the service account (step 1 above), set `GOOGLE_SERVICE_ACCOUNT_JSON` to its key on Railway, and make sure `INTEGRATIONS_KEY` is set. Leave `GOOGLE_CALENDAR_ID` empty unless the deployment's own business (`BUSINESS_SLUG`) should use a calendar too. Without the key, the profile says the calendar will be connected during setup.
+
+**What the owner does:**
+
+1. Chooses **Google Calendar**. The step shows the service account's address with a copy button.
+2. In Google Calendar's settings, shares their booking calendar with that address, choosing **Make changes to events**.
+3. Pastes the **Calendar ID** (their Gmail address for their main calendar) and presses **Connect calendar**.
+
+The backend checks access before saving, by adding the calendar to the service account's calendar list, which answers with the access the owner gave:
+
+| Google says | Owner sees |
+| --- | --- |
+| Not found or forbidden | "We can't see that calendar yet. Share it with … choose Make changes to events" |
+| Shared to see only (`reader`, `freeBusyReader`) | "The calendar is shared, but only to see it. Change … to Make changes to events" |
+| `writer` or `owner` | Connected |
+
+- **Before the business is live:** the calendar is remembered, and `provision approve` connects the new business to it. Its follow-up steps no longer mention the calendar.
+- **Once live:** connecting or disconnecting takes effect at once. Upcoming bookings are written to the new calendar, and busy times in it block booking.
+- Either way the admin gets the "Profile updated" email with the calendar.
+
+The connection is stored with `account: shared` and no secret of its own, so the key lives only in the environment and rotating it there reaches every business. To connect one by hand once the owner has shared: `python -m app.integrations share-calendar <slug> <calendar-id>`. A business with its own service account still uses `set-calendar` below.
+
 ## Several businesses
 
 The `GOOGLE_*` variables connect the deployment's own business (`BUSINESS_SLUG`). Any other business gets its own calendar, stored in the database with its key encrypted:

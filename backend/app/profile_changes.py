@@ -42,6 +42,8 @@ def snapshot(db: Session, profile: BusinessProfile) -> dict[str, str]:
     calendar = CALENDAR_LABELS.get(details.calendar_provider or "", "")
     if details.calendar_provider == "other" and details.calendar_other:
         calendar = f"{calendar}: {details.calendar_other}"
+    if details.google_calendar_connected and details.google_calendar_id:
+        calendar = f"{calendar}, connected: {details.google_calendar_id}"
     return {
         "Business name": profile.business_name or "",
         "Type": BUSINESS_TYPE_LABELS.get(profile.business_type or "", ""),

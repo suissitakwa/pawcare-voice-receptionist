@@ -14,6 +14,8 @@ export interface ProfileOptions {
   timezones?: Option[];
   /** Price rows per business type: dog sizes for pet groomers, one row for the others. */
   sizes?: Record<string, Option[]>;
+  /** The address owners share their Google Calendar with to connect it; null while not offered. */
+  calendar_share_email?: string | null;
 }
 
 export interface Account {
@@ -62,6 +64,9 @@ export interface ProfileDetails {
   website_url: string | null;
   calendar_provider: string | null;
   calendar_other: string | null;
+  /** Set by connecting, after HelloEver's account could make changes to the calendar. */
+  google_calendar_id?: string | null;
+  google_calendar_connected?: boolean;
   knowledge_urls: string[];
   faqs: FaqItem[];
   voice: string | null;
@@ -137,6 +142,9 @@ export const subscriberApi = {
       headers: { "Content-Type": file.type || "application/octet-stream" },
       body: file,
     }),
+  connectCalendar: (token: string, calendar_id: string) =>
+    authed<Profile>(token, "/profile/calendar", { method: "POST", ...json({ calendar_id }) }),
+  disconnectCalendar: (token: string) => authed<Profile>(token, "/profile/calendar", { method: "DELETE" }),
   removeDocument: (token: string, id: string) => authed<void>(token, `/profile/documents/${id}`, { method: "DELETE" }),
 };
 

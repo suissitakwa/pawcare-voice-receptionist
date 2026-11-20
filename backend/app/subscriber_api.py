@@ -18,10 +18,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import integrations
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.errors import ApiError
+from app.google_calendar import CalendarAccessProblem, check_access, shared_account_email
 from app.models import (
     Business,
     BusinessProfile,
@@ -47,6 +49,7 @@ from app.subscriber_schemas import (
     TIMEZONE_LABELS,
     VOICES,
     AccountPublic,
+    CalendarConnectRequest,
     DocumentPublic,
     Option,
     ProfileDetails,
@@ -184,8 +187,13 @@ def to_public(db: Session, profile: BusinessProfile) -> ProfilePublic:
     )
 
 
+Config = Annotated[Settings, Depends(get_settings)]
+# Fields only the server sets; a profile edit sending them is ignored for them.
+SERVER_SET = ("google_calendar_id", "google_calendar_connected")
+
+
 @router.get("/options", response_model=ProfileOptions)
-def options() -> ProfileOptions:
+def options(settings: Config) -> ProfileOptions:
     def listed(labels: dict[str, str]) -> list[Option]:
         return [Option(value=k, label=v) for k, v in labels.items()]
 
@@ -200,6 +208,7 @@ def options() -> ProfileOptions:
             kind: [Option(value=s, label=SIZE_LABELS[s]) for s in sizes]
             for kind, sizes in SIZES_BY_TYPE.items()
         },
+        calendar_share_email=shared_account_email(settings),
     )
 
 
@@ -332,9 +341,10 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
     if "business_type" in sent:
         profile.business_type = body.business_type
     if body.details is not None:
+        sent_details = {k: v for k, v in body.details.items() if k not in SERVER_SET}
         merged = {
             **ProfileDetails.from_stored(profile.details).model_dump(mode="json"),
-            **body.details,
+            **sent_details,
         }
         try:
             details = ProfileDetails.model_validate(merged)
@@ -357,6 +367,64 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
         # submitted before a section existed may still leave that section empty.
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
+    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
+    db.commit()
+    return to_public(db, profile)
+
+
+def set_calendar(
+    db: Session, settings: Settings, profile: BusinessProfile, calendar_id: str | None
+) -> None:
+    """Records the profile's connected calendar and, for a live business, connects or
+    disconnects it at once, so bookings start or stop going to it."""
+    details = ProfileDetails.from_stored(profile.details)
+    update = {
+        "google_calendar_id": calendar_id,
+        "google_calendar_connected": calendar_id is not None,
+    }
+    if calendar_id is not None:
+        update["calendar_provider"] = "google"
+    profile.details = details.model_copy(update=update).model_dump(mode="json")
+    if profile.business_id is None:
+        return
+    slug = db.scalar(select(Business.slug).where(Business.id == profile.business_id))
+    try:
+        if calendar_id is None:
+            integrations.remove(db, slug, integrations.CALENDAR)
+        else:
+            integrations.share_calendar(db, settings, slug, calendar_id)
+    except ValueError:
+        raise ApiError(
+            503, "calendar_not_offered", "Connecting a calendar isn't available right now."
+        ) from None
+
+
+@router.post("/profile/calendar", response_model=ProfilePublic)
+def connect_calendar(
+    body: CalendarConnectRequest, context: Account, db: DbSession, settings: Config, now: Now
+) -> ProfilePublic:
+    """Connects a Google Calendar the owner shared with HelloEver's service account, after
+    checking the account can make changes to it."""
+    profile = load_profile(db, context[0].id)
+    calendar_id = body.calendar_id.strip()
+    try:
+        check_access(settings, calendar_id)
+    except CalendarAccessProblem as problem:
+        raise ApiError(422, problem.code, problem.message) from None
+    before = snapshot(db, profile)
+    set_calendar(db, settings, profile, calendar_id)
+    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
+    db.commit()
+    return to_public(db, profile)
+
+
+@router.delete("/profile/calendar", response_model=ProfilePublic)
+def disconnect_calendar(
+    context: Account, db: DbSession, settings: Config, now: Now
+) -> ProfilePublic:
+    profile = load_profile(db, context[0].id)
+    before = snapshot(db, profile)
+    set_calendar(db, settings, profile, None)
     note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return to_public(db, profile)

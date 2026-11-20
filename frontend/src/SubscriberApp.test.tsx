@@ -267,6 +267,65 @@ describe("SubscriberApp", () => {
     ]);
   });
 
+  it("connects a Google Calendar shared with HelloEver's account", async () => {
+    let connected: Record<string, unknown> = {};
+    const connectedProfile = {
+      ...PROFILE,
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true },
+    };
+    const calls = mockApi(
+      routes({
+        "GET /api/v1/subscribers/options": () => ({
+          status: 200,
+          body: { ...OPTIONS, calendar_share_email: "bookings@helloever.iam.gserviceaccount.com" },
+        }),
+        "PATCH /api/v1/subscribers/profile": () => ({ status: 200, body: PROFILE }),
+        "POST /api/v1/subscribers/profile/calendar": (init) => {
+          connected = JSON.parse(String(init?.body));
+          return { status: 200, body: connectedProfile };
+        },
+        "DELETE /api/v1/subscribers/profile/calendar": () => ({ status: 200, body: PROFILE }),
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.click(await screen.findByRole("button", { name: "Your calendar" }));
+    await user.selectOptions(screen.getByLabelText("Calendar you book appointments in"), "google");
+    expect(screen.getByText("bookings@helloever.iam.gserviceaccount.com")).toBeInTheDocument();
+    const connect = screen.getByRole("button", { name: "Connect calendar" });
+    expect(connect).toBeDisabled();
+    await user.type(screen.getByLabelText("Calendar ID"), " sam@gmail.com ");
+    await user.click(connect);
+    expect(await screen.findByText("Your calendar is connected.")).toBeInTheDocument();
+    expect(connected).toEqual({ calendar_id: "sam@gmail.com" });
+    // Unsaved edits are saved before connecting.
+    const keys = calls.map((c) => c.key);
+    expect(keys.indexOf("PATCH /api/v1/subscribers/profile")).toBeLessThan(keys.indexOf("POST /api/v1/subscribers/profile/calendar"));
+    expect(screen.getByText(/sam@gmail.com\. New bookings/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Disconnect" }));
+    expect(await screen.findByText("Your calendar is disconnected.")).toBeInTheDocument();
+  });
+
+  it("explains a calendar that isn't shared yet", async () => {
+    mockApi(
+      routes({
+        "GET /api/v1/subscribers/options": () => ({ status: 200, body: { ...OPTIONS, calendar_share_email: "bot@x.iam" } }),
+        "PATCH /api/v1/subscribers/profile": () => ({ status: 200, body: PROFILE }),
+        "POST /api/v1/subscribers/profile/calendar": () => ({
+          status: 422,
+          body: { error: { code: "calendar_not_shared", message: "We can't see that calendar yet. Share it with bot@x.iam." } },
+        }),
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.click(await screen.findByRole("button", { name: "Your calendar" }));
+    await user.selectOptions(screen.getByLabelText("Calendar you book appointments in"), "google");
+    await user.type(screen.getByLabelText("Calendar ID"), "sam@gmail.com");
+    await user.click(screen.getByRole("button", { name: "Connect calendar" }));
+    expect(await screen.findByText(/We can't see that calendar yet/)).toBeInTheDocument();
+  });
+
   it("offers a female and a male voice and sends the chosen one", async () => {
     let saved: Record<string, unknown> = {};
     mockApi(
