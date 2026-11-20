@@ -57,6 +57,7 @@ from app.subscriber_schemas import (
     SignInRequest,
     SignUpRequest,
     VoiceOption,
+    prices_for,
 )
 from app.webhooks import enqueue_notice
 
@@ -147,7 +148,9 @@ def missing_fields(profile: BusinessProfile, details: ProfileDetails, documents:
         "calendar_provider": details.calendar_provider is not None,
         "knowledge": bool(details.knowledge_urls or details.faqs or documents),
         "hours": bool(details.hours),
-        "services": any(service.prices for service in details.services),
+        "services": any(
+            prices_for(profile.business_type, service.prices) for service in details.services
+        ),
         "voice": bool(details.voice),
         "ai_disclosure_ack": details.ai_disclosure_ack,
     }
@@ -341,6 +344,14 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
                 422, "invalid_request", "Check these fields: " + ", ".join(fields) + "."
             ) from None
         profile.details = details.model_dump(mode="json")
+    # The profile keeps only the prices the form shows for its type of business.
+    stored = ProfileDetails.from_stored(profile.details)
+    fitted = [
+        s.model_copy(update={"prices": prices_for(profile.business_type, s.prices)})
+        for s in stored.services
+    ]
+    if profile.business_type and fitted != stored.services:
+        profile.details = stored.model_copy(update={"services": fitted}).model_dump(mode="json")
     if profile.status == "submitted" and current_missing(db, profile) - missing_before:
         # Editing a submitted profile is allowed, but it can't lose what it had. A profile
         # submitted before a section existed may still leave that section empty.
