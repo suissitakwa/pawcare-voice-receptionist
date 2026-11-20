@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     email_from: str = ""
     # The booking site's address, for links in emails, for example https://example.netlify.app
     public_site_url: str = ""
+    # The service's own name and inbox: new sign-ups are emailed to ADMIN_EMAIL, and the
+    # owner's receipt is signed with the name. Empty ADMIN_EMAIL: no sign-up notices.
+    service_name: str = "HelloEver AI"
+    admin_email: str = ""
 
     @field_validator("database_url")
     @classmethod

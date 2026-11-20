@@ -28,7 +28,15 @@ from app.models import Business, WebhookEvent
 
 logger = logging.getLogger("pawcare.email")
 
-EMAILED_EVENTS = {"booking.confirmed", "booking.changed", "booking.cancelled", "callback.requested"}
+EMAILED_EVENTS = {
+    "booking.confirmed",
+    "booking.changed",
+    "booking.cancelled",
+    "callback.requested",
+    # About the service itself, with no business yet.
+    "profile.submitted",
+    "profile.received",
+}
 MAX_ATTEMPTS = 6
 FIRST_RETRY = timedelta(minutes=1)
 MAX_RETRY = timedelta(hours=1)
@@ -67,6 +75,53 @@ def owner_address(business: Business) -> str | None:
     if business.notify_email:
         return business.notify_email
     return None if business.is_demo else business.contact_email
+
+
+def notice_address(event: WebhookEvent, settings: Settings) -> str | None:
+    """Where a notice that belongs to no business goes."""
+    if event.event_type == "profile.submitted":
+        return settings.admin_email or None
+    if event.event_type == "profile.received":
+        return event.payload.get("data", {}).get("owner_email")
+    return None
+
+
+def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
+    data = event.payload.get("data", {})
+    business = data.get("business_name") or "a business"
+    if event.event_type == "profile.submitted":
+        subject = f"New sign-up: {business} ({data.get('business_type')})"
+        lines = [
+            f"{data.get('owner_name')} submitted a profile for {business}.",
+            "",
+            f"Email: {data.get('owner_email')}",
+            f"Type: {data.get('business_type')}",
+            f"Phone: {data.get('business_phone') or '-'}",
+            f"Website: {data.get('website') or '-'}",
+            f"Calendar: {data.get('calendar') or '-'}",
+            f"Answers to common questions: {data.get('faqs', 0)}, documents: "
+            f"{data.get('documents', 0)}",
+            "",
+            "Next: go through the intake with them, then from the backend:",
+            f"python -m app.provision draft {data.get('owner_email')}",
+        ]
+    else:
+        subject = f"We received your profile for {business}"
+        lines = [
+            f"Hi {data.get('owner_name')},",
+            "",
+            f"Thanks for setting up {business} with {settings.service_name}. We've received your "
+            "profile.",
+            "",
+            "Next, we'll contact you within one business day to go over your services, prices "
+            "and hours, connect your calendar, and set up your phone number. Your receptionist "
+            "goes live after that.",
+            "",
+            "You can still edit your profile in the meantime. Questions? Just reply to this email.",
+            "",
+            settings.service_name,
+        ]
+    return subject, "\n".join(lines)
 
 
 def when(local_iso: str) -> str:
@@ -123,12 +178,20 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
     return subject, "\n".join(lines)
 
 
-def message_for(event: WebhookEvent, business: Business, settings: Settings, to: str):
-    subject, body = compose(event, business, settings)
+def message_for(event: WebhookEvent, business: Business | None, settings: Settings, to: str):
+    if business is None:
+        subject, body = compose_notice(event, settings)
+        default_name = settings.service_name
+    else:
+        subject, body = compose(event, business, settings)
+        default_name = f"{business.name} receptionist"
     message = EmailMessage()
     sender_name, sender = parseaddr(settings.email_from)
-    message["From"] = formataddr((sender_name or f"{business.name} receptionist", sender))
+    message["From"] = formataddr((sender_name or default_name, sender))
     message["To"] = to
+    if business is None and settings.admin_email and event.event_type == "profile.received":
+        # The owner's reply reaches a person, not the notices address.
+        message["Reply-To"] = settings.admin_email
     message["Subject"] = subject
     # The same id on every retry, so a mail server that saw it once can drop a duplicate.
     message["Message-ID"] = make_msgid(idstring=str(event.id), domain=sender.split("@")[-1])
@@ -220,8 +283,8 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
     ).all()
     sent = 0
     for event in events:
-        business = session.get(Business, event.business_id)
-        to = owner_address(business)
+        business = session.get(Business, event.business_id) if event.business_id else None
+        to = owner_address(business) if business else notice_address(event, settings)
         if to is None:
             event.email_failed_at = now
             event.email_error = "no address to notify"

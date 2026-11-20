@@ -13,7 +13,7 @@ from app.models import (
     Groomer,
     Service,
 )
-from tests.factories import make_booking
+from tests.factories import demo_groomer_id, make_booking
 
 LA = ZoneInfo("America/Los_Angeles")
 URL = "/api/v1/availability"
@@ -98,7 +98,7 @@ def test_cancelled_booking_frees_the_slot(client: TestClient, db: Session) -> No
 
 
 def test_blocked_period_removes_starts(client: TestClient, db: Session) -> None:
-    groomer_id = db.scalar(select(Groomer.id))
+    groomer_id = demo_groomer_id(db)
     db.add(
         BlockedPeriod(
             business_id=db.scalar(select(Groomer.business_id).where(Groomer.id == groomer_id)),

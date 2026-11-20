@@ -788,3 +788,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 503 passed (local PostgreSQL 14), 1 new: the Vapi assistant turns recording off |
 | Frontend | 78 tests pass (Node 22), 1 new: the sign-up checkbox links the terms and privacy policy |
 | Live | Not deployed |
+
+## Sign-up emails (2026-11-19)
+
+**Outcome:** a submitted profile only showed "We'll contact you" on screen; nobody was told. Now the first submission queues two emails through the same outbox as owner notices: "New sign-up: …" to `ADMIN_EMAIL` with the owner's details and the provisioning command, and a receipt to the owner promising contact within one business day, with replies going to `ADMIN_EMAIL`. Migration `0021` lets the outbox hold notices that belong to no business; they never go to a business webhook. Three tests that picked "the first groomer" could pick an inactive test groomer or another business's, which made `test_cancelling_frees_the_slot_for_customers` fail now and then; they now use the demo's active groomer.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 507 passed (local PostgreSQL 14) three times in a row, 4 new: both emails and their content, no repeat on resubmitting, the receipt still goes without `ADMIN_EMAIL`, sign-ups never reach a business webhook. Migrations `0001`–`0021` upgrade and downgrade cleanly |
+| Live | Not deployed. Needs `ADMIN_EMAIL` on Railway |

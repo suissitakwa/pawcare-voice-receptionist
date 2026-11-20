@@ -82,6 +82,29 @@ def enqueue(
     return event
 
 
+def enqueue_notice(session: Session, event_type: str, data: dict, now: datetime) -> WebhookEvent:
+    """A notice about the service itself, not a business: emailed, never sent to a webhook."""
+    event = WebhookEvent(
+        id=uuid.uuid4(),
+        business_id=None,
+        event_type=event_type,
+        payload={},
+        created_at=now,
+        next_attempt_at=now,
+        # No business webhook will ever take it.
+        failed_at=now,
+        last_error="not a business event",
+    )
+    event.payload = {
+        "id": str(event.id),
+        "type": event_type,
+        "occurred_at": now.isoformat(),
+        "data": data,
+    }
+    session.add(event)
+    return event
+
+
 def booking_data(booking: Booking, business: Business, source: str | None = None) -> dict:
     timezone = ZoneInfo(business.timezone)
     summary = booking.summary or {}
