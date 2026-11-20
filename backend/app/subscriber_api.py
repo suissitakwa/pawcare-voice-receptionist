@@ -37,6 +37,7 @@ from app.password_reset import (
     request_reset,
 )
 from app.password_reset import client_hash as reset_client
+from app.profile_changes import changed_sections, note_change, snapshot
 from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME, hasher
 from app.subscriber_schemas import (
     BUSINESS_TYPE_LABELS,
@@ -302,9 +303,10 @@ def get_profile(context: Account, db: DbSession) -> ProfilePublic:
 
 
 @router.patch("/profile", response_model=ProfilePublic)
-def update_profile(body: ProfileUpdate, context: Account, db: DbSession) -> ProfilePublic:
+def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: Now) -> ProfilePublic:
     """Saves part of the profile. Top-level detail fields sent replace the stored ones."""
     profile = load_profile(db, context[0].id)
+    before = snapshot(db, profile)
     sent = body.model_fields_set
     if "business_name" in sent:
         profile.business_name = body.business_name
@@ -329,6 +331,7 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession) -> Prof
         # Editing a submitted profile is allowed, but it cannot become incomplete.
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
+    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return to_public(db, profile)
 
@@ -374,6 +377,7 @@ def signup_data(
         "calendar": CALENDAR_LABELS.get(details.calendar_provider or "", details.calendar_other),
         "faqs": len(details.faqs),
         "documents": documents,
+        "web_pages": details.knowledge_urls,
     }
 
 
@@ -388,6 +392,7 @@ async def upload_document(
     request: Request,
     context: Account,
     db: DbSession,
+    now: Now,
     filename: Annotated[str, Query(min_length=1, max_length=200)],
 ) -> DocumentPublic:
     """Stores a document for the receptionist to learn from. The body is the raw file."""
@@ -427,6 +432,7 @@ async def upload_document(
     if existing is not None:
         # The same file twice is stored once.
         return DocumentPublic.model_validate(existing)
+    before = snapshot(db, profile)
     document = ProfileDocument(
         profile_id=profile.id,
         filename=name,
@@ -436,12 +442,14 @@ async def upload_document(
         content=bytes(content),
     )
     db.add(document)
+    db.flush()
+    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return DocumentPublic.model_validate(document)
 
 
 @router.delete("/profile/documents/{document_id}", status_code=204)
-def delete_document(document_id: uuid.UUID, context: Account, db: DbSession) -> Response:
+def delete_document(document_id: uuid.UUID, context: Account, db: DbSession, now: Now) -> Response:
     profile = load_profile(db, context[0].id)
     document = db.scalar(
         select(ProfileDocument).where(
@@ -450,6 +458,7 @@ def delete_document(document_id: uuid.UUID, context: Account, db: DbSession) -> 
     )
     if document is None:
         raise ApiError(404, "document_not_found", "No document with that id.")
+    before = snapshot(db, profile)
     db.delete(document)
     db.flush()
     if profile.status == "submitted" and missing_fields(
@@ -457,5 +466,6 @@ def delete_document(document_id: uuid.UUID, context: Account, db: DbSession) -> 
     ):
         db.rollback()
         raise ApiError(422, "profile_incomplete", "A submitted profile must stay complete.")
+    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return Response(status_code=204)

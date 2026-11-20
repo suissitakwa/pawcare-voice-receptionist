@@ -807,3 +807,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 516 passed (local PostgreSQL 14), 9 new: the full reset with sign-out and both emails, the link erased once emailed, one use and one hour, only the newest link, unknown emails and businesses answered the same, limits, short passwords refused, no link without `PUBLIC_SITE_URL`, staff resets at their business and the two kinds of link kept apart. Migrations `0001`–`0022` upgrade and downgrade cleanly |
 | Frontend | 82 tests pass (Node 22), 4 new; the screens checked in the browser |
 | Live | Not deployed. Needs `PUBLIC_SITE_URL` (already set) |
+
+## Profile changes after submitting (2026-11-19)
+
+**Outcome:** changes to a submitted profile were saved silently, and a live receptionist doesn't pick them up by itself. Each change (business name, type, phone, website, calendar, web pages, answers, voice, documents) now joins a single "Profile updated: <business>" email to `ADMIN_EMAIL`, sent 10 minutes after the last edit, with the latest value of each changed section and, for a live business, a reminder to update its business file. The sign-up email now also lists the web pages given, and its command uses Railway's `/opt/venv/bin/python`.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 521 passed (local PostgreSQL 14), 5 new: nothing before submitting, a burst of edits and a document upload become one email after the quiet spell with only the latest values, unchanged saves send nothing, a later edit starts a new email, a live business gets the reminder |
+| Live | Not deployed |

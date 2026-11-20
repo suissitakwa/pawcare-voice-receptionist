@@ -48,6 +48,8 @@ When someone submits their profile for the first time, two emails go out:
 - **To you**, at `ADMIN_EMAIL` (for example `takwa@helloeverai.com`): "New sign-up: <business> (<type>)", with their contact details, calendar, and the `python -m app.provision draft <email>` command to start from.
 - **To them**: "We received your profile for <business>", saying you'll be in touch within one business day, with replies going to `ADMIN_EMAIL`.
 
+After they've submitted, any change to their profile (business name, phone, calendar, web pages, answers, voice, documents) is emailed to `ADMIN_EMAIL` as **"Profile updated: <business>"**, with the new value of each changed section. Edits are gathered: the email goes out once they've stopped editing for 10 minutes. If their receptionist is already live, it reminds you that the live receptionist doesn't change by itself.
+
 Without `ADMIN_EMAIL`, only their receipt is sent. `SERVICE_NAME` (default `HelloEver AI`) names the sender and signs the receipt.
 
 ## Forgotten passwords
