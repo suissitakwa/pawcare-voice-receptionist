@@ -897,3 +897,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 5 new in `test_customer_texts.py` (33 pass): `texts_customers` is true only when texts are on, Twilio is set and there is a number or Messaging Service |
 | Frontend | Typecheck and build pass; 91 tests pass (Node 22), 2 new: the notice under the phone field and the line on the confirmation screen, and nothing promised when the business doesn't text |
 | Live | Not deployed |
+
+## Callers hear that a text is coming (2026-11-20)
+
+**Outcome:** phone callers (OpenAI and Vapi) are told a text is on its way after booking, changing or cancelling. Browser voice callers hear it after pressing Confirm booking and see it on the confirmation. Each line appears only when the business really texts (`texts_customers`) and the booking has a number that can be texted, so no caller is promised a text that won't come. On the phone it's added to the tool result's `next_step` in one place (`voice_tools.mention_text`), so every phone tool path gets it. See [texts.md](texts.md#what-callers-hear).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 592 passed (local PostgreSQL 14) twice in a row, 9 of them new: the line for booked, changed and cancelled; none with texts off, no phone, no Twilio, or another tool's result; a real scripted phone call cancelling with texts on and off |
+| Frontend | Typecheck and build pass; 92 tests pass (Node 22), 1 new: the browser confirmation line and the assistant's instruction with texts on, and neither with texts off (an existing test) |
+| Live | Not deployed. Not tried on a real call |

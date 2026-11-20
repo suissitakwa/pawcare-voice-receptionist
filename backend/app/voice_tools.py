@@ -25,11 +25,13 @@ from app.availability import (
 from app.booking import confirm_prepared, prepare_booking
 from app.booking import sha256 as booking_sha256
 from app.config import Settings
+from app.customer_texts import texts_customers
 from app.errors import ApiError
 from app.format_text import format_time
 from app.manage import cancel, confirm_change, find_booking, prepare_change
-from app.models import BookingDraft, CallbackRequest, VoiceSession
+from app.models import Booking, BookingDraft, CallbackRequest, VoiceSession
 from app.names import clean_name
+from app.phone_numbers import normalize
 from app.schemas import (
     EMAIL_PATTERN,
     PHONE_PATTERN,
@@ -256,6 +258,30 @@ def confirm_spoken(
     )
 
 
+TEXT_ON_ITS_WAY = {
+    "booked": "Then tell them a text with the details is on its way to the number they gave, "
+    "with a reminder the day before.",
+    "changed": "Then tell them a text with the new details is on its way.",
+    "cancelled": "Then tell them a text confirming the cancellation is on its way.",
+}
+
+
+def mention_text(session: Session, business, settings: Settings, outcome: VoiceToolResult) -> None:
+    """On a phone call, says a text is coming, but only when the customer will really get one."""
+    line = TEXT_ON_ITS_WAY.get(outcome.result.get("status"))
+    if line is None or "next_step" not in outcome.result:
+        return
+    phone = session.scalar(
+        select(Booking.owner_phone).where(
+            Booking.business_id == business.id,
+            Booking.reference == outcome.result.get("reference"),
+        )
+    )
+    if normalize(phone) is None or not texts_customers(session, business, settings):
+        return
+    outcome.result["next_step"] = f"{outcome.result['next_step']} {line}"
+
+
 def run_tool(
     session: Session,
     business_id: uuid.UUID,
@@ -304,6 +330,8 @@ def run_tool(
         outcome = tool_error("invalid_arguments", "The arguments must be a JSON object.")
     except ApiError as error:
         outcome = tool_error(error.code, error.message)
+    if outcome.ok and record.channel == "phone":
+        mention_text(session, business, settings, outcome)
     if not outcome.ok:
         record.tool_failures += 1
         logger.info("Voice tool %s returned %s", name, outcome.result.get("error"))

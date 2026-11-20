@@ -89,11 +89,11 @@ const SUMMARY = {
 const PREPARED = { confirmation_token: "secret-token-1234567890", summary_hash: "h".repeat(64), expires_at: "", summary: SUMMARY };
 const PREPARE_RESULT = { ok: true, result: { status: "awaiting_caller_confirmation", time: "9 AM" }, prepared: PREPARED };
 
-async function connectedCall(routes: Record<string, Handler>) {
+async function connectedCall(routes: Record<string, Handler>, textsCustomers = false) {
   mockBackend(LIVE, 201, routes);
   const ctx = setup();
   const user = userEvent.setup({ delay: null });
-  render(<VoiceAssistant deps={ctx.deps} />);
+  render(<VoiceAssistant deps={ctx.deps} textsCustomers={textsCustomers} />);
   await user.click(screen.getByRole("button", { name: "Start talking" }));
   await waitFor(() => expect(ctx.peer.setRemoteDescription).toHaveBeenCalled());
   act(() => {
@@ -287,7 +287,29 @@ describe("VoiceAssistant", () => {
       item: { content: { text: string }[] };
     };
     expect(message.item.content[0].text).toContain("PC-VOICE234");
+    expect(message.item.content[0].text).not.toContain("text with the details");
+    expect(screen.queryByText(/We're texting/)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Booking summary" })).not.toBeInTheDocument();
+  });
+
+  it("says a text is coming when the business texts customers", async () => {
+    const { peer, user } = await connectedCall(
+      {
+        "/tools/prepare_booking": () => ({ status: 200, body: PREPARE_RESULT }),
+        "/bookings/confirm": () => ({ status: 201, body: { reference: "PC-VOICE234", status: "confirmed", summary: SUMMARY } }),
+      },
+      true,
+    );
+    requestPrepare(peer);
+    await user.click(await screen.findByRole("button", { name: "Confirm booking" }));
+
+    expect(await screen.findByText(/We're texting the details to \(323\) 555-0100, and we'll send a reminder the day before\./)).toBeInTheDocument();
+    const message = peer.channel.sent.find((e) => (e as { item?: { role?: string } }).item?.role === "system") as {
+      item: { content: { text: string }[] };
+    };
+    expect(message.item.content[0].text).toContain(
+      "Then tell them a text with the details is on its way to the number they gave, with a reminder the day before.",
+    );
   });
 
   it("explains a slot taken before the click", async () => {

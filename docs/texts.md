@@ -65,9 +65,15 @@ While a business really texts (switched on, Twilio set, and a number to text fro
 
 After booking with a phone number, the confirmation screen says the details are being texted to that number. Otherwise neither appears, so the form never promises a text that won't come.
 
+## What callers hear
+
+Under the same condition, and only when the booking has a number that can be texted:
+
+- **Phone calls** (OpenAI and Vapi): after booking, changing or cancelling, the tool result tells the assistant to say a text is on its way. Booked: *"…a text with the details is on its way to the number they gave, with a reminder the day before."* Changed: *"…a text with the new details is on its way."* Cancelled: *"…a text confirming the cancellation is on its way."*
+- **Browser voice**: after the visitor presses Confirm booking, the assistant is told to say the same, and the on-screen confirmation says the details are being texted to that number.
+
 ## Not done yet
 
-- The phone and browser assistants don't yet tell callers a text is coming.
 - The staff dashboard doesn't show texts sent or failed.
 - Owners can't switch texts on themselves.
 - Replies other than STOP/START/HELP (which Twilio answers itself) aren't read.

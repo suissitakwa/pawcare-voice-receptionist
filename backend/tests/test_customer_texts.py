@@ -16,6 +16,8 @@ from app.config import Settings
 from app.customer_texts import MAX_ATTEMPTS, Refused, Retry, Text, send_due, send_twilio
 from app.main import app, get_now
 from app.models import Booking, Business, WebhookEvent
+from app.schemas import VoiceToolResult
+from app.voice_tools import mention_text
 from app.webhooks import booking_data, enqueue
 from tests.factories import make_booking
 from tests.test_booking_api import LA, NINE, NOW, confirm, prepare
@@ -438,3 +440,41 @@ def test_the_site_says_texts_are_coming_only_when_they_are(
     finally:
         app.dependency_overrides.pop(get_settings, None)
         switch(db, False)
+
+
+# What callers are told
+
+
+def spoken_result(status: str, reference: str) -> VoiceToolResult:
+    return VoiceToolResult(
+        ok=True, result={"status": status, "reference": reference, "next_step": "Say so."}
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "line"),
+    [
+        ("booked", "Then tell them a text with the details is on its way to the number they "
+         "gave, with a reminder the day before."),
+        ("changed", "Then tell them a text with the new details is on its way."),
+        ("cancelled", "Then tell them a text confirming the cancellation is on its way."),
+    ],
+)  # fmt: skip
+def test_callers_are_told_a_text_is_coming(db, texts_on, status, line) -> None:
+    booking = booking_with_phone(db)
+    outcome = spoken_result(status, booking.reference)
+    mention_text(db, db.get(Business, booking.business_id), settings(), outcome)
+    assert outcome.result["next_step"] == f"Say so. {line}"
+
+
+@pytest.mark.parametrize("case", ["texts off", "no phone", "no twilio", "other status"])
+def test_callers_are_promised_no_text_that_wont_come(db, case) -> None:
+    switch(db, case != "texts off")
+    booking = booking_with_phone(db, phone=None if case == "no phone" else CUSTOMER)
+    outcome = spoken_result("found" if case == "other status" else "booked", booking.reference)
+    overrides = {"twilio_account_sid": ""} if case == "no twilio" else {}
+    try:
+        mention_text(db, db.get(Business, booking.business_id), settings(**overrides), outcome)
+    finally:
+        switch(db, False)
+    assert outcome.result["next_step"] == "Say so."

@@ -419,7 +419,7 @@ export default function App() {
               .
             </p>
           )}
-          <VoiceAssistant demo={demo} />
+          <VoiceAssistant demo={demo} textsCustomers={business?.texts_customers ?? false} />
         </Section>
 
         <Section id="services" title="Services and pricing">

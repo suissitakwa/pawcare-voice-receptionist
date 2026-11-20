@@ -312,3 +312,45 @@ def test_a_change_stays_with_the_same_staff_member(db: Session) -> None:
     assert found["ok"]
     assert moved["error"] == "slot_unavailable"
     assert regroomed["error"] == "staff_not_qualified"
+
+
+def test_a_caller_hears_a_text_is_coming_when_the_business_texts(db: Session) -> None:
+    from sqlalchemy import update
+
+    from app.models import Business
+    from tests.test_phone import phone_settings
+
+    booking = existing_booking(db)
+    db.execute(
+        update(Business).where(Business.id == booking.business_id).values(texts_enabled=True)
+    )
+    db.commit()
+    settings = phone_settings(
+        twilio_account_sid="AC" + "0" * 32,
+        twilio_auth_token="test-token",
+        twilio_messaging_service_sid="MG123",
+    )
+    socket = ScriptedSocket(
+        [find(booking.reference), tool_call("cancel_booking", {"caller_confirmed": True}, "c2")]
+    )
+    try:
+        play(db, socket, settings)
+    finally:
+        db.execute(
+            update(Business).where(Business.id == booking.business_id).values(texts_enabled=False)
+        )
+        db.commit()
+    _, cancelled = outputs(socket)
+    assert cancelled["next_step"].endswith(
+        "Then tell them a text confirming the cancellation is on its way."
+    )
+
+
+def test_no_text_is_promised_while_the_business_doesnt_text(db: Session) -> None:
+    booking = existing_booking(db)
+    socket = ScriptedSocket(
+        [find(booking.reference), tool_call("cancel_booking", {"caller_confirmed": True}, "c2")]
+    )
+    play(db, socket)
+    _, cancelled = outputs(socket)
+    assert "text" not in cancelled["next_step"]

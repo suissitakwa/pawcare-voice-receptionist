@@ -92,9 +92,12 @@ function errorMessage(error: unknown): string {
 export default function VoiceAssistant({
   deps = browserDeps,
   demo = true,
+  textsCustomers = false,
 }: {
   deps?: RealtimeDeps;
   demo?: boolean;
+  /** The business texts customers who give a phone number. */
+  textsCustomers?: boolean;
 }) {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [mode, setMode] = useState<"test" | "live" | null>(null);
@@ -235,8 +238,10 @@ export default function VoiceAssistant({
       const result = await confirmBooking(prepared, confirmKey);
       setBooked(result);
       setPrepared(null);
+      const texted = textsCustomers && Boolean(result.summary.owner_phone);
       tellAssistant(
-        `The caller pressed Confirm booking and the booking system confirmed it. Reference ${result.reference}. Tell them it is booked and read the reference out clearly.`,
+        `The caller pressed Confirm booking and the booking system confirmed it. Reference ${result.reference}. Tell them it is booked and read the reference out clearly.` +
+          (texted ? " Then tell them a text with the details is on its way to the number they gave, with a reminder the day before." : ""),
       );
     } catch (error) {
       const code = error instanceof ApiRequestError ? error.code : "network";
@@ -526,6 +531,9 @@ export default function VoiceAssistant({
           Booked. Reference <strong>{booked.reference}</strong>: {booked.summary.service}
           {booked.summary.pet_name ? ` for ${booked.summary.pet_name}` : ""} on{" "}
           {longDate(booked.summary.local_start.slice(0, 10))} at {wallClock(booked.summary.local_start)}.
+          {textsCustomers && booked.summary.owner_phone
+            ? ` We're texting the details to ${booked.summary.owner_phone}, and we'll send a reminder the day before.`
+            : ""}
         </p>
       )}
       {bookingNotice && (
