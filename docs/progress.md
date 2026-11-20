@@ -837,3 +837,12 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Frontend | 85 tests pass (Node 22), 2 new: a salon booking form without size or dog name, a barbershop dashboard with clients and no dog column |
 | Evals | Not rerun. The pet grooming instructions are unchanged |
 | Live | Not deployed. Not tried on a real call |
+
+## Prices that fit the business type (2026-11-20)
+
+**Outcome:** approving "David Salon" failed with a duplicate-price database error, rolling back with nothing created. Its profile had been saved as a groomer with dog-size prices, then switched to a hair salon: the form showed one price row, but the dog-size rows stayed underneath, and all of them became the salon's one size. Now only the price rows the form shows for the business type count: `approve` ignores the others, saving the profile drops them, and the completeness check counts only fitting prices.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 527 passed (local PostgreSQL 14), 2 new: a salon with hidden dog-size prices is approved with its one visible price; switching to a barbershop drops dog-size prices and asks for its own |
+| Live | Not deployed |

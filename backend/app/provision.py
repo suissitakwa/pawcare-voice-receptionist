@@ -30,7 +30,7 @@ from app.industries import STANDARD_SIZE
 from app.models import Business, BusinessProfile, SubscriberAccount
 from app.schemas import BusinessSeed
 from app.staff import upsert_staff
-from app.subscriber_schemas import ProfileDetails
+from app.subscriber_schemas import ProfileDetails, prices_for
 
 # Every kind of business the receptionist has wording and booking rules for.
 SUPPORTED_TYPES = {"pet_grooming", "hair_salon", "barbershop"}
@@ -125,7 +125,8 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
     services = []
     slug_by_name = {}
     for item in details.services:
-        if not item.prices:
+        prices = prices_for(profile.business_type, item.prices)
+        if not prices:
             continue
         slug = unique_slug(item.name, taken)
         slug_by_name[item.name.strip().lower()] = slug
@@ -137,15 +138,11 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
                 "options": [
                     {
                         # Businesses without dog sizes book every service as one size.
-                        "size": (
-                            ("medium" if price.size == "any" else price.size)
-                            if pets
-                            else STANDARD_SIZE
-                        ),
+                        "size": price.size if pets else STANDARD_SIZE,
                         "duration_minutes": price.duration_minutes,
                         "price_cents": price.price_cents,
                     }
-                    for price in item.prices
+                    for price in prices
                 ],
             }
         )

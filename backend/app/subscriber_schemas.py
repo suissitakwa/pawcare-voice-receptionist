@@ -123,6 +123,16 @@ SIZES_BY_TYPE = {
     "hair_salon": ["any"],
     "barbershop": ["any"],
 }
+
+
+def prices_for(business_type: str | None, prices: list["ServicePrice"]) -> list["ServicePrice"]:
+    """Only the price rows the form shows for this type of business. Rows left over from
+    another type (dog sizes after switching to a salon) are dropped, not guessed from."""
+    # No type chosen yet: the form shows dog sizes, as for pet grooming.
+    sizes = SIZES_BY_TYPE.get(business_type or "pet_grooming", [])
+    return [price for price in prices if price.size in sizes]
+
+
 TIMEZONE_LABELS = {
     "America/Los_Angeles": "Pacific",
     "America/Denver": "Mountain",

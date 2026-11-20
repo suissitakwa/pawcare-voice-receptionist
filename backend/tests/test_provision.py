@@ -248,3 +248,54 @@ def test_approve_refuses_a_profile_without_hours_or_services(client, db, submitt
     db.commit()
     with pytest.raises(ProvisionError, match="no opening hours or services and prices"):
         approve(db, "sam@example.com")
+
+
+def test_prices_left_from_another_business_type_are_ignored(client, db) -> None:
+    from sqlalchemy import update
+
+    from app.models import Service, ServiceSizeRule
+    from app.provision import approve
+
+    headers = auth(client)
+    complete(client, headers)
+    client.post(f"{API}/profile/submit", headers=headers)
+    # Saved as a groomer with dog-size prices, then switched to a salon with one price, the
+    # way the form allows. The stored profile still has the dog-size rows underneath.
+    profile = db.scalar(select(BusinessProfile))
+    mixed = [
+        {
+            "name": "Haircut",
+            "description": "",
+            "prices": [
+                {"size": "small", "duration_minutes": 30, "price_cents": 2481},
+                {"size": "medium", "duration_minutes": 25, "price_cents": 2500},
+                {"size": "any", "duration_minutes": 40, "price_cents": 5000},
+            ],
+        }
+    ]
+    db.execute(
+        update(BusinessProfile).values(
+            business_type="hair_salon", details={**profile.details, "services": mixed}
+        )
+    )
+    db.commit()
+    seed, _, _ = approve(db, "sam@example.com")
+    db.commit()
+    [(minutes, cents)] = db.execute(
+        select(ServiceSizeRule.duration_minutes, ServiceSizeRule.price_cents)
+        .join(Service, Service.id == ServiceSizeRule.service_id)
+        .where(Service.slug == "haircut")
+    ).all()
+    # The one price the salon form showed, not the hidden dog sizes.
+    assert (minutes, cents) == (40, 5000)
+
+
+def test_switching_business_type_drops_the_hidden_prices(client, db) -> None:
+    headers = auth(client)
+    complete(client, headers)
+    client.patch(f"{API}/profile", headers=headers, json={"business_type": "barbershop"})
+    services = client.get(f"{API}/profile", headers=headers).json()["details"]["services"]
+    # The test profile's prices were all dog sizes, which a barbershop doesn't use.
+    assert all(service["prices"] == [] for service in services)
+    profile = client.get(f"{API}/profile", headers=headers).json()
+    assert "services" in profile["missing"]
