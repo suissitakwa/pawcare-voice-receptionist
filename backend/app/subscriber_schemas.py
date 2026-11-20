@@ -190,6 +190,10 @@ class ProfileDetails(Strict):
     website_url: str | None = None
     calendar_provider: CalendarProvider | None = None
     calendar_other: str | None = Field(default=None, max_length=60)
+    # Set only by connecting (POST /profile/calendar), after HelloEver's account could make
+    # changes to the calendar; a profile edit can't set them.
+    google_calendar_id: str | None = Field(default=None, max_length=200)
+    google_calendar_connected: bool = False
     knowledge_urls: list[str] = Field(default_factory=list, max_length=10)
     faqs: list[FaqItem] = Field(default_factory=list, max_length=100)
     voice: Voice | None = None
@@ -311,3 +315,9 @@ class ProfileOptions(BaseModel):
     timezones: list[Option] = []
     # Price rows per business type: dog sizes for pet groomers, one row for the others.
     sizes: dict[str, list[Option]] = {}
+    # The address a Google Calendar is shared with to connect it; None while not offered.
+    calendar_share_email: str | None = None
+
+
+class CalendarConnectRequest(Strict):
+    calendar_id: str = Field(min_length=3, max_length=200)

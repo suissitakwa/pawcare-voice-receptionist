@@ -187,6 +187,73 @@ class GoogleCalendar:
             raise CalendarError(f"deleting the event returned HTTP {status}")
 
 
+class CalendarAccessProblem(Exception):
+    """Why a calendar can't be connected, in words for the owner."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def shared_account_email(settings: Settings) -> str | None:
+    """The address owners share their calendar with: HelloEver's service account."""
+    if not settings.google_service_account_json:
+        return None
+    try:
+        return load_service_account(settings.google_service_account_json)["client_email"]
+    except (ValueError, KeyError):
+        logger.warning("GOOGLE_SERVICE_ACCOUNT_JSON can't be read")
+        return None
+
+
+WRITABLE = ("owner", "writer")
+
+
+def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -> None:
+    """Checks that HelloEver's account can make changes to this calendar. Raises
+    CalendarAccessProblem otherwise.
+
+    Adding the calendar to the account's own list answers with the access the owner gave, and
+    fails when nothing was shared. The list entry is harmless and is how Google expects a shared
+    calendar to be used.
+    """
+    email = shared_account_email(settings)
+    if email is None:
+        raise CalendarAccessProblem(
+            "calendar_not_offered",
+            "Connecting a calendar isn't available yet. We'll do it with you.",
+        )
+    calendar = GoogleCalendar(
+        calendar_id, load_service_account(settings.google_service_account_json), send
+    )
+    try:
+        status, data = calendar.call("POST", "/users/me/calendarList", {"id": calendar_id})
+        if status == 409:
+            path = "/users/me/calendarList/" + urllib.parse.quote(calendar_id, safe="")
+            status, data = calendar.call("GET", path)
+    except CalendarError:
+        raise CalendarAccessProblem(
+            "calendar_unreachable", "Google Calendar couldn't be reached. Try again in a minute."
+        ) from None
+    if status in (403, 404) or (status == 200 and not data):
+        raise CalendarAccessProblem(
+            "calendar_not_shared",
+            f"We can't see that calendar yet. Share it with {email}, choose \"Make changes to "
+            'events", and check the calendar ID.',
+        )
+    if status != 200 or data is None:
+        raise CalendarAccessProblem(
+            "calendar_unreachable", "Google Calendar couldn't be reached. Try again in a minute."
+        )
+    if data.get("accessRole") not in WRITABLE:
+        raise CalendarAccessProblem(
+            "calendar_read_only",
+            f'The calendar is shared, but only to see it. Change {email} to "Make changes to '
+            'events" so bookings can be added.',
+        )
+
+
 _clients: dict[tuple[str, str], GoogleCalendar] = {}
 
 

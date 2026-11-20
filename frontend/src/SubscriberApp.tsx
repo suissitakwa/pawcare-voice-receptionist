@@ -292,12 +292,82 @@ function cleanDetails(details: ProfileDetails, urls: string, zips: string): Prof
   };
 }
 
+function GoogleCalendarConnect({
+  shareEmail,
+  connectedId,
+  calendarId,
+  onCalendarId,
+  busy,
+  onConnect,
+  onDisconnect,
+}: {
+  shareEmail: string | null;
+  connectedId: string | null;
+  calendarId: string;
+  onCalendarId: (value: string) => void;
+  busy: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (connectedId) {
+    return (
+      <div className="calendar-connect" role="status">
+        <p>
+          <strong>Connected:</strong> {connectedId}. New bookings, changes and cancellations appear in it within a few seconds.
+        </p>
+        <button type="button" className="button button-secondary" disabled={busy} onClick={onDisconnect}>
+          Disconnect
+        </button>
+      </div>
+    );
+  }
+  if (!shareEmail) return <p className="muted">We'll connect your Google Calendar with you during setup.</p>;
+  const copy = () => {
+    navigator.clipboard?.writeText(shareEmail).then(
+      () => setCopied(true),
+      () => setCopied(false),
+    );
+  };
+  return (
+    <div className="calendar-connect">
+      <p className="muted">Connect it now, on a computer, in three steps:</p>
+      <ol>
+        <li>
+          Open <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noreferrer">Google Calendar settings</a> and,
+          under <em>Settings for my calendars</em>, choose the calendar you book appointments in.
+        </li>
+        <li>
+          Under <em>Share with specific people or groups</em>, add <code>{shareEmail}</code>{" "}
+          <button type="button" className="link-button" onClick={copy}>
+            {copied ? "Copied" : "Copy"}
+          </button>{" "}
+          and choose <strong>Make changes to events</strong>.
+        </li>
+        <li>
+          Under <em>Integrate calendar</em>, copy the <strong>Calendar ID</strong> and paste it below. For your main calendar it's your
+          Gmail address.
+        </li>
+      </ol>
+      <Field label="Calendar ID">
+        {(props) => (
+          <input {...props} type="text" maxLength={200} placeholder="you@gmail.com" value={calendarId} onChange={(e) => onCalendarId(e.target.value)} />
+        )}
+      </Field>
+      <button type="button" className="button button-primary" disabled={busy || calendarId.trim().length < 3} onClick={onConnect}>
+        Connect calendar
+      </button>
+    </div>
+  );
+}
+
 function ProfileForm({ token, options, onSignOut }: { token: string; options: ProfileOptions; onSignOut: (notice?: string) => void }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState(0);
   const [urls, setUrls] = useState("");
   const [zips, setZips] = useState("");
+  const [calendarId, setCalendarId] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
@@ -315,6 +385,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
     setDraft(toDraft(next));
     setUrls(next.details.knowledge_urls.join("\n"));
     setZips((next.details.service_zip_codes ?? []).join(", "));
+    setCalendarId(next.details.google_calendar_id ?? "");
   }, []);
 
   useEffect(() => {
@@ -361,6 +432,25 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
       );
       setSaved("Saved.");
       if (next !== undefined) setStep(next);
+    });
+
+  // Unsaved edits are saved first, since connecting reloads the profile.
+  const connectCalendar = () =>
+    run(async () => {
+      if (!draft) return;
+      await subscriberApi.save(token, {
+        business_name: orNull(draft.business_name),
+        business_type: draft.business_type || null,
+        details: cleanDetails(draft.details, urls, zips),
+      });
+      load(await subscriberApi.connectCalendar(token, calendarId.trim()));
+      setSaved("Your calendar is connected.");
+    });
+
+  const disconnectCalendar = () =>
+    run(async () => {
+      load(await subscriberApi.disconnectCalendar(token));
+      setSaved("Your calendar is disconnected.");
     });
 
   const upload = (files: FileList | null) =>
@@ -536,7 +626,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
 
         {current.id === "calendar" && (
           <>
-            <Field label="Calendar you book appointments in" hint="We connect to it during setup, so bookings never clash.">
+            <Field label="Calendar you book appointments in" hint="Bookings go into it, and times you're busy in it are never offered.">
               {(props) => (
                 <select {...props} value={details.calendar_provider ?? ""} onChange={(e) => setDetails({ calendar_provider: e.target.value || null })}>
                   <option value="">Choose your calendar</option>
@@ -548,6 +638,17 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
                 </select>
               )}
             </Field>
+            {details.calendar_provider === "google" && (
+              <GoogleCalendarConnect
+                shareEmail={options.calendar_share_email ?? null}
+                connectedId={details.google_calendar_connected ? (details.google_calendar_id ?? null) : null}
+                calendarId={calendarId}
+                onCalendarId={setCalendarId}
+                busy={busy}
+                onConnect={connectCalendar}
+                onDisconnect={disconnectCalendar}
+              />
+            )}
             {details.calendar_provider === "other" && (
               <Field label="Which system?">
                 {(props) => <input {...props} maxLength={60} value={details.calendar_other ?? ""} onChange={(e) => setDetails({ calendar_other: e.target.value })} />}

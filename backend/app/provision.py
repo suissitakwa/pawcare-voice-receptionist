@@ -26,7 +26,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.businesses import TEMPLATE_FILE, load_business, read_seed
+from app.config import get_settings
 from app.industries import STANDARD_SIZE
+from app.integrations import share_calendar
 from app.models import Business, BusinessProfile, SubscriberAccount
 from app.schemas import BusinessSeed
 from app.staff import upsert_staff
@@ -265,10 +267,13 @@ def summary(data: dict) -> str:
 def follow_ups(details: ProfileDetails) -> list[str]:
     """What still needs a person after the business exists."""
     steps = []
-    if details.calendar_provider == "google":
+    if details.google_calendar_connected:
+        pass  # Connected from their profile; approve connects the business to it.
+    elif details.calendar_provider == "google":
         steps.append(
-            "Connect their Google Calendar: python -m app.integrations set-calendar "
-            "<slug> <calendar id> <key.json> (docs/calendar.md)."
+            "Ask them to connect their Google Calendar in their profile (Your calendar step). "
+            "Once they've shared it: python -m app.integrations share-calendar <slug> "
+            "<calendar id> (docs/calendar.md)."
         )
     elif details.calendar_provider not in (None, "none"):
         steps.append(
@@ -296,6 +301,13 @@ def create(session: Session, email: str, seed: BusinessSeed) -> tuple[uuid.UUID,
         raise ProvisionError("Set is_demo to false for a real business.")
     business_id = load_business(session, seed)
     profile.business_id = business_id
+    details = ProfileDetails.from_stored(profile.details)
+    if details.google_calendar_connected and details.google_calendar_id:
+        # They connected it while signing up, so bookings go to it from the start.
+        try:
+            share_calendar(session, get_settings(), seed.slug, details.google_calendar_id)
+        except ValueError as error:
+            raise ProvisionError(f"Couldn't connect their calendar: {error}") from None
     # Their sign-up password also opens the staff dashboard.
     upsert_staff(session, seed.slug, account.email, account.full_name, account.password_hash)
     session.flush()

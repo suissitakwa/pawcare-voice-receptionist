@@ -9,6 +9,7 @@ Usage:
   python -m app.integrations generate-key
   python -m app.integrations show <business-slug>
   python -m app.integrations set-calendar <business-slug> <calendar-id> <key-file.json>
+  python -m app.integrations share-calendar <business-slug> <calendar-id>   (HelloEver's account)
   python -m app.integrations set-webhook <business-slug> <url>     (asks for the secret)
   python -m app.integrations remove <business-slug> google_calendar|webhook
 """
@@ -33,6 +34,9 @@ logger = logging.getLogger("pawcare.integrations")
 CALENDAR = "google_calendar"
 WEBHOOK = "webhook"
 KINDS = (CALENDAR, WEBHOOK)
+# A calendar shared with HelloEver's service account (GOOGLE_SERVICE_ACCOUNT_JSON) rather than
+# one with its own key.
+SHARED = "shared"
 
 
 class IntegrationUnavailable(Exception):
@@ -89,6 +93,12 @@ def calendar_config(
     found = stored(session, settings, business_id, CALENDAR)
     if found is not None:
         config, secret = found
+        if config.get("account") == SHARED:
+            # Shared with HelloEver's own service account: its key lives in the environment,
+            # so rotating it there reaches every business at once.
+            if not settings.google_service_account_json:
+                raise IntegrationUnavailable("GOOGLE_SERVICE_ACCOUNT_JSON is not set")
+            return CalendarConfig(config["calendar_id"], settings.google_service_account_json)
         return CalendarConfig(config["calendar_id"], secret)
     if (
         settings.google_calendar_id
@@ -166,6 +176,24 @@ def set_calendar(
     save(session, settings, business_slug, CALENDAR, {"calendar_id": calendar_id.strip()}, key_json)
 
 
+def share_calendar(
+    session: Session, settings: Settings, business_slug: str, calendar_id: str
+) -> None:
+    """Connects a calendar the business shared with HelloEver's service account."""
+    if not calendar_id.strip():
+        raise ValueError("The calendar id is empty.")
+    if not settings.google_service_account_json:
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is not set.")
+    save(
+        session,
+        settings,
+        business_slug,
+        CALENDAR,
+        {"calendar_id": calendar_id.strip(), "account": SHARED},
+        "",
+    )
+
+
 def set_webhook(
     session: Session, settings: Settings, business_slug: str, url: str, secret: str
 ) -> None:
@@ -200,6 +228,8 @@ def describe(session: Session, business_slug: str) -> list[str]:
     lines = []
     for kind, config, updated_at in rows:
         detail = config.get("calendar_id") if kind == CALENDAR else "URL set"
+        if config.get("account") == SHARED:
+            detail += " (shared with HelloEver's account)"
         lines.append(f"{kind}: {detail} (updated {updated_at:%Y-%m-%d})")
     return lines
 
@@ -220,6 +250,9 @@ def main() -> None:
             elif command == "set-calendar" and len(args) == 3:
                 set_calendar(session, settings, args[0], args[1], Path(args[2]).read_text())
                 print(f"Calendar saved for {args[0]}.")
+            elif command == "share-calendar" and len(args) == 2:
+                share_calendar(session, settings, args[0], args[1])
+                print(f"Calendar saved for {args[0]}, through HelloEver's service account.")
             elif command == "set-webhook" and len(args) == 2:
                 secret = getpass("Webhook signing secret (at least 32 characters): ")
                 set_webhook(session, settings, args[0], args[1], secret)

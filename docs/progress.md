@@ -865,3 +865,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 533 passed (local PostgreSQL 14), 6 new: address required, ZIP required and checked, the address on the booking, calendar location and webhook; any address when no ZIP codes are set; none kept at a salon-based business; the receptionist's instructions and tools; only groomers can be mobile; a mobile profile becomes a mobile business. Migrations `0001`–`0024` upgrade and downgrade cleanly |
 | Frontend | 87 tests pass (Node 22), 1 new: the mobile booking form needs the address and sends it |
 | Live | Not deployed. Not tried on a real call |
+
+## Owners connect their Google Calendar (2026-11-20)
+
+**Outcome:** two-way calendar sync existed, but connecting a business meant a service account key file and a command per business, so no real business was connected. Owners now connect it themselves in the profile's **Your calendar** step: they share their calendar with HelloEver's service account (its address is shown with a copy button), paste the calendar ID, and press **Connect calendar**. The backend checks with Google that the account can make changes before saving, and explains a calendar that isn't shared or is shared only to see. A profile edit can't mark a calendar connected. `provision approve` connects the new business to it; a live business connects and disconnects at once. Connections through the shared account store no secret, and the key stays in `GOOGLE_SERVICE_ACCOUNT_JSON`. `python -m app.integrations share-calendar` does the same by hand. See [calendar.md](calendar.md).
+
+| Check | Result |
+| --- | --- |
+| Backend tests | All pass (local PostgreSQL 14), 17 new: each Google answer (not shared, read-only, unreachable, writer, owner, already listed), the share address in the options, connecting saves only after the check, a failed check saves nothing, a profile edit can't set it, approve connects with the environment key and leaves no calendar step, a live business connects and disconnects at once, an unconnected Google profile keeps the step |
+| Frontend | 2 new: sharing instructions, connect saves edits first, then connects and disconnects; a not-shared calendar shows Google's reason |
+| Live | Not deployed. Needs `GOOGLE_SERVICE_ACCOUNT_JSON` on Railway, then a real calendar to try |
