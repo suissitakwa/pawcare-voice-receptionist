@@ -92,6 +92,15 @@ def sender(session: Session, business: Business, settings: Settings) -> dict | N
     return {"from_number": number} if number else None
 
 
+def texts_customers(session: Session, business: Business, settings: Settings) -> bool:
+    """Whether a customer who gives a phone number will really be texted."""
+    return (
+        business.texts_enabled
+        and texting_problem(settings) is None
+        and sender(session, business, settings) is not None
+    )
+
+
 def when(local_iso: str) -> str:
     start = datetime.fromisoformat(local_iso)
     return f"{start:%a, %b} {start.day} at {format_time(start.time())}"

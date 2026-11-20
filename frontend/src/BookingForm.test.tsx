@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import BookingForm, { longDate, todayIn, wallClock } from "./BookingForm";
+import BookingForm, { TEXT_NOTICE, longDate, todayIn, wallClock } from "./BookingForm";
 
 const BUSINESS = {
   name: "Studio",
@@ -145,6 +145,48 @@ describe("BookingForm", () => {
     expect(await screen.findByText("PC-ABCD2345")).toBeInTheDocument();
     const confirmCall = calls.find((c) => c.path.endsWith("confirm"))!;
     expect((confirmCall.init!.headers as Record<string, string>)["Idempotency-Key"]).toBeTruthy();
+  });
+
+  it("says a text is coming when the business texts customers", async () => {
+    const texted = { ...SUMMARY, owner_email: null, owner_phone: "(415) 555-0100" };
+    mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [{ status: 201, body: { ...PREPARED, summary: texted } }],
+      "/api/v1/bookings/confirm": [{ status: 201, body: { reference: "PC-ABCD2345", status: "confirmed", summary: texted } }],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={{ ...BUSINESS, texts_customers: true }} catalog={CATALOG} />);
+
+    await chooseSlot(user);
+    const phone = screen.getByLabelText("Phone");
+    expect(phone).toHaveAccessibleDescription(TEXT_NOTICE);
+    await fillDetails(user, "");
+    await user.type(phone, "(415) 555-0100");
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm booking" }));
+
+    expect(await screen.findByText("PC-ABCD2345")).toBeInTheDocument();
+    expect(
+      screen.getByText("We're texting the details to (415) 555-0100, and we'll send a reminder the day before."),
+    ).toBeInTheDocument();
+  });
+
+  it("promises no text when the business doesn't send them", async () => {
+    mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [{ status: 201, body: PREPARED }],
+      "/api/v1/bookings/confirm": [{ status: 201, body: { reference: "PC-ABCD2345", status: "confirmed", summary: SUMMARY } }],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={BUSINESS} catalog={CATALOG} />);
+
+    await chooseSlot(user);
+    expect(screen.queryByText(TEXT_NOTICE)).not.toBeInTheDocument();
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm booking" }));
+    expect(await screen.findByText("PC-ABCD2345")).toBeInTheDocument();
+    expect(screen.queryByText(/We're texting/)).not.toBeInTheDocument();
   });
 
   it("with several staff, offers a choice and books the chosen person", async () => {

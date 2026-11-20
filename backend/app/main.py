@@ -33,7 +33,7 @@ from app.availability import (
 from app.booking import confirm_booking, prepare_booking
 from app.clock import get_now
 from app.config import Settings, get_settings
-from app.customer_texts import run_text_worker
+from app.customer_texts import run_text_worker, texts_customers
 from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.google_calendar import run_sync_worker
@@ -221,6 +221,7 @@ def get_business(
     profile = BusinessPublic.model_validate(business)
     if settings.vapi_enabled or answer_problem(settings) is None:
         profile.assistant_phone = public_number(db, settings, business)
+    profile.texts_customers = texts_customers(db, business, settings)
     return profile
 
 

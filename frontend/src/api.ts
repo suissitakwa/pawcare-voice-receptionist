@@ -25,6 +25,8 @@ export interface Business {
   hours: BusinessHours[];
   /** The receptionist's number (E.164), only while the phone line answers. */
   assistant_phone?: string | null;
+  /** Customers who give a phone number get booking texts and a reminder. */
+  texts_customers?: boolean;
 }
 
 /** Pet groomers book by dog size and note the pet; salons and barbershops don't. */

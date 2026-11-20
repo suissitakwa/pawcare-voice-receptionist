@@ -57,9 +57,17 @@ On Railway, run it in the backend's Console with `/opt/venv/bin/python`. Texts a
 
 Bookings already in the database when texts are switched on still get their reminder, as long as they have a phone number.
 
+## What the booking form says
+
+While a business really texts (switched on, Twilio set, and a number to text from), the public profile has `texts_customers: true`. The booking form then shows, under the phone field:
+
+> We'll text your confirmation and a reminder the day before. Message and data rates may apply. Reply STOP to opt out.
+
+After booking with a phone number, the confirmation screen says the details are being texted to that number. Otherwise neither appears, so the form never promises a text that won't come.
+
 ## Not done yet
 
-- The booking form and the assistant don't yet tell customers a text is coming.
+- The phone and browser assistants don't yet tell callers a text is coming.
 - The staff dashboard doesn't show texts sent or failed.
 - Owners can't switch texts on themselves.
 - Replies other than STOP/START/HELP (which Twilio answers itself) aren't read.

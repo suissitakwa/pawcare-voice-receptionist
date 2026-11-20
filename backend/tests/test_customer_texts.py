@@ -411,3 +411,30 @@ def test_texts_are_switched_on_and_off_per_business(db, monkeypatch, capsys) -> 
     assert enabled() is False
     with pytest.raises(SystemExit, match="No business with slug nobody"):
         run("texts", "nobody", "on")
+
+
+# What the booking site is told
+
+
+@pytest.mark.parametrize(
+    ("on", "overrides", "expected"),
+    [
+        (True, {}, True),
+        (False, {}, False),
+        (True, {"twilio_account_sid": "", "twilio_auth_token": ""}, False),
+        (True, {"phone_number": ""}, False),
+        (True, {"phone_number": "", "twilio_messaging_service_sid": "MG123"}, True),
+    ],
+)
+def test_the_site_says_texts_are_coming_only_when_they_are(
+    client, db, on, overrides, expected
+) -> None:
+    from app.config import get_settings
+
+    switch(db, on)
+    app.dependency_overrides[get_settings] = lambda: settings(**overrides)
+    try:
+        assert client.get("/api/v1/business").json()["texts_customers"] is expected
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+        switch(db, False)
