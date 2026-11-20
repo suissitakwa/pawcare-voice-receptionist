@@ -7,6 +7,7 @@ Usage:
   python -m app.businesses load <file.json> --update     replace an existing one's details
   python -m app.businesses list
   python -m app.businesses notify <slug> <email>        where owner emails go ("-": contact)
+  python -m app.businesses texts <slug> on|off          text customers confirmations and reminders
 
 Loading again with --update replaces the business's details, hours, FAQs and prices.
 Services missing from the file are switched off rather than deleted, so past bookings keep
@@ -148,6 +149,13 @@ def main() -> None:
                     f"Owner emails for {slug} go to "
                     f"{business.notify_email or business.contact_email}."
                 )
+            elif command == "texts" and len(args) == 2 and args[1] in ("on", "off"):
+                slug, switch = args
+                business = session.scalar(select(Business).where(Business.slug == slug))
+                if business is None:
+                    raise ValueError(f"No business with slug {slug}.")
+                business.texts_enabled = switch == "on"
+                print(f"Customer texts for {slug} are {switch}.")
             elif command == "load" and len(args) in (1, 2) and args[1:] in ([], ["--update"]):
                 seed = read_seed(Path(args[0]))
                 load_business(session, seed, update=args[1:] == ["--update"])

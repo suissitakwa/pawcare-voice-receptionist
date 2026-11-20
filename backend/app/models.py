@@ -37,6 +37,8 @@ class Business(Base):
     contact_email: Mapped[str] = mapped_column(String(254))
     # Where owner notices go (new bookings, callback requests). Empty: contact_email.
     notify_email: Mapped[str | None] = mapped_column(String(254))
+    # Text customers their confirmations and reminders. Off until the owner asks for it.
+    texts_enabled: Mapped[bool] = mapped_column(server_default=false())
     # pet_grooming, hair_salon or barbershop: what the receptionist talks about.
     industry: Mapped[str] = mapped_column(String(20), server_default="pet_grooming")
     # A mobile business goes to the customer, so every booking needs an address in its area.
@@ -332,6 +334,12 @@ class Booking(Base):
     calendar_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     calendar_error: Mapped[str | None] = mapped_column(String(200))
     calendar_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The customer's reminder text: the start time it was sent (or given up) for, so a moved
+    # booking gets a new one and the same start never gets two.
+    reminder_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    reminder_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_error: Mapped[str | None] = mapped_column(String(200))
     voice_session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("voice_sessions.id", ondelete="SET NULL")
     )
@@ -576,6 +584,12 @@ class WebhookEvent(Base):
     email_attempts: Mapped[int] = mapped_column(server_default=text("0"))
     email_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email_error: Mapped[str | None] = mapped_column(String(200))
+    # The customer's text about this event, for booking events at a business that texts.
+    text_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    text_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    text_attempts: Mapped[int] = mapped_column(server_default=text("0"))
+    text_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    text_error: Mapped[str | None] = mapped_column(String(200))
 
 
 class PasswordReset(Base):

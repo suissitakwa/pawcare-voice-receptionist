@@ -33,6 +33,7 @@ from app.availability import (
 from app.booking import confirm_booking, prepare_booking
 from app.clock import get_now
 from app.config import Settings, get_settings
+from app.customer_texts import run_text_worker
 from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.google_calendar import run_sync_worker
@@ -112,6 +113,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         workers.append(asyncio.create_task(run_worker(settings, get_engine, get_now)))
         workers.append(asyncio.create_task(run_sync_worker(settings, get_engine, get_now)))
         workers.append(asyncio.create_task(run_email_worker(settings, get_engine, get_now)))
+        workers.append(asyncio.create_task(run_text_worker(settings, get_engine, get_now)))
     yield
     await stop_running_calls()
     for worker in workers:

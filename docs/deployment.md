@@ -128,6 +128,10 @@ The browser enforces the session time limit. A visitor who modifies the page cou
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` (and optionally `PUBLIC_SITE_URL`) so each owner is emailed about bookings and callback requests. SMTP (`SMTP_*`) also works, but Railway blocks it below the Pro plan. See [email.md](email.md).
 
+## Customer texts (optional)
+
+Set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, register the sending number for texting (A2P 10DLC or toll-free verification), then switch a business on with `python -m app.businesses texts <slug> on`. Customers get booking, change and cancellation texts and a reminder 24 hours ahead. See [texts.md](texts.md).
+
 ## Running a command on the live backend
 
 In Railway, open the backend service's **Console** tab. It's a shell inside the running app, already connected to the production database. Use the app's own Python, for example `/opt/venv/bin/python -m app.businesses list`; plain `python` there lacks the app's packages.

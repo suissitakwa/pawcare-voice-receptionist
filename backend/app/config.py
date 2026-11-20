@@ -92,6 +92,14 @@ class Settings(BaseSettings):
     smtp_password: str = Field(default="", repr=False)
     # The From address, for example "Receptionist <bookings@example.com>".
     email_from: str = ""
+    # Customer texts (confirmations, changes, cancellations, reminders) through Twilio, for
+    # businesses with texts switched on. They're sent from the business's own phone number,
+    # or through the Messaging Service when one is set. No SID or token: no texts.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = Field(default="", repr=False)
+    twilio_messaging_service_sid: str = ""
+    # How long before an appointment its reminder is sent.
+    reminder_hours_before: int = 24
     # The booking site's address, for links in emails, for example https://example.netlify.app
     public_site_url: str = ""
     # The service's own name and inbox: new sign-ups are emailed to ADMIN_EMAIL, and the

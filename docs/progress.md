@@ -875,3 +875,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | All pass (local PostgreSQL 14), 17 new: each Google answer (not shared, read-only, unreachable, writer, owner, already listed), the share address in the options, connecting saves only after the check, a failed check saves nothing, a profile edit can't set it, approve connects with the environment key and leaves no calendar step, a live business connects and disconnects at once, an unconnected Google profile keeps the step |
 | Frontend | 2 new: sharing instructions, connect saves edits first, then connects and disconnects; a not-shared calendar shows Google's reason |
 | Live | Not deployed. Needs `GOOGLE_SERVICE_ACCOUNT_JSON` on Railway, then a real calendar to try |
+
+## Customer texts (2026-11-20)
+
+**Outcome:** customers can now get a text when a booking is made, changed or cancelled, and a reminder 24 hours before, however they booked. Texts are sent through Twilio from the business's own number (or a Messaging Service) and are off until switched on per business with `python -m app.businesses texts <slug> on`. Booking texts read the existing event outbox. Reminders come from the bookings, keyed to the start time, so a moved booking gets a new reminder and the same time never gets two. Sending is at most once: a Twilio timeout is never retried, because Twilio can't recognise a repeated request. Refusals such as a customer who replied STOP are final. Migration `0025`. See [texts.md](texts.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 578 passed (local PostgreSQL 14), 28 of them new: the text for each event and the reminder, staff and address in the text, once only, texts off, no phone, no number to text from, Messaging Service, no Twilio settings, retry with delays then give up, refusal final, late events dropped, reminder a day ahead once, moved booking gets a new reminder, none inside the window, none for cancelled or imminent bookings, reminder retry, the Twilio request, which Twilio errors are retried, and the `texts` switch. Migrations `0001`–`0025` upgrade and downgrade cleanly |
+| Frontend | Unchanged |
+| Live | Not deployed. Needs Twilio settings and a registered sending number (A2P 10DLC or toll-free); no real text sent yet |
