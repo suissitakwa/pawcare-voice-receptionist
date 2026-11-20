@@ -228,7 +228,9 @@ def confirm_prepared(
     if not slot_is_open(session, business, draft.starts_at, duration, now, draft.groomer_id):
         raise slot_unavailable()
 
-    for _ in range(3):
+    reference_clashes = 0
+    deadlocks = 0
+    while reference_clashes < 3:
         booking = Booking(
             business_id=business.id,
             groomer_id=draft.groomer_id,
@@ -268,14 +270,22 @@ def confirm_prepared(
                     409, "already_confirmed", "This booking summary was already confirmed."
                 ) from None
             if constraint == "uq_bookings_reference":
+                reference_clashes += 1
                 continue
             raise
         except OperationalError as exc:
             # Two inserts checking the overlap constraint at once can deadlock. Postgres
-            # aborts one; trying again either books or meets the winner's booking.
-            if getattr(exc.orig, "sqlstate", None) == "40P01":
-                continue
-            raise
+            # aborts one; trying again either books or meets the winner's booking. A
+            # deadlock means someone else is taking this time, so after a few the slot
+            # is reported as gone rather than retried forever.
+            if getattr(exc.orig, "sqlstate", None) != "40P01":
+                raise
+            deadlocks += 1
+            if deadlocks >= 5 or not slot_is_open(
+                session, business, draft.starts_at, duration, now, draft.groomer_id
+            ):
+                raise slot_unavailable() from None
+            continue
         if draft.voice_session_id is not None:
             session.execute(
                 update(VoiceSession)
