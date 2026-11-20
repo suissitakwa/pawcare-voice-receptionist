@@ -826,3 +826,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 524 passed (local PostgreSQL 14), 3 new: approve creates the business with its hours, prices, team and who does what, and a bookable catalog; approve refuses a profile without hours or services; an older submitted profile can still be edited |
 | Frontend | 83 tests pass (Node 22), 1 new: hours, time zone and services with prices per size are sent, half-filled rows dropped. The three steps checked in the browser against a local backend |
 | Live | Not deployed |
+
+## Hair salons and barbershops (2026-11-20)
+
+**Outcome:** the receptionist served only dog groomers: every booking needed a dog size and a pet name, and its script, the booking site, dashboard, emails and calendar entries talked about dogs. Each business now has an `industry` (migration `0023`: `pet_grooming`, `hair_salon` or `barbershop`, pet grooming by default). Salons and barbershops book each service as one "standard" size, filled in automatically, and have no pet name. Their receptionist introduces itself as a hair salon or barbershop, quotes durations and prices without sizes, asks only the caller's name and contact, sends allergy and scalp questions to staff, and its tools have no size, pet name or dog-only callback reasons. The booking site, voice demo summary, dashboard ("Client" instead of "Dog"), owner emails and calendar entries follow. `provision approve` now creates salons and barbershops from their sign-up profiles. Pet grooming wording is unchanged, so the demo and its evals are untouched.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 525 passed (local PostgreSQL 14). A new end-to-end test approves a hair salon from its profile and checks the one-size catalog, instructions without "dog", tools without size or pet name, and a booking made without either. Migrations `0001`–`0023` upgrade and downgrade cleanly |
+| Frontend | 85 tests pass (Node 22), 2 new: a salon booking form without size or dog name, a barbershop dashboard with clients and no dog column |
+| Evals | Not rerun. The pet grooming instructions are unchanged |
+| Live | Not deployed. Not tried on a real call |

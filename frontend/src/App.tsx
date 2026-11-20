@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { type Business, type Catalog, type Faq } from "./api";
+import { INDUSTRY_LABELS, hasPets, type Business, type Catalog, type Faq } from "./api";
 import { formatDuration, formatPhone, formatPrice, formatTime, weekdayName } from "./format";
 import BookingForm from "./BookingForm";
 import VoiceAssistant from "./VoiceAssistant";
@@ -48,13 +48,14 @@ function Actions({ phone }: { phone?: string | null }) {
   );
 }
 
-function Hero({ tagline, phone }: { tagline?: string; phone?: string | null }) {
+function Hero({ tagline, phone, industry }: { tagline?: string; phone?: string | null; industry?: string }) {
+  const pets = hasPets({ industry });
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="container hero-grid">
         <div>
-          <p className="eyebrow">Dog grooming, by appointment</p>
-          <h1 id="hero-title">{tagline ?? "One groomer. One dog at a time."}</h1>
+          <p className="eyebrow">{INDUSTRY_LABELS[industry ?? "pet_grooming"] ?? "Appointments"}, by appointment</p>
+          <h1 id="hero-title">{tagline || (pets ? "One groomer. One dog at a time." : "Book your next appointment.")}</h1>
           <Actions phone={phone} />
         </div>
         <div className="hero-art" aria-hidden="true">
@@ -134,15 +135,17 @@ function Section({
   );
 }
 
-function ServicesList({ catalog, demo }: { catalog: Catalog; demo: boolean }) {
+function ServicesList({ catalog, demo, pets = true }: { catalog: Catalog; demo: boolean; pets?: boolean }) {
   const sizes = new Map(catalog.size_categories.map((size) => [size.slug, size]));
   const assessed = catalog.size_categories.filter((size) => size.requires_staff_assessment);
   return (
     <>
       <p className="lead">
-        {demo
-          ? "Prices are indicative demo prices and depend on your dog's size."
-          : "Prices are a starting point and depend on your dog's size and coat."}
+        {!pets
+          ? "Prices are a starting point."
+          : demo
+            ? "Prices are indicative demo prices and depend on your dog's size."
+            : "Prices are a starting point and depend on your dog's size and coat."}
       </p>
       <div className="service-grid">
         {catalog.services.map((service) => (
@@ -150,10 +153,12 @@ function ServicesList({ catalog, demo }: { catalog: Catalog; demo: boolean }) {
             <h3>{service.name}</h3>
             <p>{service.description}</p>
             <table>
-              <caption className="visually-hidden">{service.name} price and duration by dog size</caption>
+              <caption className="visually-hidden">
+                {service.name} price and duration{pets ? " by dog size" : ""}
+              </caption>
               <thead>
                 <tr>
-                  <th scope="col">Size</th>
+                  <th scope="col">{pets ? "Size" : "Service"}</th>
                   <th scope="col">Time</th>
                   <th scope="col" className="numeric">Price</th>
                 </tr>
@@ -164,8 +169,8 @@ function ServicesList({ catalog, demo }: { catalog: Catalog; demo: boolean }) {
                   return (
                     <tr key={option.size}>
                       <th scope="row">
-                        {size?.label ?? option.size}
-                        {size && <span className="size-note">{size.description}</span>}
+                        {pets ? (size?.label ?? option.size) : service.name}
+                        {pets && size && <span className="size-note">{size.description}</span>}
                       </th>
                       <td>{formatDuration(option.duration_minutes)}</td>
                       <td className="numeric">{formatPrice(option.price_cents)}</td>
@@ -311,7 +316,7 @@ export default function App() {
           </div>
         )}
 
-        <Hero tagline={business?.tagline} phone={business?.assistant_phone} />
+        <Hero tagline={business?.tagline} phone={business?.assistant_phone} industry={business?.industry} />
 
         {demo && (
           <Section id="video" title="See the idea in one minute">
@@ -331,7 +336,7 @@ export default function App() {
 
         <Section id="services" title="Services and pricing">
           {data ? (
-            <ServicesList catalog={data.catalog} demo={demo} />
+            <ServicesList catalog={data.catalog} demo={demo} pets={hasPets(business)} />
           ) : (
             <SectionFallback failed={failed} />
           )}

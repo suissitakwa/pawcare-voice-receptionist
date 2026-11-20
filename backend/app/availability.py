@@ -262,14 +262,23 @@ def load_business(session: Session, business_id: uuid.UUID) -> Business:
 
 
 def resolve_option(
-    session: Session, business_id: uuid.UUID, service_slug: str, size_slug: str
+    session: Session, business_id: uuid.UUID, service_slug: str, size_slug: str | None
 ) -> tuple[Service, SizeCategory, ServiceSizeRule]:
-    """The bookable service, dog size, and rule, or the error explaining why not."""
-    size = session.scalar(
-        select(SizeCategory).where(
-            SizeCategory.business_id == business_id, SizeCategory.slug == size_slug
+    """The bookable service, size, and rule, or the error explaining why not. Without a size,
+    a business with only one (salons, barbershops) uses it."""
+    if size_slug is None:
+        sizes = session.scalars(
+            select(SizeCategory).where(SizeCategory.business_id == business_id)
+        ).all()
+        if len(sizes) != 1:
+            raise ApiError(422, "size_required", "Choose a size.")
+        size = sizes[0]
+    else:
+        size = session.scalar(
+            select(SizeCategory).where(
+                SizeCategory.business_id == business_id, SizeCategory.slug == size_slug
+            )
         )
-    )
     if size is None:
         raise ApiError(404, "unknown_size", "That dog size is not recognised.")
     if size.requires_staff_assessment:

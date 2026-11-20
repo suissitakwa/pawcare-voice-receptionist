@@ -214,16 +214,26 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
             "booking.cancelled": "Booking cancelled",
         }[event.event_type]
         start = when(data["local_start"])
-        subject = f"{action}: {data.get('service')} for {data.get('pet_name')}, {start}"
+        pet = data.get("pet_name")
+        who = pet or data.get("owner_name")
+        subject = f"{action}: {data.get('service')} for {who}, {start}"
         contact = ", ".join(c for c in (data.get("owner_phone"), data.get("owner_email")) if c)
         lines = [
             f"{action} ({'by phone or voice' if data.get('source') == 'voice' else 'online'}).",
             "",
             f"When: {start}",
-            f"Service: {data.get('service')}, {str(data.get('size', '')).lower()} dog",
-            f"Dog: {data.get('pet_name')}",
-            f"Owner: {data.get('owner_name')}, {contact}",
         ]
+        if pet:
+            lines += [
+                f"Service: {data.get('service')}, {str(data.get('size', '')).lower()} dog",
+                f"Dog: {pet}",
+                f"Owner: {data.get('owner_name')}, {contact}",
+            ]
+        else:
+            lines += [
+                f"Service: {data.get('service')}",
+                f"Client: {data.get('owner_name')}, {contact}",
+            ]
         if data.get("staff"):
             lines.append(f"With: {data['staff']}")
         lines += [

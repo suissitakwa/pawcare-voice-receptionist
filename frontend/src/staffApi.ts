@@ -7,6 +7,7 @@ export interface StaffUser {
   business_slug: string;
   business_name: string;
   business_is_demo: boolean;
+  business_industry?: string;
 }
 
 export interface StaffBooking {

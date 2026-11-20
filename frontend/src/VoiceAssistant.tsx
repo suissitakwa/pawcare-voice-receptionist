@@ -493,8 +493,12 @@ export default function VoiceAssistant({
           <dl className="summary-list">
             {(
               [
-                ["Service", `${prepared.summary.service}, ${prepared.summary.size.toLowerCase()} dog`],
-                ["Dog", prepared.summary.pet_name],
+                ...(prepared.summary.pet_name
+                  ? [
+                      ["Service", `${prepared.summary.service}, ${prepared.summary.size.toLowerCase()} dog`],
+                      ["Dog", prepared.summary.pet_name],
+                    ]
+                  : [["Service", prepared.summary.service]]),
                 ["Date", longDate(prepared.summary.local_start.slice(0, 10))],
                 ["Time", `${wallClock(prepared.summary.local_start)} to ${wallClock(prepared.summary.local_end)}`],
                 ["Length", formatDuration(prepared.summary.duration_minutes)],
@@ -519,7 +523,8 @@ export default function VoiceAssistant({
       )}
       {booked && (
         <p className="form-info" role="status">
-          Booked. Reference <strong>{booked.reference}</strong>: {booked.summary.service} for {booked.summary.pet_name} on{" "}
+          Booked. Reference <strong>{booked.reference}</strong>: {booked.summary.service}
+          {booked.summary.pet_name ? ` for ${booked.summary.pet_name}` : ""} on{" "}
           {longDate(booked.summary.local_start.slice(0, 10))} at {wallClock(booked.summary.local_start)}.
         </p>
       )}

@@ -26,6 +26,7 @@ from app.availability import (
     staff_for,
 )
 from app.errors import ApiError
+from app.industries import industry_of
 from app.models import Booking, BookingDraft, Business, VoiceSession
 from app.schemas import BookingConfirmation, BookingSummary, PrepareBookingRequest, PreparedBooking
 from app.webhooks import booking_data, enqueue
@@ -61,6 +62,8 @@ def prepare_booking(
     voice_session_id: uuid.UUID | None = None,
 ) -> PreparedBooking:
     service, size, rule = resolve_option(session, business.id, request.service, request.size)
+    if industry_of(business).has_pets and not request.pet_name:
+        raise ApiError(422, "invalid_request", "Check these fields: pet_name.")
     timezone = ZoneInfo(business.timezone)
     starts_at = request.starts_at.astimezone(UTC)
     check_booking_window(business, starts_at.astimezone(timezone).date(), now)

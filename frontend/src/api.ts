@@ -17,10 +17,23 @@ export interface Business {
   contact_phone: string;
   address: string;
   is_demo: boolean;
+  /** pet_grooming, hair_salon or barbershop. Missing means pet grooming. */
+  industry?: string;
   hours: BusinessHours[];
   /** The receptionist's number (E.164), only while the phone line answers. */
   assistant_phone?: string | null;
 }
+
+/** Pet groomers book by dog size and note the pet; salons and barbershops don't. */
+export function hasPets(business: Pick<Business, "industry"> | null | undefined): boolean {
+  return (business?.industry ?? "pet_grooming") === "pet_grooming";
+}
+
+export const INDUSTRY_LABELS: Record<string, string> = {
+  pet_grooming: "Dog grooming",
+  hair_salon: "Hair salon",
+  barbershop: "Barbershop",
+};
 
 export interface SizeCategory {
   slug: string;

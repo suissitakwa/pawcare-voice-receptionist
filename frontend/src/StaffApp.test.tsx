@@ -252,6 +252,23 @@ describe("StaffApp", () => {
     expect(screen.getByText(/3 sent in the last 7 days/)).toBeInTheDocument();
   });
 
+  it("at a barbershop, shows clients and no dog column", async () => {
+    mockApi(
+      dashboardRoutes({
+        "POST /api/v1/staff/login": () => ({
+          status: 200,
+          body: { token: "t-123", expires_at: "x", staff: { ...STAFF, business_industry: "barbershop" } },
+        }),
+        "GET /api/v1/staff/bookings": () => ({ status: 200, body: [{ ...BOOKING, pet_name: "", size: "Standard" }] }),
+      }),
+    );
+    render(<StaffApp />);
+    await signIn();
+    await screen.findByText("PC-ABCD2345");
+    expect(screen.queryByRole("columnheader", { name: "Dog" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Client" })).toBeInTheDocument();
+  });
+
   it("with one staff member, has no staff column or choice", async () => {
     mockApi(dashboardRoutes());
     render(<StaffApp />);
