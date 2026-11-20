@@ -118,8 +118,8 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             f"Answers to common questions: {data.get('faqs', 0)}, documents: "
             f"{data.get('documents', 0)}",
             "",
-            "Next: go through the intake with them, then in Railway's backend Console:",
-            f"/opt/venv/bin/python -m app.provision draft {data.get('owner_email')}",
+            "Next: check it with them, then in Railway's backend Console:",
+            f"/opt/venv/bin/python -m app.provision approve {data.get('owner_email')}",
         ]
     elif event.event_type == "profile.updated":
         subject = f"Profile updated: {business}"

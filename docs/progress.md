@@ -816,3 +816,13 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | --- | --- |
 | Backend tests | 521 passed (local PostgreSQL 14), 5 new: nothing before submitting, a burst of edits and a document upload become one email after the quiet spell with only the latest values, unchanged saves send nothing, a later edit starts a new email, a live business gets the reminder |
 | Live | Not deployed |
+
+## A business straight from the sign-up profile (2026-11-19)
+
+**Outcome:** the sign-up profile asked for the name, phone, calendar and answers, but not what a receptionist needs to book: hours, services and prices. They had to be collected by hand and typed into a business file. The profile now has three more steps: **Where and when** (time zone, address, opening hours), **Services and prices** (length and price per dog size, or one price for other businesses), and **Your team** (who takes appointments and which services each does). Hours and at least one priced service are needed to submit. `python -m app.provision approve <email>` builds the whole business from the profile, shows it, and creates it after a yes; it refuses a profile without hours or services rather than going live with example prices. A profile submitted before these steps existed can still be edited, but no edit can take away what it had. "Profile updated" emails cover the new sections, and the sign-up email points to `approve`.
+
+| Check | Result |
+| --- | --- |
+| Backend tests | 524 passed (local PostgreSQL 14), 3 new: approve creates the business with its hours, prices, team and who does what, and a bookable catalog; approve refuses a profile without hours or services; an older submitted profile can still be edited |
+| Frontend | 83 tests pass (Node 22), 1 new: hours, time zone and services with prices per size are sent, half-filled rows dropped. The three steps checked in the browser against a local backend |
+| Live | Not deployed |

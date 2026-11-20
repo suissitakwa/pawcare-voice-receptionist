@@ -11,6 +11,9 @@ export interface ProfileOptions {
   calendar_providers: Option[];
   document_types: string[];
   max_document_bytes: number;
+  timezones?: Option[];
+  /** Price rows per business type: dog sizes for pet groomers, one row for the others. */
+  sizes?: Record<string, Option[]>;
 }
 
 export interface Account {
@@ -29,6 +32,31 @@ export interface FaqItem {
   answer: string;
 }
 
+export interface OpeningHours {
+  /** 0 is Monday. */
+  weekday: number;
+  opens_at: string;
+  closes_at: string;
+}
+
+export interface ServicePrice {
+  size: string;
+  duration_minutes: number | null;
+  price_cents: number | null;
+}
+
+export interface ServiceItem {
+  name: string;
+  description: string;
+  prices: ServicePrice[];
+}
+
+export interface TeamMember {
+  name: string;
+  /** Names of the services this person does. Empty: every service. */
+  services: string[];
+}
+
 export interface ProfileDetails {
   business_phone: string | null;
   website_url: string | null;
@@ -38,6 +66,11 @@ export interface ProfileDetails {
   faqs: FaqItem[];
   voice: string | null;
   ai_disclosure_ack: boolean;
+  timezone?: string | null;
+  address?: string | null;
+  hours?: OpeningHours[];
+  services?: ServiceItem[];
+  team?: TeamMember[];
 }
 
 export interface ProfileDocument {

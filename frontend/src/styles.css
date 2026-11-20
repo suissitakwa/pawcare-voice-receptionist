@@ -316,3 +316,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 720px) {
   .profile-layout { grid-template-columns: 1fr; }
 }
+
+/* Sign-up profile: opening hours and price tables */
+.hours-editor { border: 0; padding: 0; margin: 0 0 16px; }
+.hours-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 6px 0; border-bottom: 1px solid var(--line, #e5e5e5); }
+.hours-row .check-option { min-width: 9rem; }
+.hours-times { display: inline-flex; align-items: center; gap: 8px; }
+.price-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.price-table th, .price-table td { text-align: left; padding: 4px 8px 4px 0; }
+.price-table input { width: 100%; max-width: 8rem; }

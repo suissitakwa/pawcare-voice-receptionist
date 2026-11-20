@@ -95,3 +95,16 @@ def test_a_live_business_is_a_reminder_to_update_its_file(client, db) -> None:
     outbox = Outbox()
     send_due(db, settings(), NOW + timedelta(minutes=11), outbox)
     assert "live at /b/pawcare-demo and doesn't change by itself" in outbox.sent[0].get_content()
+
+
+def test_a_profile_submitted_before_hours_existed_can_still_be_edited(client, db) -> None:
+    headers = submitted(client, db)
+    profile = db.scalar(select(BusinessProfile))
+    db.execute(
+        update(BusinessProfile).values(details={**profile.details, "hours": [], "services": []})
+    )
+    db.commit()
+    patch(client, headers, details={"business_phone": "(415) 555-0177"})
+    # But it can't lose what it has.
+    emptied = client.patch(f"{API}/profile", headers=headers, json={"details": {"voice": None}})
+    assert emptied.status_code == 422

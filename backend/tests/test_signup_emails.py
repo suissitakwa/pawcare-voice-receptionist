@@ -50,7 +50,7 @@ def test_a_sign_up_emails_us_and_the_owner(client, db) -> None:
     assert "Sam Rivera submitted a profile for Shaggy Chic." in body
     assert "Phone: (415) 555-0134" in body
     assert "Calendar: Google Calendar" in body
-    assert "/opt/venv/bin/python -m app.provision draft sam@example.com" in body
+    assert "/opt/venv/bin/python -m app.provision approve sam@example.com" in body
     assert "Web pages to learn from: -" in body
 
     assert theirs["Subject"] == "We received your profile for Shaggy Chic"

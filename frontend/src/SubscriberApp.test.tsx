@@ -16,6 +16,15 @@ const OPTIONS = {
   calendar_providers: [{ value: "google", label: "Google Calendar" }],
   document_types: ["application/pdf"],
   max_document_bytes: 5 * 1024 * 1024,
+  timezones: [{ value: "America/Los_Angeles", label: "Pacific" }],
+  sizes: {
+    pet_grooming: [
+      { value: "small", label: "Small dog" },
+      { value: "medium", label: "Medium dog" },
+      { value: "large", label: "Large dog" },
+    ],
+    barbershop: [{ value: "any", label: "Any" }],
+  },
 };
 const EMPTY_DETAILS = {
   business_phone: null,
@@ -213,7 +222,7 @@ describe("SubscriberApp", () => {
     await user.type(screen.getByLabelText("Business phone number"), "  (415) 555-0134 ");
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
 
-    expect(await screen.findByRole("heading", { name: "Your calendar" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Where and when" })).toBeInTheDocument();
     expect(saved.business_name).toBe("Fade Factory");
     expect(saved.business_type).toBe("barbershop");
     const details = saved.details as Record<string, unknown>;
@@ -221,6 +230,41 @@ describe("SubscriberApp", () => {
     expect(details.website_url).toBeNull();
     const patch = calls.find((c) => c.key === "PATCH /api/v1/subscribers/profile");
     expect((patch?.init?.headers as Record<string, string>).Authorization).toBe("Bearer s-1");
+  });
+
+  it("collects hours, services with prices per dog size, and the team", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    mockApi(
+      routes({
+        "PATCH /api/v1/subscribers/profile": (init) => {
+          bodies.push(JSON.parse(String(init?.body)));
+          return { status: 200, body: { ...PROFILE, business_type: "pet_grooming" } };
+        },
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+
+    await user.click(await screen.findByRole("button", { name: "Where and when" }));
+    await user.selectOptions(screen.getByLabelText("Time zone"), "America/Los_Angeles");
+    await user.click(screen.getByRole("checkbox", { name: "Tuesday" }));
+    await user.click(screen.getByRole("button", { name: "Save and continue" }));
+    let details = bodies.at(-1)!.details as Record<string, unknown>;
+    expect(details.timezone).toBe("America/Los_Angeles");
+    expect(details.hours).toEqual([{ weekday: 1, opens_at: "09:00", closes_at: "17:00" }]);
+
+    expect(await screen.findByRole("heading", { name: "Services and prices" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add a service" }));
+    await user.type(screen.getByLabelText("Service name"), "Full Groom");
+    await user.type(screen.getByLabelText("Full Groom, Small dog, minutes"), "90");
+    await user.type(screen.getByLabelText("Full Groom, Small dog, price in dollars"), "65.50");
+    // A half-filled row isn't sent.
+    await user.type(screen.getByLabelText("Full Groom, Large dog, minutes"), "150");
+    await user.click(screen.getByRole("button", { name: "Save and continue" }));
+    details = bodies.at(-1)!.details as Record<string, unknown>;
+    expect(details.services).toEqual([
+      { name: "Full Groom", description: "", prices: [{ size: "small", duration_minutes: 90, price_cents: 6550 }] },
+    ]);
   });
 
   it("offers a female and a male voice and sends the chosen one", async () => {

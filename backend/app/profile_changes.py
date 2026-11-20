@@ -12,8 +12,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Business, BusinessProfile, ProfileDocument, SubscriberAccount, WebhookEvent
-from app.subscriber_schemas import BUSINESS_TYPE_LABELS, CALENDAR_LABELS, VOICES, ProfileDetails
+from app.subscriber_schemas import (
+    BUSINESS_TYPE_LABELS,
+    CALENDAR_LABELS,
+    SIZE_LABELS,
+    TIMEZONE_LABELS,
+    VOICES,
+    ProfileDetails,
+)
 from app.webhooks import enqueue_notice
+
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 QUIET = timedelta(minutes=10)
 MAX_FAQ_LINES = 12
@@ -42,6 +51,22 @@ def snapshot(db: Session, profile: BusinessProfile) -> dict[str, str]:
         "Web pages to learn from": "\n".join(details.knowledge_urls),
         "Answers to common questions": "\n".join(faqs),
         "Voice": VOICES[details.voice][0] if details.voice in VOICES else "",
+        "Time zone": TIMEZONE_LABELS.get(details.timezone or "", details.timezone or ""),
+        "Address": details.address or "",
+        "Opening hours": "\n".join(
+            f"{DAYS[h.weekday]} {h.opens_at:%H:%M}-{h.closes_at:%H:%M}" for h in details.hours
+        ),
+        "Services and prices": "\n".join(
+            f"{s.name}: "
+            + ", ".join(
+                f"{SIZE_LABELS[p.size]} {p.duration_minutes} min ${p.price_cents / 100:.2f}"
+                for p in s.prices
+            )
+            for s in details.services
+        ),
+        "Team": "\n".join(
+            m.name + (f" ({', '.join(m.services)})" if m.services else "") for m in details.team
+        ),
         "Documents": "\n".join(documents),
     }
 
