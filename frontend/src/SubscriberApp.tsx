@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ApiRequestError } from "./api";
+import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
 import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
 
@@ -66,7 +67,13 @@ function fileSize(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function AuthForm({ onSignedIn }: { onSignedIn: (token: string, account: Account) => void }) {
+function AuthForm({
+  onSignedIn,
+  onForgot,
+}: {
+  onSignedIn: (token: string, account: Account) => void;
+  onForgot: () => void;
+}) {
   const id = useId();
   const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [name, setName] = useState("");
@@ -165,6 +172,11 @@ function AuthForm({ onSignedIn }: { onSignedIn: (token: string, account: Account
         >
           {mode === "signup" ? "I already have an account" : "Create an account instead"}
         </button>
+        {mode === "signin" && (
+          <button type="button" className="link-button" onClick={onForgot}>
+            Forgot password?
+          </button>
+        )}
       </div>
     </form>
   );
@@ -574,6 +586,8 @@ export default function SubscriberApp() {
   const [account, setAccount] = useState<Account | null>(null);
   const [options, setOptions] = useState<ProfileOptions | null>(null);
   const [notice, setNotice] = useState("");
+  const [resetToken, setResetToken] = useState<string | null>(takeResetToken);
+  const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
     document.title = "Set up your AI receptionist";
@@ -602,8 +616,13 @@ export default function SubscriberApp() {
           {notice}
         </p>
       )}
-      {!token ? (
+      {!token && resetToken ? (
+        <NewPasswordForm token={resetToken} reset={subscriberApi.resetPassword} onDone={() => setResetToken(null)} />
+      ) : !token && forgot ? (
+        <ForgotPasswordForm send={subscriberApi.forgotPassword} onBack={() => setForgot(false)} />
+      ) : !token ? (
         <AuthForm
+          onForgot={() => setForgot(true)}
           onSignedIn={(next, who) => {
             writeToken(next);
             setToken(next);

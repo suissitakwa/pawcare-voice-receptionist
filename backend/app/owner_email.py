@@ -36,11 +36,16 @@ EMAILED_EVENTS = {
     # About the service itself, with no business yet.
     "profile.submitted",
     "profile.received",
+    "password.reset",
+    "password.changed",
 }
+# Notices that go to the account they're about.
+TO_THE_ACCOUNT = {"profile.received", "password.reset", "password.changed"}
 MAX_ATTEMPTS = 6
 FIRST_RETRY = timedelta(minutes=1)
 MAX_RETRY = timedelta(hours=1)
 GIVE_UP_AFTER = timedelta(hours=24)
+RESET_GIVE_UP = timedelta(hours=1)
 BATCH = 20
 POLL_SECONDS = 10
 TIMEOUT_SECONDS = 15
@@ -81,9 +86,18 @@ def notice_address(event: WebhookEvent, settings: Settings) -> str | None:
     """Where a notice that belongs to no business goes."""
     if event.event_type == "profile.submitted":
         return settings.admin_email or None
-    if event.event_type == "profile.received":
-        return event.payload.get("data", {}).get("owner_email")
+    if event.event_type in TO_THE_ACCOUNT:
+        data = event.payload.get("data", {})
+        return data.get("owner_email") or data.get("email")
     return None
+
+
+def forget_link(event: WebhookEvent) -> None:
+    """A reset link is only needed until it's emailed (or given up), never kept."""
+    if event.event_type == "password.reset":
+        data = dict(event.payload.get("data", {}))
+        data["link"] = "(removed after sending)"
+        event.payload = {**event.payload, "data": data}
 
 
 def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
@@ -104,6 +118,33 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             "",
             "Next: go through the intake with them, then from the backend:",
             f"python -m app.provision draft {data.get('owner_email')}",
+        ]
+    elif event.event_type == "password.reset":
+        subject = f"Reset your {settings.service_name} password"
+        lines = [
+            f"Hi {data.get('name')},",
+            "",
+            f"Someone asked to reset the password for your {settings.service_name} account "
+            f"({data.get('email')}). To choose a new password, open this link within one hour:",
+            "",
+            data.get("link", ""),
+            "",
+            "The link works once. If you didn't ask for this, ignore this email: your password "
+            "stays the same.",
+            "",
+            settings.service_name,
+        ]
+    elif event.event_type == "password.changed":
+        subject = f"Your {settings.service_name} password was changed"
+        lines = [
+            f"Hi {data.get('name')},",
+            "",
+            f"The password for your {settings.service_name} account ({data.get('email')}) was "
+            "just changed, and every other sign-in was signed out.",
+            "",
+            "If this was you, there's nothing to do. If it wasn't, reply to this email right away.",
+            "",
+            settings.service_name,
         ]
     else:
         subject = f"We received your profile for {business}"
@@ -189,7 +230,7 @@ def message_for(event: WebhookEvent, business: Business | None, settings: Settin
     sender_name, sender = parseaddr(settings.email_from)
     message["From"] = formataddr((sender_name or default_name, sender))
     message["To"] = to
-    if business is None and settings.admin_email and event.event_type == "profile.received":
+    if business is None and settings.admin_email and event.event_type in TO_THE_ACCOUNT:
         # The owner's reply reaches a person, not the notices address.
         message["Reply-To"] = settings.admin_email
     message["Subject"] = subject
@@ -288,10 +329,14 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
         if to is None:
             event.email_failed_at = now
             event.email_error = "no address to notify"
+            forget_link(event)
             continue
-        if event.created_at < now - GIVE_UP_AFTER:
+        # A reset link stops working after an hour, so its email isn't worth sending later.
+        give_up = RESET_GIVE_UP if event.event_type == "password.reset" else GIVE_UP_AFTER
+        if event.created_at < now - give_up:
             event.email_failed_at = now
-            event.email_error = "not sent within 24 hours"
+            event.email_error = "not sent in time"
+            forget_link(event)
             continue
         try:
             mail(settings, message_for(event, business, settings, to))
@@ -300,6 +345,7 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
             event.email_error = str(error)[:200]
             if event.email_attempts >= MAX_ATTEMPTS:
                 event.email_failed_at = now
+                forget_link(event)
                 logger.warning("Owner email for event %s failed: %s", event.id, error)
             else:
                 event.email_next_attempt_at = now + retry_delay(event.email_attempts)
@@ -307,6 +353,7 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
         event.email_attempts += 1
         event.email_sent_at = now
         event.email_error = None
+        forget_link(event)
         sent += 1
     session.commit()
     return sent

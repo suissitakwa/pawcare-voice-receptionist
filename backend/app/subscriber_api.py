@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.clock import get_now
+from app.config import Settings, get_settings
 from app.db import get_db
 from app.errors import ApiError
 from app.models import (
@@ -28,6 +29,14 @@ from app.models import (
     SubscriberAccount,
     SubscriberSession,
 )
+from app.password_reset import (
+    ForgotRequest,
+    ResetRequest,
+    complete_reset,
+    link_not_valid,
+    request_reset,
+)
+from app.password_reset import client_hash as reset_client
 from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME, hasher
 from app.subscriber_schemas import (
     BUSINESS_TYPE_LABELS,
@@ -208,6 +217,33 @@ def sign_up(body: SignUpRequest, request: Request, db: DbSession, now: Now) -> S
     result = new_session(db, account, now)
     db.commit()
     return result
+
+
+@router.post("/password/forgot", status_code=202)
+def forgot_password(
+    body: ForgotRequest,
+    request: Request,
+    db: DbSession,
+    now: Now,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
+    """Emails a one-time link if the account exists. The answer never says whether it does."""
+    account = db.scalar(
+        select(SubscriberAccount).where(SubscriberAccount.email == body.email.lower())
+    )
+    request_reset(db, account, "/get-started", reset_client(request), settings, now)
+    db.commit()
+    return {"status": "sent_if_account_exists"}
+
+
+@router.post("/password/reset", status_code=204)
+def reset_password(body: ResetRequest, db: DbSession, now: Now) -> Response:
+    account = complete_reset(db, body, now)
+    if not isinstance(account, SubscriberAccount):
+        db.rollback()
+        raise link_not_valid()
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.post("/login", response_model=SessionResult)

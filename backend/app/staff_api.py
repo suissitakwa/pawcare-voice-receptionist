@@ -6,7 +6,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi import Path as PathParam
 from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
@@ -29,6 +29,14 @@ from app.models import (
     WebhookEvent,
 )
 from app.owner_email import email_problem, owner_address
+from app.password_reset import (
+    ForgotRequest,
+    ResetRequest,
+    complete_reset,
+    link_not_valid,
+    request_reset,
+)
+from app.password_reset import client_hash as reset_client
 from app.schemas import (
     SLUG_PATTERN,
     BlockCreated,
@@ -159,6 +167,59 @@ def login(
 
 # The same email can work at two businesses, so signing in names the business.
 business_router = APIRouter(prefix="/api/v1/b/{business_slug}/staff", tags=["staff"])
+
+
+def forgot_at(business: Business, body: ForgotRequest, request: Request, db, settings, now):
+    staff = db.scalar(
+        select(StaffUser).where(
+            StaffUser.business_id == business.id, StaffUser.email == body.email.lower()
+        )
+    )
+    link = f"/b/{business.slug}/staff"
+    request_reset(db, staff, link, reset_client(request), settings, now)
+    db.commit()
+    return {"status": "sent_if_account_exists"}
+
+
+@router.post("/password/forgot", status_code=202)
+def forgot_password(
+    body: ForgotRequest,
+    request: Request,
+    db: DbSession,
+    now: Now,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
+    """For the deployment's own business (BUSINESS_SLUG). Same answer whatever the email."""
+    business = db.scalar(select(Business).where(Business.slug == settings.business_slug))
+    if business is None:
+        return {"status": "sent_if_account_exists"}
+    return forgot_at(business, body, request, db, settings, now)
+
+
+@router.post("/password/reset", status_code=204)
+def reset_password(body: ResetRequest, db: DbSession, now: Now) -> Response:
+    account = complete_reset(db, body, now)
+    if not isinstance(account, StaffUser):
+        db.rollback()
+        raise link_not_valid()
+    db.commit()
+    return Response(status_code=204)
+
+
+@business_router.post("/password/forgot", status_code=202)
+def forgot_password_at_business(
+    business_slug: Annotated[str, PathParam(min_length=1, max_length=64, pattern=SLUG_PATTERN)],
+    body: ForgotRequest,
+    request: Request,
+    db: DbSession,
+    now: Now,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
+    business = db.scalar(select(Business).where(Business.slug == business_slug))
+    if business is None:
+        # The same answer as for an unknown email.
+        return {"status": "sent_if_account_exists"}
+    return forgot_at(business, body, request, db, settings, now)
 
 
 @business_router.post("/login", response_model=StaffLoginResult)

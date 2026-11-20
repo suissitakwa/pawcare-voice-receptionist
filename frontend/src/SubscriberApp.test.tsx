@@ -128,6 +128,59 @@ describe("SubscriberApp", () => {
     expect(screen.getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "https://helloeverai.com/privacy/");
   });
 
+  it("sends a reset link from the sign-in form, answering the same for any email", async () => {
+    const calls = mockApi(
+      routes({ "POST /api/v1/subscribers/password/forgot": () => ({ status: 202, body: { status: "sent_if_account_exists" } }) }),
+    );
+    const user = userEvent.setup({ delay: null });
+    render(<SubscriberApp />);
+    await user.click(screen.getByRole("button", { name: "I already have an account" }));
+    await user.click(screen.getByRole("button", { name: "Forgot password?" }));
+    await user.type(screen.getByLabelText("Email"), "sam@example.com");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("If there's an account for sam@example.com");
+    const sent = calls.find((c) => c.key === "POST /api/v1/subscribers/password/forgot");
+    expect(JSON.parse(String(sent?.init?.body))).toEqual({ email: "sam@example.com" });
+  });
+
+  it("sets a new password from the emailed link and clears the link from the address", async () => {
+    window.history.pushState({}, "", "/get-started?reset=tok-1234567890abcdefghij");
+    const calls = mockApi(routes({ "POST /api/v1/subscribers/password/reset": () => ({ status: 204 }) }));
+    const user = userEvent.setup({ delay: null });
+    render(<SubscriberApp />);
+    expect(window.location.search).toBe("");
+    await user.type(screen.getByLabelText("New password"), "a-brand-new-password");
+    await user.type(screen.getByLabelText("New password again"), "a-different-password");
+    await user.click(screen.getByRole("button", { name: "Set new password" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("The two passwords don't match.");
+    await user.clear(screen.getByLabelText("New password again"));
+    await user.type(screen.getByLabelText("New password again"), "a-brand-new-password");
+    await user.click(screen.getByRole("button", { name: "Set new password" }));
+    expect(await screen.findByRole("heading", { name: "Password changed" })).toBeInTheDocument();
+    const sent = calls.find((c) => c.key === "POST /api/v1/subscribers/password/reset");
+    expect(JSON.parse(String(sent?.init?.body))).toEqual({ token: "tok-1234567890abcdefghij", password: "a-brand-new-password" });
+    window.history.pushState({}, "", "/");
+  });
+
+  it("explains an expired reset link", async () => {
+    window.history.pushState({}, "", "/get-started?reset=tok-expired-1234567890");
+    mockApi(
+      routes({
+        "POST /api/v1/subscribers/password/reset": () => ({
+          status: 400,
+          body: { error: { code: "reset_link_invalid", message: "This link has expired or was already used." } },
+        }),
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    render(<SubscriberApp />);
+    await user.type(screen.getByLabelText("New password"), "a-brand-new-password");
+    await user.type(screen.getByLabelText("New password again"), "a-brand-new-password");
+    await user.click(screen.getByRole("button", { name: "Set new password" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("This link has expired or was already used.");
+    window.history.pushState({}, "", "/");
+  });
+
   it("shows the server's reason when the email is already registered", async () => {
     mockApi(
       routes({
