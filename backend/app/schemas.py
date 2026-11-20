@@ -80,6 +80,27 @@ class BusinessSeed(SeedModel):
     # Where owner notices go; leave out to use contact_email.
     notify_email: str | None = None
     industry: Literal["pet_grooming", "hair_salon", "barbershop"] = "pet_grooming"
+    # A mobile business goes to the customer: bookings need an address in these ZIP codes.
+    is_mobile: bool = False
+    service_zip_codes: list[str] = []
+    service_area: str = Field(default="", max_length=200)
+
+    @field_validator("service_zip_codes")
+    @classmethod
+    def five_digit_zips(cls, value: list[str]) -> list[str]:
+        cleaned = [zip_code.strip() for zip_code in value if zip_code.strip()]
+        for zip_code in cleaned:
+            if not re.fullmatch(r"\d{5}", zip_code):
+                raise ValueError(f"{zip_code!r} is not a five-digit ZIP code")
+        return sorted(set(cleaned))
+
+    @model_validator(mode="after")
+    def only_groomers_are_mobile(self) -> "BusinessSeed":
+        # Only mobile groomers go to the customer; salons and barbershops never ask an address.
+        if self.is_mobile and self.industry != "pet_grooming":
+            raise ValueError("only a pet grooming business can be mobile")
+        return self
+
     slot_increment_minutes: int = Field(gt=0)
     buffer_minutes: int = Field(ge=0)
     min_notice_minutes: int = Field(ge=0)
@@ -134,6 +155,9 @@ class BusinessPublic(BaseModel):
     is_demo: bool
     # pet_grooming, hair_salon or barbershop: which fields the booking form asks for.
     industry: str = "pet_grooming"
+    # A mobile business comes to the customer, within its service area.
+    is_mobile: bool = False
+    service_area: str = ""
     hours: list[HoursPublic]
     # The receptionist's phone number, only while the phone line can answer.
     assistant_phone: str | None = None
@@ -230,6 +254,8 @@ class PrepareBookingRequest(BaseModel):
     owner_phone: str | None = Field(default=None, max_length=20)
     # Needed at a pet business only.
     pet_name: str = Field(default="", max_length=40)
+    # Where the appointment happens: needed at a mobile business only.
+    service_address: str | None = Field(default=None, max_length=200)
     # A staff member's slug, only when the customer asked for someone. Otherwise anyone free.
     staff: str | None = Field(default=None, max_length=64)
 
@@ -276,6 +302,8 @@ class BookingSummary(BaseModel):
     price_cents: int
     # Who does the appointment, at a business with more than one staff member.
     staff: str | None = None
+    # Where it happens, at a mobile business.
+    service_address: str | None = None
 
 
 class PreparedBooking(BaseModel):
@@ -337,6 +365,7 @@ class StaffBooking(BaseModel):
     cancelled_at: datetime | None
     source: Literal["form", "voice"]
     staff: str
+    service_address: str | None = None
 
 
 class StaffBlock(BaseModel):

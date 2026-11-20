@@ -1,9 +1,26 @@
 import { useEffect } from "react";
-import { INDUSTRY_LABELS, hasPets, type Business, type Catalog, type Faq } from "./api";
-import { formatDuration, formatPhone, formatPrice, formatTime, weekdayName } from "./format";
+import {
+  INDUSTRY_LABELS,
+  hasPets,
+  type Business,
+  type Catalog,
+  type Faq,
+} from "./api";
+import {
+  formatDuration,
+  formatPhone,
+  formatPrice,
+  formatTime,
+  weekdayName,
+} from "./format";
 import BookingForm from "./BookingForm";
 import VoiceAssistant from "./VoiceAssistant";
 import { businessSlug, siteRoot } from "./site";
+import {
+  IndustryMark,
+  applyIndustryLook,
+  defaultHeadline,
+} from "./industryLook";
 import { useSiteData } from "./useSiteData";
 
 const NAV_LINKS = [
@@ -14,19 +31,13 @@ const NAV_LINKS = [
   { href: "#contact", label: "Contact" },
 ];
 
-function PawMark() {
-  return (
-    <svg className="paw" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <ellipse cx="16" cy="21" rx="6.5" ry="5.5" />
-      <circle cx="8.5" cy="14.5" r="2.6" />
-      <circle cx="13" cy="9.5" r="2.6" />
-      <circle cx="19" cy="9.5" r="2.6" />
-      <circle cx="23.5" cy="14.5" r="2.6" />
-    </svg>
-  );
-}
-
-function CallButton({ phone, className }: { phone: string; className: string }) {
+function CallButton({
+  phone,
+  className,
+}: {
+  phone: string;
+  className: string;
+}) {
   return (
     <a className={className} href={`tel:${phone}`}>
       Call our assistant: {formatPhone(phone)}
@@ -40,7 +51,9 @@ function Actions({ phone }: { phone?: string | null }) {
       <a className="button button-primary" href="#assistant">
         Talk to our assistant
       </a>
-      {phone && <CallButton phone={phone} className="button button-secondary" />}
+      {phone && (
+        <CallButton phone={phone} className="button button-secondary" />
+      )}
       <a className="button button-secondary" href="#booking">
         Book an appointment
       </a>
@@ -48,18 +61,28 @@ function Actions({ phone }: { phone?: string | null }) {
   );
 }
 
-function Hero({ tagline, phone, industry }: { tagline?: string; phone?: string | null; industry?: string }) {
-  const pets = hasPets({ industry });
+function Hero({
+  tagline,
+  phone,
+  industry,
+}: {
+  tagline?: string;
+  phone?: string | null;
+  industry?: string;
+}) {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="container hero-grid">
         <div>
-          <p className="eyebrow">{INDUSTRY_LABELS[industry ?? "pet_grooming"] ?? "Appointments"}, by appointment</p>
-          <h1 id="hero-title">{tagline || (pets ? "One groomer. One dog at a time." : "Book your next appointment.")}</h1>
+          <p className="eyebrow">
+            {INDUSTRY_LABELS[industry ?? "pet_grooming"] ?? "Appointments"}, by
+            appointment
+          </p>
+          <h1 id="hero-title">{tagline || defaultHeadline(industry)}</h1>
           <Actions phone={phone} />
         </div>
         <div className="hero-art" aria-hidden="true">
-          <PawMark />
+          <IndustryMark industry={industry} />
         </div>
       </div>
     </section>
@@ -95,12 +118,12 @@ function ExplainerVideo() {
       </video>
       <div className="video-copy">
         <p className="lead">
-          A one-minute look at the idea: a voice receptionist that answers questions and books
-          appointments while the groomer's hands are busy.
+          A one-minute look at the idea: a voice receptionist that answers
+          questions and books appointments while the groomer's hands are busy.
         </p>
         <p className="notice">
-          This is a concept animation with an AI-generated narrator. The voice assistant is still
-          in development, and Maya's salon is fictional.
+          This is a concept animation with an AI-generated narrator. The voice
+          assistant is still in development, and Maya's salon is fictional.
         </p>
         <details className="transcript">
           <summary>Read the transcript</summary>
@@ -126,7 +149,11 @@ function Section({
 }) {
   const headingId = `${id}-title`;
   return (
-    <section id={id} className={tone ? `section section-${tone}` : "section"} aria-labelledby={headingId}>
+    <section
+      id={id}
+      className={tone ? `section section-${tone}` : "section"}
+      aria-labelledby={headingId}
+    >
       <div className="container">
         <h2 id={headingId}>{title}</h2>
         {children}
@@ -135,9 +162,21 @@ function Section({
   );
 }
 
-function ServicesList({ catalog, demo, pets = true }: { catalog: Catalog; demo: boolean; pets?: boolean }) {
-  const sizes = new Map(catalog.size_categories.map((size) => [size.slug, size]));
-  const assessed = catalog.size_categories.filter((size) => size.requires_staff_assessment);
+function ServicesList({
+  catalog,
+  demo,
+  pets = true,
+}: {
+  catalog: Catalog;
+  demo: boolean;
+  pets?: boolean;
+}) {
+  const sizes = new Map(
+    catalog.size_categories.map((size) => [size.slug, size]),
+  );
+  const assessed = catalog.size_categories.filter(
+    (size) => size.requires_staff_assessment,
+  );
   return (
     <>
       <p className="lead">
@@ -152,33 +191,48 @@ function ServicesList({ catalog, demo, pets = true }: { catalog: Catalog; demo: 
           <article className="service-card" key={service.slug}>
             <h3>{service.name}</h3>
             <p>{service.description}</p>
-            <table>
-              <caption className="visually-hidden">
-                {service.name} price and duration{pets ? " by dog size" : ""}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">{pets ? "Size" : "Service"}</th>
-                  <th scope="col">Time</th>
-                  <th scope="col" className="numeric">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {service.options.map((option) => {
-                  const size = sizes.get(option.size);
-                  return (
-                    <tr key={option.size}>
-                      <th scope="row">
-                        {pets ? (size?.label ?? option.size) : service.name}
-                        {pets && size && <span className="size-note">{size.description}</span>}
-                      </th>
-                      <td>{formatDuration(option.duration_minutes)}</td>
-                      <td className="numeric">{formatPrice(option.price_cents)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {!pets && service.options.length === 1 ? (
+              <p className="service-price">
+                {formatDuration(service.options[0].duration_minutes)} ·{" "}
+                <strong>{formatPrice(service.options[0].price_cents)}</strong>
+              </p>
+            ) : (
+              <table>
+                <caption className="visually-hidden">
+                  {service.name} price and duration{pets ? " by dog size" : ""}
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{pets ? "Size" : "Service"}</th>
+                    <th scope="col">Time</th>
+                    <th scope="col" className="numeric">
+                      Price
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {service.options.map((option) => {
+                    const size = sizes.get(option.size);
+                    return (
+                      <tr key={option.size}>
+                        <th scope="row">
+                          {pets ? (size?.label ?? option.size) : service.name}
+                          {pets && size && (
+                            <span className="size-note">
+                              {size.description}
+                            </span>
+                          )}
+                        </th>
+                        <td>{formatDuration(option.duration_minutes)}</td>
+                        <td className="numeric">
+                          {formatPrice(option.price_cents)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </article>
         ))}
       </div>
@@ -210,7 +264,9 @@ function HoursList({ business }: { business: Business }) {
     <div>
       <h3>Hours</h3>
       <table className="hours-table">
-        <caption className="visually-hidden">Opening hours, {business.timezone} time</caption>
+        <caption className="visually-hidden">
+          Opening hours, {business.timezone} time
+        </caption>
         <tbody>
           {[0, 1, 2, 3, 4, 5, 6].map((weekday) => {
             const hours = open.get(weekday);
@@ -218,7 +274,9 @@ function HoursList({ business }: { business: Business }) {
               <tr key={weekday}>
                 <th scope="row">{weekdayName(weekday)}</th>
                 <td>
-                  {hours ? `${formatTime(hours.opens_at)} to ${formatTime(hours.closes_at)}` : "Closed"}
+                  {hours
+                    ? `${formatTime(hours.opens_at)} to ${formatTime(hours.closes_at)}`
+                    : "Closed"}
                 </td>
               </tr>
             );
@@ -243,17 +301,26 @@ function ContactDetails({ business }: { business: Business }) {
       <div>
         <dt>Email</dt>
         <dd>
-          <a href={`mailto:${business.contact_email}`}>{business.contact_email}</a>
+          <a href={`mailto:${business.contact_email}`}>
+            {business.contact_email}
+          </a>
         </dd>
       </div>
       <div>
         <dt>Phone</dt>
         <dd>{business.contact_phone}</dd>
       </div>
-      <div>
-        <dt>Address</dt>
-        <dd>{business.address}</dd>
-      </div>
+      {business.is_mobile ? (
+        <div>
+          <dt>We come to you</dt>
+          <dd>{business.service_area || "Ask us whether we cover your area."}</dd>
+        </div>
+      ) : (
+        <div>
+          <dt>Address</dt>
+          <dd>{business.address}</dd>
+        </div>
+      )}
       <div>
         <dt>Time zone</dt>
         <dd>{business.timezone}</dd>
@@ -272,7 +339,11 @@ export default function App() {
   const demo = business ? business.is_demo : businessSlug() === null;
 
   useEffect(() => {
-    if (business) document.title = business.is_demo ? `${business.name} (demo)` : business.name;
+    if (business)
+      document.title = business.is_demo
+        ? `${business.name} (demo)`
+        : business.name;
+    applyIndustryLook(business?.industry);
   }, [business]);
 
   return (
@@ -282,23 +353,25 @@ export default function App() {
       </a>
       {demo && (
         <p className="demo-banner" role="note">
-          <strong>Demonstration site.</strong> This is a fictional business. Please do not enter
-          sensitive or real personal information.
+          <strong>Demonstration site.</strong> This is a fictional business.
+          Please do not enter sensitive or real personal information.
         </p>
       )}
       <header className="site-header">
         <div className="container header-row">
           <a className="brand" href="#main">
-            <PawMark />
+            <IndustryMark industry={business?.industry} />
             <span>{business?.name ?? (demo ? "Grooming demo" : "")}</span>
           </a>
           <nav aria-label="Main">
             <ul className="nav-list">
-              {NAV_LINKS.filter((link) => demo || link.href !== "#video").map((link) => (
-                <li key={link.href}>
-                  <a href={link.href}>{link.label}</a>
-                </li>
-              ))}
+              {NAV_LINKS.filter((link) => demo || link.href !== "#video").map(
+                (link) => (
+                  <li key={link.href}>
+                    <a href={link.href}>{link.label}</a>
+                  </li>
+                ),
+              )}
             </ul>
           </nav>
         </div>
@@ -308,15 +381,26 @@ export default function App() {
         {failed && (
           <div className="container">
             <div className="alert" role="alert">
-              <p>Business details could not be loaded. The service may be temporarily unavailable.</p>
-              <button type="button" className="button button-secondary" onClick={retry}>
+              <p>
+                Business details could not be loaded. The service may be
+                temporarily unavailable.
+              </p>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={retry}
+              >
                 Try again
               </button>
             </div>
           </div>
         )}
 
-        <Hero tagline={business?.tagline} phone={business?.assistant_phone} industry={business?.industry} />
+        <Hero
+          tagline={business?.tagline}
+          phone={business?.assistant_phone}
+          industry={business?.industry}
+        />
 
         {demo && (
           <Section id="video" title="See the idea in one minute">
@@ -327,8 +411,12 @@ export default function App() {
         <Section id="assistant" title="Talk to our assistant" tone="tint">
           {business?.assistant_phone && (
             <p className="lead">
-              Talk in your browser below, or call the same assistant from any phone:{" "}
-              <a href={`tel:${business.assistant_phone}`}>{formatPhone(business.assistant_phone)}</a>.
+              Talk in your browser below, or call the same assistant from any
+              phone:{" "}
+              <a href={`tel:${business.assistant_phone}`}>
+                {formatPhone(business.assistant_phone)}
+              </a>
+              .
             </p>
           )}
           <VoiceAssistant demo={demo} />
@@ -336,18 +424,30 @@ export default function App() {
 
         <Section id="services" title="Services and pricing">
           {data ? (
-            <ServicesList catalog={data.catalog} demo={demo} pets={hasPets(business)} />
+            <ServicesList
+              catalog={data.catalog}
+              demo={demo}
+              pets={hasPets(business)}
+            />
           ) : (
             <SectionFallback failed={failed} />
           )}
         </Section>
 
         <Section id="about" title="About" tone="tint">
-          {business ? <p className="lead">{business.about}</p> : <SectionFallback failed={failed} />}
+          {business ? (
+            <p className="lead">{business.about}</p>
+          ) : (
+            <SectionFallback failed={failed} />
+          )}
         </Section>
 
         <Section id="faqs" title="Frequently asked questions">
-          {data ? <FaqList faqs={data.faqs} /> : <SectionFallback failed={failed} />}
+          {data ? (
+            <FaqList faqs={data.faqs} />
+          ) : (
+            <SectionFallback failed={failed} />
+          )}
         </Section>
 
         <Section id="contact" title="Contact" tone="tint">
@@ -374,8 +474,8 @@ export default function App() {
         <div className="container">
           {demo ? (
             <p>
-              {business?.name ?? "This site"} is a fictional business used for product
-              demonstration. No real grooming services are offered.
+              {business?.name ?? "This site"} is a fictional business used for
+              product demonstration. No real grooming services are offered.
             </p>
           ) : (
             business && (
@@ -389,7 +489,9 @@ export default function App() {
             {demo && (
               <>
                 {" · "}
-                <a href="/get-started">Set up a receptionist for your business</a>
+                <a href="/get-started">
+                  Set up a receptionist for your business
+                </a>
               </>
             )}
           </p>

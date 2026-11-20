@@ -112,6 +112,7 @@ def to_staff_booking(
 ) -> StaffBooking:
     return StaffBooking(
         staff=staff,
+        service_address=booking.service_address,
         reference=booking.reference,
         status=booking.status,
         service=service,

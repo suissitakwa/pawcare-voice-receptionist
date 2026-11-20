@@ -175,6 +175,7 @@ function BookingsTable({
               <td>
                 {booking.owner_name}
                 <span className="size-note">{[booking.owner_email, booking.owner_phone].filter(Boolean).join(", ")}</span>
+                {booking.service_address && <span className="size-note">At {booking.service_address}</span>}
               </td>
               <td>{booking.reference}</td>
               <td>{booking.source === "voice" ? "Voice" : "Form"}</td>

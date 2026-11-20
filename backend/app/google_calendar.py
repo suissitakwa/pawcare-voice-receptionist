@@ -288,6 +288,8 @@ def event_for(booking: Booking, business: Business) -> dict:
             "dateTime": booking.ends_at.astimezone(timezone).isoformat(),
             "timeZone": business.timezone,
         },
+        # A mobile groomer's next stop shows on their calendar and maps.
+        **({"location": booking.service_address} if booking.service_address else {}),
         # "Free", so the booking doesn't block itself when busy times are read back.
         "transparency": "transparent",
         "extendedProperties": {"private": {"pawcare_reference": booking.reference}},

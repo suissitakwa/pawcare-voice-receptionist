@@ -52,6 +52,12 @@ def snapshot(db: Session, profile: BusinessProfile) -> dict[str, str]:
         "Answers to common questions": "\n".join(faqs),
         "Voice": VOICES[details.voice][0] if details.voice in VOICES else "",
         "Time zone": TIMEZONE_LABELS.get(details.timezone or "", details.timezone or ""),
+        "Mobile": (
+            f"Yes, ZIP codes {', '.join(details.service_zip_codes) or 'not given'}"
+            + (f" ({details.service_area})" if details.service_area else "")
+            if details.is_mobile
+            else ""
+        ),
         "Address": details.address or "",
         "Opening hours": "\n".join(
             f"{DAYS[h.weekday]} {h.opens_at:%H:%M}-{h.closes_at:%H:%M}" for h in details.hours

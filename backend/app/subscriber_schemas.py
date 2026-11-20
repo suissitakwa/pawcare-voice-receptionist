@@ -199,6 +199,19 @@ class ProfileDetails(Strict):
     hours: list[OpeningHours] = Field(default_factory=list, max_length=7)
     services: list[ServiceItem] = Field(default_factory=list, max_length=30)
     team: list[TeamMember] = Field(default_factory=list, max_length=20)
+    # Mobile groomers only: they go to the customer, within these ZIP codes.
+    is_mobile: bool = False
+    service_zip_codes: list[str] = Field(default_factory=list, max_length=60)
+    service_area: str | None = Field(default=None, max_length=200)
+
+    @field_validator("service_zip_codes")
+    @classmethod
+    def five_digit_zips(cls, value: list[str]) -> list[str]:
+        cleaned = [zip_code.strip() for zip_code in value if zip_code.strip()]
+        for zip_code in cleaned:
+            if not re.fullmatch(r"\d{5}", zip_code):
+                raise ValueError(f"{zip_code} is not a five-digit ZIP code.")
+        return sorted(set(cleaned))
 
     @field_validator("timezone")
     @classmethod

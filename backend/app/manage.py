@@ -93,6 +93,8 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
     }
     if booking_summary.get("staff"):
         described["with"] = booking_summary["staff"]
+    if booking_summary.get("service_address"):
+        described["address"] = booking_summary["service_address"]
     return described
 
 
@@ -221,6 +223,7 @@ def prepare_change(
         duration_minutes=rule.duration_minutes,
         price_cents=rule.price_cents,
         staff=booking.summary.get("staff"),
+        service_address=booking.service_address,
     ).model_dump(mode="json")
     record.pending_change = {
         "booking_id": str(booking.id),

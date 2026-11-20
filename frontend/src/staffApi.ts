@@ -27,6 +27,8 @@ export interface StaffBooking {
   cancelled_at: string | null;
   source: "form" | "voice";
   staff: string;
+  /** Where the appointment is, at a mobile business. */
+  service_address?: string | null;
 }
 
 export interface StaffCallback {

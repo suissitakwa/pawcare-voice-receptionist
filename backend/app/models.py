@@ -39,6 +39,11 @@ class Business(Base):
     notify_email: Mapped[str | None] = mapped_column(String(254))
     # pet_grooming, hair_salon or barbershop: what the receptionist talks about.
     industry: Mapped[str] = mapped_column(String(20), server_default="pet_grooming")
+    # A mobile business goes to the customer, so every booking needs an address in its area.
+    is_mobile: Mapped[bool] = mapped_column(server_default=false())
+    # Five-digit ZIP codes it travels to. Empty: anywhere, as long as an address is given.
+    service_zip_codes: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    service_area: Mapped[str] = mapped_column(String(200), server_default="")
     contact_phone: Mapped[str] = mapped_column(String(32))
     address: Mapped[str] = mapped_column(String(200))
     is_demo: Mapped[bool] = mapped_column(server_default=true())
@@ -305,6 +310,8 @@ class Booking(Base):
     owner_email: Mapped[str | None] = mapped_column(String(254))
     owner_phone: Mapped[str | None] = mapped_column(String(20))
     pet_name: Mapped[str] = mapped_column(String(40))
+    # Where the appointment happens, at a mobile business.
+    service_address: Mapped[str | None] = mapped_column(String(200))
     summary: Mapped[dict] = mapped_column(JSONB)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     request_hash: Mapped[str] = mapped_column(String(64))
@@ -355,6 +362,8 @@ class BookingDraft(Base):
     owner_email: Mapped[str | None] = mapped_column(String(254))
     owner_phone: Mapped[str | None] = mapped_column(String(20))
     pet_name: Mapped[str] = mapped_column(String(40))
+    # Where the appointment happens, at a mobile business.
+    service_address: Mapped[str | None] = mapped_column(String(200))
     summary: Mapped[dict] = mapped_column(JSONB)
     summary_hash: Mapped[str] = mapped_column(String(64))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)

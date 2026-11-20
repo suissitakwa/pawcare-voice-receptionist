@@ -274,8 +274,12 @@ function FaqEditor({ faqs, onChange }: { faqs: FaqItem[]; onChange: (faqs: FaqIt
 }
 
 // Blank text and half-filled questions become absent, so a step can be saved part-done.
-function cleanDetails(details: ProfileDetails, urls: string): ProfileDetails {
+function cleanDetails(details: ProfileDetails, urls: string, zips: string): ProfileDetails {
+  const mobile = details.is_mobile ?? false;
   return {
+    is_mobile: mobile,
+    service_zip_codes: mobile ? zips.split(/[\s,;]+/).filter(Boolean) : [],
+    service_area: mobile ? orNull(details.service_area ?? null) : null,
     ...details,
     ...cleanSections(details),
     address: orNull(details.address ?? null),
@@ -293,6 +297,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState(0);
   const [urls, setUrls] = useState("");
+  const [zips, setZips] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
@@ -309,6 +314,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
     setProfile(next);
     setDraft(toDraft(next));
     setUrls(next.details.knowledge_urls.join("\n"));
+    setZips((next.details.service_zip_codes ?? []).join(", "));
   }, []);
 
   useEffect(() => {
@@ -350,7 +356,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
         await subscriberApi.save(token, {
           business_name: orNull(draft.business_name),
           business_type: draft.business_type || null,
-          details: cleanDetails(draft.details, urls),
+          details: cleanDetails(draft.details, urls, zips),
         }),
       );
       setSaved("Saved.");
@@ -460,6 +466,37 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
                 </select>
               )}
             </Field>
+            {(draft.business_type || "pet_grooming") === "pet_grooming" && (
+              <div className="field check-field">
+                <input
+                  id="mobile-groomer"
+                  type="checkbox"
+                  checked={details.is_mobile ?? false}
+                  onChange={(e) => setDetails({ is_mobile: e.target.checked })}
+                />
+                <label htmlFor="mobile-groomer">We're a mobile groomer: we go to our customers.</label>
+              </div>
+            )}
+            {details.is_mobile && (draft.business_type || "pet_grooming") === "pet_grooming" && (
+              <>
+                <Field
+                  label="ZIP codes you travel to"
+                  hint="Separated by commas or spaces. The receptionist asks callers for their address and only books inside these."
+                >
+                  {(props) => <textarea {...props} rows={2} value={zips} onChange={(e) => setZips(e.target.value)} />}
+                </Field>
+                <Field label="How you describe your area (optional)" hint="For example: San Jose, Campbell and Santa Clara.">
+                  {(props) => (
+                    <input
+                      {...props}
+                      maxLength={200}
+                      value={details.service_area ?? ""}
+                      onChange={(e) => setDetails({ service_area: e.target.value })}
+                    />
+                  )}
+                </Field>
+              </>
+            )}
             <Field label="Address (optional)" hint="Where customers come. Leave empty if you're mobile.">
               {(props) => (
                 <input {...props} maxLength={200} value={details.address ?? ""} onChange={(e) => setDetails({ address: e.target.value })} />
