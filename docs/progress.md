@@ -897,3 +897,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 5 new in `test_customer_texts.py` (33 pass): `texts_customers` is true only when texts are on, Twilio is set and there is a number or Messaging Service |
 | Frontend | Typecheck and build pass; 91 tests pass (Node 22), 2 new: the notice under the phone field and the line on the confirmation screen, and nothing promised when the business doesn't text |
 | Live | Not deployed |
+
+## Calendar status for owners (2026-11-22)
+
+**Outcome:** a connected calendar was checked only once, when the owner connected it. If they later unshared it, every booking stopped with `calendar_unavailable` and nobody could see why. The staff dashboard now has a **Calendar** section that checks access live with Google on each load (and on **Check again**): the connected calendar, or the problem in the owner's words with what it means for booking, plus bookings waiting to sync, the last sync and the last sync error. The profile's Your calendar step has **Check connection**, which gives the same answer without saving anything. Connecting a different calendar, or reconnecting after a disconnect, now marks upcoming confirmed bookings for sync, so they're written to it; before, only bookings never synced reached a new calendar. Disconnecting leaves existing events in the old calendar, as documented. See [calendar.md](calendar.md#is-it-still-working).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 591 passed (local PostgreSQL 14), 8 new in `test_calendar_connect.py`: no calendar, a working calendar with its sync figures, an unshared calendar, unreadable settings, staff see only their own business's status and need to sign in, a different calendar re-marks only upcoming confirmed bookings and the same one changes nothing, reconnecting after a disconnect re-marks them, the profile check |
+| Frontend | Typecheck and build pass; 94 tests pass (Node 22), 3 new: the dashboard shows a working calendar, then the problem and last error after Check again; no calendar connected; the profile's Check connection |
+| Live | Not deployed. Needs `GOOGLE_SERVICE_ACCOUNT_JSON` on Railway and a real shared calendar |

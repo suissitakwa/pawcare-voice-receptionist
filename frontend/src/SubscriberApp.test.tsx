@@ -326,6 +326,34 @@ describe("SubscriberApp", () => {
     expect(await screen.findByText(/We can't see that calendar yet/)).toBeInTheDocument();
   });
 
+  it("checks a connected calendar and says what's wrong with its sharing", async () => {
+    const connectedProfile = {
+      ...PROFILE,
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true },
+    };
+    let shared = true;
+    mockApi(
+      routes({
+        "GET /api/v1/subscribers/options": () => ({ status: 200, body: { ...OPTIONS, calendar_share_email: "bot@x.iam" } }),
+        "GET /api/v1/subscribers/profile": () => ({ status: 200, body: connectedProfile }),
+        "POST /api/v1/subscribers/profile/calendar/check": () => ({
+          status: 200,
+          body: shared
+            ? { ok: true, code: null, message: null }
+            : { ok: false, code: "calendar_not_shared", message: "We can't see that calendar yet. Share it with bot@x.iam." },
+        }),
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.click(await screen.findByRole("button", { name: "Your calendar" }));
+    await user.click(screen.getByRole("button", { name: "Check connection" }));
+    expect(await screen.findByText(/Your calendar is working/)).toBeInTheDocument();
+    shared = false;
+    await user.click(screen.getByRole("button", { name: "Check connection" }));
+    expect(await screen.findByText(/We can't see that calendar yet/)).toBeInTheDocument();
+  });
+
   it("offers a female and a male voice and sends the chosen one", async () => {
     let saved: Record<string, unknown> = {};
     mockApi(

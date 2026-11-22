@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from sqlalchemy import or_, select, true
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -218,15 +218,19 @@ def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -
     fails when nothing was shared. The list entry is harmless and is how Google expects a shared
     calendar to be used.
     """
-    email = shared_account_email(settings)
-    if email is None:
+    if shared_account_email(settings) is None:
         raise CalendarAccessProblem(
             "calendar_not_offered",
             "Connecting a calendar isn't available yet. We'll do it with you.",
         )
-    calendar = GoogleCalendar(
-        calendar_id, load_service_account(settings.google_service_account_json), send
-    )
+    check_account_access(settings.google_service_account_json, calendar_id, send)
+
+
+def check_account_access(account_json: str, calendar_id: str, send: Send = http_send) -> None:
+    """Checks that this service account can make changes to the calendar. Raises
+    CalendarAccessProblem otherwise, in words for the owner."""
+    calendar = GoogleCalendar(calendar_id, load_service_account(account_json), send)
+    email = calendar.email
     try:
         status, data = calendar.call("POST", "/users/me/calendarList", {"id": calendar_id})
         if status == 409:
@@ -252,6 +256,60 @@ def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -
             f'The calendar is shared, but only to see it. Change {email} to "Make changes to '
             'events" so bookings can be added.',
         )
+
+
+@dataclass(frozen=True)
+class CalendarStatus:
+    connected: bool
+    calendar_id: str | None
+    # From a live check with Google: None when the calendar can be read and changed.
+    problem_code: str | None
+    problem: str | None
+    # Bookings still to be written to (or removed from) the calendar.
+    waiting: int
+    last_synced_at: datetime | None
+    last_error: str | None
+
+
+UNREADABLE = (
+    "calendar_settings_unreadable",
+    "Your calendar connection can't be read on our side, so booking is paused. Please contact us.",
+)
+
+
+def calendar_status(session: Session, settings: Settings, business_id: uuid.UUID) -> CalendarStatus:
+    """Whether the business's calendar works right now, checked with Google, and how syncing
+    its bookings is going."""
+    mine = Booking.business_id == business_id
+    waiting = session.scalar(
+        select(func.count()).select_from(Booking).where(mine, Booking.calendar_dirty)
+    )
+    last_synced_at = session.scalar(select(func.max(Booking.calendar_synced_at)).where(mine))
+    last_error = session.scalar(
+        select(Booking.calendar_error)
+        .where(mine, Booking.calendar_dirty, Booking.calendar_error.is_not(None))
+        # The latest failure has the latest retry.
+        .order_by(Booking.calendar_next_attempt_at.desc().nulls_last())
+        .limit(1)
+    )
+    try:
+        config = calendar_config(session, settings, business_id)
+    except IntegrationUnavailable as error:
+        logger.error("Calendar settings for business %s can't be read: %s", business_id, error)
+        return CalendarStatus(True, None, *UNREADABLE, waiting, last_synced_at, last_error)
+    if config is None:
+        return CalendarStatus(False, None, None, None, waiting, last_synced_at, None)
+    code = message = None
+    try:
+        check_account_access(config.service_account_json, config.calendar_id)
+    except CalendarAccessProblem as problem:
+        code, message = problem.code, problem.message
+    except (ValueError, KeyError) as error:
+        logger.error("Calendar key for business %s can't be used: %s", business_id, error)
+        code, message = UNREADABLE
+    return CalendarStatus(
+        True, config.calendar_id, code, message, waiting, last_synced_at, last_error
+    )
 
 
 _clients: dict[tuple[str, str], GoogleCalendar] = {}

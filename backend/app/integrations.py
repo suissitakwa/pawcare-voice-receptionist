@@ -22,12 +22,12 @@ from getpass import getpass
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, undefer
 
 from app.config import Settings
-from app.models import Business, BusinessIntegration
+from app.models import Booking, Business, BusinessIntegration
 
 logger = logging.getLogger("pawcare.integrations")
 
@@ -152,6 +152,14 @@ def save(
         token = cipher(settings).encrypt(secret.encode())
     except IntegrationUnavailable as error:
         raise ValueError(f"{error}. Run `python -m app.integrations generate-key`.") from None
+    if kind == CALENDAR:
+        before = session.scalar(
+            select(BusinessIntegration.config).where(
+                BusinessIntegration.business_id == business_id, BusinessIntegration.kind == kind
+            )
+        )
+        if (before or {}).get("calendar_id") != config.get("calendar_id"):
+            resync_upcoming(session, business_id)
     session.execute(
         insert(BusinessIntegration)
         .values(business_id=business_id, kind=kind, config=config, secret=token)
@@ -159,6 +167,20 @@ def save(
             constraint="uq_business_integrations_kind",
             set_={"config": config, "secret": token, "updated_at": func.now()},
         )
+    )
+
+
+def resync_upcoming(session: Session, business_id: uuid.UUID) -> None:
+    """Marks the business's upcoming bookings for sync, so a newly connected calendar gets
+    them, including ones already written to a calendar it had before."""
+    session.execute(
+        update(Booking)
+        .where(
+            Booking.business_id == business_id,
+            Booking.status == "confirmed",
+            Booking.ends_at > func.now(),
+        )
+        .values(calendar_dirty=True, calendar_attempts=0, calendar_next_attempt_at=None)
     )
 
 

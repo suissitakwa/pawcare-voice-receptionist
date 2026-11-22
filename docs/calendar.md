@@ -73,6 +73,27 @@ The backend checks access before saving, by adding the calendar to the service a
 - **Once live:** connecting or disconnecting takes effect at once. Upcoming bookings are written to the new calendar, and busy times in it block booking.
 - Either way the admin gets the "Profile updated" email with the calendar.
 
+### Is it still working?
+
+Sharing can change after connecting: the owner unshares the calendar, or turns it down to "See all event details". The connection is checked live with Google, the same way as when connecting, in two places:
+
+- **Staff dashboard, Calendar section** (`GET /api/v1/staff/calendar`): the connected calendar, or the problem with what it means for booking, the bookings waiting to sync, when one last synced, and the last sync error. It checks on every load and on **Check again**.
+- **Profile, Your calendar step:** **Check connection** (`POST /api/v1/subscribers/profile/calendar/check`) says it's working or gives Google's reason. It saves and disconnects nothing.
+
+| Check says | What happens to booking |
+| --- | --- |
+| Not shared (`calendar_not_shared`) | Busy times can't be read, so callers and the booking site can't book until it's shared again |
+| Read only (`calendar_read_only`) | Busy times still block booking, but new bookings aren't added as events |
+| Unreachable (`calendar_unreachable`) | Booking stops while Google can't be reached |
+| Settings unreadable (`calendar_settings_unreadable`) | The stored connection or `GOOGLE_SERVICE_ACCOUNT_JSON` can't be used; booking is paused until it's fixed on our side |
+
+Nobody is emailed when a calendar stops working yet; the owner sees it on the dashboard.
+
+### Changing or disconnecting
+
+- Connecting a **different** calendar (or reconnecting after a disconnect) marks every upcoming confirmed booking for sync, so they're all written to it, not only the ones made afterwards. Saving the same calendar again changes nothing.
+- Disconnecting stops new bookings, changes and cancellations going to the calendar. Events already in it stay there; the owner deletes them if they want.
+
 The connection is stored with `account: shared` and no secret of its own, so the key lives only in the environment and rotating it there reaches every business. To connect one by hand once the owner has shared: `python -m app.integrations share-calendar <slug> <calendar-id>`. A business with its own service account still uses `set-calendar` below.
 
 ## Several businesses
@@ -90,4 +111,4 @@ The `GOOGLE_*` variables connect the deployment's own business (`BUSINESS_SLUG`)
 
    Delete the key file afterwards.
 
-Each business's bookings go only to its own calendar, and only its own busy times block its booking times. A business with no calendar is never synced. If a stored key can't be read (for example `INTEGRATIONS_KEY` changed), booking stops for that business with `calendar_unavailable`, the same as when Google can't be reached. `remove <business-slug> google_calendar` disconnects it.
+Each business's bookings go only to its own calendar, and only its own busy times block its booking times. A business with no calendar is never synced. The dashboard's Calendar section checks a business's own key the same way as a shared calendar. If a stored key can't be read (for example `INTEGRATIONS_KEY` changed), booking stops for that business with `calendar_unavailable`, the same as when Google can't be reached. `remove <business-slug> google_calendar` disconnects it.

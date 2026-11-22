@@ -499,6 +499,17 @@ class WebhookStatus(BaseModel):
     last_error: str | None
 
 
+class CalendarStatus(BaseModel):
+    connected: bool
+    calendar_id: str | None
+    # From a live check with Google: None when bookings can be read and written.
+    problem_code: str | None
+    problem: str | None
+    waiting: int
+    last_synced_at: datetime | None
+    last_error: str | None
+
+
 class EmailStatus(BaseModel):
     # Where owner emails go, or None when nothing would be sent.
     address: str | None

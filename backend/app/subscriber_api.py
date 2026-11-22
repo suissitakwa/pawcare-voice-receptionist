@@ -49,6 +49,7 @@ from app.subscriber_schemas import (
     TIMEZONE_LABELS,
     VOICES,
     AccountPublic,
+    CalendarCheck,
     CalendarConnectRequest,
     DocumentPublic,
     Option,
@@ -416,6 +417,21 @@ def connect_calendar(
     note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return to_public(db, profile)
+
+
+@router.post("/profile/calendar/check", response_model=CalendarCheck)
+def check_calendar(context: Account, db: DbSession, settings: Config) -> CalendarCheck:
+    """Checks with Google that the connected calendar is still shared to make changes. Saves
+    nothing; the owner fixes the sharing in Google Calendar and checks again."""
+    details = ProfileDetails.from_stored(load_profile(db, context[0].id).details)
+    db.commit()
+    if not (details.google_calendar_connected and details.google_calendar_id):
+        raise ApiError(409, "calendar_not_connected", "Connect your calendar first.")
+    try:
+        check_access(settings, details.google_calendar_id)
+    except CalendarAccessProblem as problem:
+        return CalendarCheck(ok=False, code=problem.code, message=problem.message)
+    return CalendarCheck(ok=True)
 
 
 @router.delete("/profile/calendar", response_model=ProfilePublic)

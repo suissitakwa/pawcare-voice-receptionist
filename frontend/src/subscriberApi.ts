@@ -103,6 +103,13 @@ export interface Profile {
   business_slug?: string | null;
 }
 
+/** A live check that the connected calendar is still shared to make changes. */
+export interface CalendarCheck {
+  ok: boolean;
+  code: string | null;
+  message: string | null;
+}
+
 export interface ProfileUpdate {
   business_name?: string | null;
   business_type?: string | null;
@@ -144,6 +151,7 @@ export const subscriberApi = {
     }),
   connectCalendar: (token: string, calendar_id: string) =>
     authed<Profile>(token, "/profile/calendar", { method: "POST", ...json({ calendar_id }) }),
+  checkCalendar: (token: string) => authed<CalendarCheck>(token, "/profile/calendar/check", { method: "POST" }),
   disconnectCalendar: (token: string) => authed<Profile>(token, "/profile/calendar", { method: "DELETE" }),
   removeDocument: (token: string, id: string) => authed<void>(token, `/profile/documents/${id}`, { method: "DELETE" }),
 };
