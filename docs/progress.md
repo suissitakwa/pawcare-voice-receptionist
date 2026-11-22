@@ -919,3 +919,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 598 passed (local PostgreSQL 14), 7 new in `test_calendar_alerts.py`: a working calendar is checked every 15 minutes with no email and its connection date kept, an unshared calendar alerts once and then says it works again, unreachable alerts only after 30 minutes, a short outage sends nothing, reconnecting checks afresh, unreadable settings alert at once, the owner's and the admin's emails. Migration `0026` upgrades and downgrades cleanly |
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `ADMIN_EMAIL`, email settings and a real shared calendar to try |
+
+## Owners pick their calendar by signing in with Google (2026-11-22)
+
+**Outcome:** connecting a calendar meant three steps in Google Calendar's settings: sharing with a long robot address, choosing the right permission and copying a Calendar ID. Those were the steps most likely to go wrong. Owners can now press **Connect with Google**, sign in, and pick their booking calendar from the calendars they own. The backend shares it with HelloEver's service account ("Make changes to events"), checks access as before (retrying briefly while Google applies the sharing) and connects it. Google is asked only to see the calendar list and change sharing, with no refresh token. The sign-in state and the ticket carrying Google's token are encrypted, tied to the signed-in account, expire after 10 minutes, and nothing about the Google account is stored. Sharing by hand stays available under **Or share it yourself**, and is the only way while `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` aren't set. See [calendar.md](calendar.md#connect-with-google-recommended).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 608 passed (local PostgreSQL 14), 10 new in `test_calendar_picker.py`: offered only when set up, the consent request (two scopes, online access, redirect, login hint), the full pick-share-connect flow with the sharing request Google gets, a retry while sharing settles, a sign-in or ticket from another account refused, expiry after 10 minutes, both permissions needed, a refused code, a Workspace that blocks sharing (nothing saved), no Google token in the profile. Two password-reset tests asked for two links at the same frozen time, so which was newest was a tie; they now move the clock a second |
+| Frontend | Typecheck and build pass; 97 tests pass (Node 22), 3 new: Connect with Google saves edits then leaves for Google, back from Google the owner's calendars are listed (main one chosen) and the picked one connected, a cancelled sign-in is explained |
+| Live | Not deployed. Needs an OAuth client in Google Cloud (consent screen with test users) and the two settings on Railway; not tried with a real Google account |

@@ -146,7 +146,7 @@ To answer a phone number, set `OPENAI_WEBHOOK_SECRET` (from the OpenAI project's
 
 ## Google Calendar
 
-To sync with the owner's Google Calendar both ways, set `GOOGLE_CALENDAR_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` (a service account key the calendar is shared with). Full guide: [calendar.md](calendar.md).
+To sync with the owner's Google Calendar both ways, set `GOOGLE_CALENDAR_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` (a service account key the calendar is shared with). For owners to connect their own calendar by signing in with Google, also set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, with `PUBLIC_SITE_URL/get-started` as the OAuth client's redirect URI. Full guide: [calendar.md](calendar.md#connect-with-google-recommended).
 
 Other businesses get their own calendar and webhook from the command line, stored encrypted with `INTEGRATIONS_KEY` (generate it with `uv run python -m app.integrations generate-key` and keep a copy). See [calendar.md](calendar.md#several-businesses) and [automations.md](automations.md#several-businesses).
 

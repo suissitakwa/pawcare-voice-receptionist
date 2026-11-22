@@ -118,9 +118,11 @@ def test_a_link_works_once_and_for_an_hour(client, db, configured) -> None:
     assert again.json()["error"]["code"] == "reset_link_invalid"
 
 
-def test_only_the_newest_link_works(client, db) -> None:
+def test_only_the_newest_link_works(client, db, configured) -> None:
     sign_up(client)
     forgot(client)
+    # A second later, so "newest" is never a tie between the two links.
+    configured["now"] = NOW + timedelta(seconds=1)
     forgot(client)
     first, second = (link_token(e) for e in resets(db))
     assert (
@@ -165,7 +167,7 @@ def test_without_a_site_address_no_link_is_made(client, db, configured) -> None:
 # Staff dashboard logins
 
 
-def test_staff_reset_their_password_at_their_business(client, db, staff) -> None:  # noqa: F811
+def test_staff_reset_their_password_at_their_business(client, db, staff, configured) -> None:  # noqa: F811
     asked = client.post(
         "/api/v1/b/pawcare-demo/staff/password/forgot", json={"email": "maya@pawcare.example"}
     )
@@ -178,6 +180,7 @@ def test_staff_reset_their_password_at_their_business(client, db, staff) -> None
         client.post(f"{API}/password/reset", json={"token": token, "password": NEW}).status_code
         == 400
     )
+    configured["now"] = NOW + timedelta(seconds=1)
     forgot_again = client.post(
         "/api/v1/b/pawcare-demo/staff/password/forgot", json={"email": "maya@pawcare.example"}
     )
