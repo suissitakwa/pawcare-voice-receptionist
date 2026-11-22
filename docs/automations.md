@@ -11,6 +11,8 @@ The backend sends an event to one webhook URL whenever something happens that a 
 | `booking.changed` | A caller moves a booking or changes its service on a phone call. Same reference, new details |
 | `callback.requested` | The voice assistant takes a callback request |
 | `webhook.test` | Staff press **Send test event** on the dashboard |
+| `calendar.failing` | The connected Google Calendar stopped working (see [calendar.md](calendar.md#when-it-stops-working)). `data` has `calendar_id`, `problem_code`, `problem` and `since`. Sent once per outage |
+| `calendar.working` | The calendar works again after a `calendar.failing` |
 
 Each event is a JSON `POST`:
 

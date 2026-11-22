@@ -87,7 +87,16 @@ Sharing can change after connecting: the owner unshares the calendar, or turns i
 | Unreachable (`calendar_unreachable`) | Booking stops while Google can't be reached |
 | Settings unreadable (`calendar_settings_unreadable`) | The stored connection or `GOOGLE_SERVICE_ACCOUNT_JSON` can't be used; booking is paused until it's fixed on our side |
 
-Nobody is emailed when a calendar stops working yet; the owner sees it on the dashboard.
+### When it stops working
+
+The calendar sync worker also checks every connected calendar every 15 minutes, the same way, and remembers the result on its `business_integrations` row (migration `0026`).
+
+- When a check finds a problem, the owner is emailed "Action needed: … can't use your Google Calendar" with the reason and what it means for booking, the business's webhook gets `calendar.failing`, and `ADMIN_EMAIL` gets "Calendar failing: …". One outage sends one email, however long it lasts.
+- Google being unreachable alerts only once it has lasted 30 minutes, so a short blip sends nothing. Not shared, read only and unreadable settings alert on the first check.
+- When a check finds it working again after an alert, the owner gets "Your Google Calendar works again", the webhook gets `calendar.working`, and the admin is told too.
+- Connecting a calendar again starts afresh: it's checked on the next round and can alert again.
+
+Only calendars stored per business are checked this way. The deployment's own business on `GOOGLE_CALENDAR_ID` isn't; its dashboard section still checks it live.
 
 ### Changing or disconnecting
 

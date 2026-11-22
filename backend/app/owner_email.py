@@ -39,6 +39,17 @@ EMAILED_EVENTS = {
     "profile.updated",
     "password.reset",
     "password.changed",
+    # A connected calendar stopped working, or works again: to the owner and to the admin.
+    "calendar.failing",
+    "calendar.working",
+    "calendar.alert",
+}
+# What a calendar problem means for booking, by the check's code.
+CALENDAR_EFFECT = {
+    "calendar_not_shared": "Until it's shared again, callers and your booking site can't book.",
+    "calendar_read_only": "Busy times still block booking, but new bookings aren't added to it.",
+    "calendar_unreachable": "While this lasts, callers and your booking site can't book.",
+    "calendar_settings_unreadable": "Booking is paused until we fix it; we've been told.",
 }
 # Notices that go to the account they're about.
 TO_THE_ACCOUNT = {"profile.received", "password.reset", "password.changed"}
@@ -85,7 +96,7 @@ def owner_address(business: Business) -> str | None:
 
 def notice_address(event: WebhookEvent, settings: Settings) -> str | None:
     """Where a notice that belongs to no business goes."""
-    if event.event_type in ("profile.submitted", "profile.updated"):
+    if event.event_type in ("profile.submitted", "profile.updated", "calendar.alert"):
         return settings.admin_email or None
     if event.event_type in TO_THE_ACCOUNT:
         data = event.payload.get("data", {})
@@ -104,7 +115,23 @@ def forget_link(event: WebhookEvent) -> None:
 def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
     data = event.payload.get("data", {})
     business = data.get("business_name") or "a business"
-    if event.event_type == "profile.submitted":
+    if event.event_type == "calendar.alert":
+        slug = data.get("business_slug")
+        if data.get("working"):
+            subject = f"Calendar working again: {business}"
+            lines = [f"{business} ({slug}) can use its Google Calendar again."]
+        else:
+            subject = f"Calendar failing: {business} ({data.get('problem_code')})"
+            lines = [
+                f"{business} ({slug}) can't use its Google Calendar "
+                f"({data.get('calendar_id')}) since {data.get('since')}.",
+                "",
+                f"The owner was told: {data.get('problem')}",
+                CALENDAR_EFFECT.get(data.get("problem_code"), ""),
+                "",
+                f"Check: python -m app.integrations show {slug}",
+            ]
+    elif event.event_type == "profile.submitted":
         subject = f"New sign-up: {business} ({data.get('business_type')})"
         lines = [
             f"{data.get('owner_name')} submitted a profile for {business}.",
@@ -195,7 +222,25 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
         if settings.public_site_url
         else None
     )
-    if event.event_type == "callback.requested":
+    if event.event_type == "calendar.failing":
+        subject = f"Action needed: {business.name} can't use your Google Calendar"
+        lines = [
+            f"Your receptionist can't use your Google Calendar ({data.get('calendar_id')}).",
+            "",
+            data.get("problem") or "",
+            CALENDAR_EFFECT.get(data.get("problem_code"), ""),
+            "",
+            "Once it's fixed, the receptionist picks it up by itself within 15 minutes, and we'll "
+            "email you that it works again. Check it any time on the staff dashboard's Calendar "
+            "section.",
+        ]
+    elif event.event_type == "calendar.working":
+        subject = f"Your Google Calendar works again for {business.name}"
+        lines = [
+            f"Your receptionist can use your Google Calendar ({data.get('calendar_id')}) again. "
+            "Busy times block booking and new bookings are added to it as before.",
+        ]
+    elif event.event_type == "callback.requested":
         reason = REASONS.get(data.get("reason"), data.get("reason") or "")
         subject = f"Please call back: {data.get('name')} ({reason})"
         lines = [

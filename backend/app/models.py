@@ -105,6 +105,13 @@ class BusinessIntegration(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # A calendar's regular check: when it last ran, what was wrong, since when, and when the
+    # owner was told (one email per outage).
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    problem_code: Mapped[str | None] = mapped_column(String(40))
+    problem: Mapped[str | None] = mapped_column(String(300))
+    problem_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class SizeCategory(Base):
