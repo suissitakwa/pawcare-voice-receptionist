@@ -908,3 +908,14 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 591 passed (local PostgreSQL 14), 8 new in `test_calendar_connect.py`: no calendar, a working calendar with its sync figures, an unshared calendar, unreadable settings, staff see only their own business's status and need to sign in, a different calendar re-marks only upcoming confirmed bookings and the same one changes nothing, reconnecting after a disconnect re-marks them, the profile check |
 | Frontend | Typecheck and build pass; 94 tests pass (Node 22), 3 new: the dashboard shows a working calendar, then the problem and last error after Check again; no calendar connected; the profile's Check connection |
 | Live | Not deployed. Needs `GOOGLE_SERVICE_ACCOUNT_JSON` on Railway and a real shared calendar |
+
+## An email when the calendar stops working (2026-11-22)
+
+**Outcome:** the dashboard showed a broken calendar, but only to someone who looked. The calendar sync worker now checks every connected calendar every 15 minutes, the same way as the dashboard, and keeps the result on its connection (migration `0026`). When a calendar stops working, the owner is emailed "Action needed: … can't use your Google Calendar" with Google's reason and what it means for booking, the business's webhook gets `calendar.failing`, and `ADMIN_EMAIL` gets "Calendar failing: …". One outage sends one email; when it works again, both hear so (`calendar.working`). Google being unreachable alerts only after 30 minutes, so a short blip sends nothing. Connecting a calendar again starts the checks afresh. See [calendar.md](calendar.md#when-it-stops-working).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 598 passed (local PostgreSQL 14), 7 new in `test_calendar_alerts.py`: a working calendar is checked every 15 minutes with no email and its connection date kept, an unshared calendar alerts once and then says it works again, unreachable alerts only after 30 minutes, a short outage sends nothing, reconnecting checks afresh, unreadable settings alert at once, the owner's and the admin's emails. Migration `0026` upgrades and downgrades cleanly |
+| Frontend | Unchanged |
+| Live | Not deployed. Needs `ADMIN_EMAIL`, email settings and a real shared calendar to try |

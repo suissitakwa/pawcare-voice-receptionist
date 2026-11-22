@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from sqlalchemy import func, or_, select, true
+from sqlalchemy import func, or_, select, true, update
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -38,7 +38,7 @@ from app.integrations import (
     businesses_with,
     calendar_config,
 )
-from app.models import Booking, Business
+from app.models import Booking, Business, BusinessIntegration
 
 logger = logging.getLogger("pawcare.calendar")
 
@@ -487,13 +487,120 @@ def sync_round(session: Session, settings: Settings, now: datetime) -> int:
     return synced
 
 
+CHECK_EVERY = timedelta(minutes=15)
+# Google being briefly unreachable isn't worth an email; a calendar that isn't shared is.
+UNREACHABLE_GRACE = timedelta(minutes=30)
+CHECK_BATCH = 20
+
+
+def check_problem(
+    session: Session, settings: Settings, business_id: uuid.UUID
+) -> tuple[str, str] | None:
+    """What's wrong with the business's calendar right now, or None when it works."""
+    try:
+        config = calendar_config(session, settings, business_id)
+        if config is None:
+            return None
+        check_account_access(config.service_account_json, config.calendar_id)
+    except CalendarAccessProblem as problem:
+        return problem.code, problem.message
+    except (IntegrationUnavailable, ValueError, KeyError) as error:
+        logger.error("Calendar settings for business %s can't be used: %s", business_id, error)
+        return UNREADABLE
+    return None
+
+
+def alert(
+    session: Session,
+    row: BusinessIntegration,
+    problem: tuple[str, str] | None,
+    since: datetime | None,
+    now: datetime,
+) -> None:
+    """Tells the owner (email and webhook) and HelloEver's admin (email) that the calendar
+    stopped working (with the problem) or works again (problem None)."""
+    from app.webhooks import enqueue, enqueue_notice
+
+    working = problem is None
+    business = session.get(Business, row.business_id)
+    data = {
+        "calendar_id": row.config.get("calendar_id"),
+        "problem_code": None if working else problem[0],
+        "problem": None if working else problem[1],
+        "since": since.isoformat() if since else None,
+    }
+    enqueue(session, business.id, "calendar.working" if working else "calendar.failing", data, now)
+    enqueue_notice(
+        session,
+        "calendar.alert",
+        {
+            **data,
+            "working": working,
+            "business_name": business.name,
+            "business_slug": business.slug,
+        },
+        now,
+    )
+
+
+def check_round(session: Session, settings: Settings, now: datetime) -> int:
+    """Checks each stored calendar that's due (every 15 minutes) and emails once when one
+    starts failing and once when it works again. Returns how many were checked."""
+    rows = session.scalars(
+        select(BusinessIntegration)
+        .where(
+            BusinessIntegration.kind == CALENDAR,
+            or_(
+                BusinessIntegration.checked_at.is_(None),
+                BusinessIntegration.checked_at <= now - CHECK_EVERY,
+            ),
+        )
+        .order_by(BusinessIntegration.checked_at.asc().nulls_first())
+        .limit(CHECK_BATCH)
+        .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
+    ).all()
+    for row in rows:
+        found = check_problem(session, settings, row.business_id)
+        changes: dict = {"checked_at": now}
+        if found is None:
+            if row.alerted_at is not None:
+                alert(session, row, None, row.problem_since, now)
+            changes |= {
+                "problem_code": None,
+                "problem": None,
+                "problem_since": None,
+                "alerted_at": None,
+            }
+        else:
+            code, message = found
+            since = row.problem_since or now
+            changes |= {"problem_code": code, "problem": message[:300], "problem_since": since}
+            lasting = code != "calendar_unreachable" or now - since >= UNREACHABLE_GRACE
+            if row.alerted_at is None and lasting:
+                alert(session, row, found, since, now)
+                changes["alerted_at"] = now
+            logger.warning("Calendar for business %s: %s", row.business_id, code)
+        # Keeps updated_at as when it was connected.
+        session.execute(
+            update(BusinessIntegration)
+            .where(BusinessIntegration.id == row.id)
+            .values(**changes, updated_at=BusinessIntegration.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+    session.commit()
+    return len(rows)
+
+
 async def run_sync_worker(settings: Settings, get_engine, clock) -> None:
-    """Syncs every business's calendar every few seconds until cancelled. Calendars connected
-    while the server runs are picked up on the next round."""
+    """Syncs every business's calendar every few seconds until cancelled, and checks each one
+    every 15 minutes. Calendars connected while the server runs are picked up on the next
+    round."""
 
     def once() -> None:
         with Session(get_engine()) as session:
             sync_round(session, settings, clock())
+            check_round(session, settings, clock())
 
     while True:
         try:

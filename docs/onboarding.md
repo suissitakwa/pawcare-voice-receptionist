@@ -112,10 +112,9 @@ See [calendar.md](calendar.md#several-businesses) and [automations.md](automatio
 1. `https://YOUR-SITE.netlify.app/b/happy-tails-austin` shows the right name, services, prices, hours and number, with no demo notices. This is the business's booking site; the owner can link to it from their own website or Google listing.
 2. Call the number. The receptionist greets with the business's name and offers its services.
 3. Book a test appointment by phone, check it in the calendar (if connected), and cancel it.
-4. If a calendar is connected, the staff dashboard's **Calendar** section shows it connected with nothing waiting to sync. A problem there (for example the calendar was unshared) stops booking; see [calendar.md](calendar.md#is-it-still-working).
+4. If a calendar is connected, the staff dashboard's **Calendar** section shows it connected with nothing waiting to sync. A problem there (for example the calendar was unshared) stops booking; see [calendar.md](calendar.md#is-it-still-working). The owner and `ADMIN_EMAIL` are also emailed within 15 minutes when that happens.
 
 ## Not ready yet
 
 - Each groomer's own Google Calendar. One calendar per business, which blocks everyone.
-- An email to the owner and to us when a connected calendar stops working. Today it shows only on the dashboard and in the profile's check.
 - Picking the calendar from a list. The owner pastes its Calendar ID.

@@ -52,6 +52,10 @@ After they've submitted, any change to their profile (business name, phone, cale
 
 Without `ADMIN_EMAIL`, only their receipt is sent. `SERVICE_NAME` (default `HelloEver AI`) names the sender and signs the receipt.
 
+## Calendar problems
+
+When a business's connected Google Calendar stops working, the owner gets **"Action needed: <business> can't use your Google Calendar"**, with Google's reason, what it means for booking, and the dashboard link. `ADMIN_EMAIL` gets **"Calendar failing: <business> (<code>)"** with the `integrations show` command. Both get one more email when it works again. See [calendar.md](calendar.md#when-it-stops-working).
+
 ## Forgotten passwords
 
 Both sign-in pages (`/get-started` for sign-up accounts, `/b/<slug>/staff` for dashboards) have **Forgot password?**. Whatever email is entered, the page says the same thing. If an account exists, it gets "Reset your HelloEver AI password" with a link to `PUBLIC_SITE_URL` that works once, for one hour; asking again cancels the previous link. Setting a new password signs out every other session and emails "Your password was changed". Each account can ask 3 times an hour, each visitor 10 times. The link is erased from the outbox as soon as it's emailed, and only its hash is kept. Without `PUBLIC_SITE_URL`, no link can be made, so none is sent.

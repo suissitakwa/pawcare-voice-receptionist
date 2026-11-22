@@ -165,7 +165,17 @@ def save(
         .values(business_id=business_id, kind=kind, config=config, secret=token)
         .on_conflict_do_update(
             constraint="uq_business_integrations_kind",
-            set_={"config": config, "secret": token, "updated_at": func.now()},
+            set_={
+                "config": config,
+                "secret": token,
+                "updated_at": func.now(),
+                # A new connection is checked afresh and can alert again.
+                "checked_at": None,
+                "problem_code": None,
+                "problem": None,
+                "problem_since": None,
+                "alerted_at": None,
+            },
         )
     )
 
