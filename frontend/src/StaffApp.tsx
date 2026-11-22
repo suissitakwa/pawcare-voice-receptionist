@@ -9,6 +9,7 @@ import {
   resetPassword,
   staffApi,
   type BlockInput,
+  type CalendarStatus,
   type EmailStatus,
   type StaffBlock,
   type StaffBooking,
@@ -516,9 +517,80 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
         )}
         <BlockForm onAdd={addBlock} team={team} />
       </section>
+      <CalendarPanel token={token} />
       <EmailPanel token={token} />
       <AutomationPanel token={token} />
     </div>
+  );
+}
+
+// What a calendar problem means for booking, by the check's code.
+const CALENDAR_EFFECT: Record<string, string> = {
+  calendar_not_shared: "Until it's shared again, callers and the booking site can't book.",
+  calendar_read_only: "Busy times still block booking, but new bookings aren't added to it.",
+  calendar_unreachable: "If this lasts, callers and the booking site can't book.",
+};
+
+// Whether the connected Google Calendar still works, checked live with Google on each load.
+function CalendarPanel({ token }: { token: string }) {
+  const [status, setStatus] = useState<CalendarStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    setBusy(true);
+    setFailed(false);
+    staffApi
+      .calendar(token)
+      .then(setStatus, () => setFailed(true))
+      .finally(() => setBusy(false));
+  }, [token]);
+
+  useEffect(refresh, [refresh]);
+
+  return (
+    <section aria-labelledby="staff-calendar">
+      <h2 id="staff-calendar">Calendar</h2>
+      {failed && <p className="muted">Calendar status is unavailable.</p>}
+      {status && !status.connected && (
+        <p className="muted">
+          No Google Calendar is connected, so bookings aren't added to a calendar. Connect it in your profile's
+          Your calendar step.
+        </p>
+      )}
+      {status?.connected && (
+        <>
+          {status.problem ? (
+            <p className="form-alert" role="alert">
+              {status.problem} {status.problem_code && CALENDAR_EFFECT[status.problem_code]}
+            </p>
+          ) : (
+            <p className="muted">
+              Connected to <strong>{status.calendar_id}</strong>. Busy times in it block booking, and bookings are
+              added to it within seconds.
+            </p>
+          )}
+          <dl className="metric-grid">
+            <div>
+              <dt>Waiting to sync</dt>
+              <dd>
+                {status.waiting}
+                {status.last_error && <span className="size-note">Last error: {status.last_error}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt>Last synced</dt>
+              <dd>{status.last_synced_at ? new Date(status.last_synced_at).toLocaleString() : "Not yet"}</dd>
+            </div>
+          </dl>
+          <div className="actions">
+            <button type="button" className="button button-secondary" disabled={busy} onClick={refresh}>
+              {busy ? "Checking…" : "Check again"}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

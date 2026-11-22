@@ -1,6 +1,7 @@
 """Staff-only endpoints. Every route requires a valid session and is scoped to the
 signed-in staff member's business, so no request parameter can reach another business."""
 
+import dataclasses
 import uuid
 from datetime import date, datetime, time, timedelta
 from typing import Annotated
@@ -11,6 +12,7 @@ from fastapi import Path as PathParam
 from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
 
+from app import google_calendar
 from app.availability import active_staff
 from app.clock import get_now
 from app.config import Settings, get_settings
@@ -41,6 +43,7 @@ from app.schemas import (
     SLUG_PATTERN,
     BlockCreated,
     BlockRequest,
+    CalendarStatus,
     EmailStatus,
     StaffBlock,
     StaffBooking,
@@ -467,6 +470,16 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
         callback.resolved_by = context.staff.id
         db.commit()
     return callback
+
+
+@router.get("/calendar", response_model=CalendarStatus)
+def calendar_status(
+    context: Staff, db: DbSession, settings: Annotated[Settings, Depends(get_settings)]
+) -> CalendarStatus:
+    """Whether the business's Google Calendar can be read and changed right now (checked with
+    Google), and how syncing bookings to it is going. Never returns a key."""
+    status = google_calendar.calendar_status(db, settings, context.staff.business_id)
+    return CalendarStatus(**dataclasses.asdict(status))
 
 
 @router.get("/emails", response_model=EmailStatus)

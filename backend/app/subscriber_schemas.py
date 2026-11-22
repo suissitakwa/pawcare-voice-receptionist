@@ -321,3 +321,11 @@ class ProfileOptions(BaseModel):
 
 class CalendarConnectRequest(Strict):
     calendar_id: str = Field(min_length=3, max_length=200)
+
+
+class CalendarCheck(BaseModel):
+    """A live check that HelloEver can still read and change the connected calendar."""
+
+    ok: bool
+    code: str | None = None
+    message: str | None = None

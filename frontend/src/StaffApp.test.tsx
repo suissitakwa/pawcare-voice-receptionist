@@ -62,6 +62,16 @@ const CALLBACK = {
   resolved_at: null,
 };
 
+const NO_CALENDAR = {
+  connected: false,
+  calendar_id: null,
+  problem_code: null,
+  problem: null,
+  waiting: 0,
+  last_synced_at: null,
+  last_error: null,
+};
+
 type Reply = { status: number; body?: unknown };
 type Route = (init?: RequestInit) => Reply;
 
@@ -96,6 +106,7 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
       body: { address: "owner@studio.example", enabled: true, sent_last_7_days: 3, last_error: null },
     }),
     "GET /api/v1/staff/team": () => ({ status: 200, body: [{ slug: "main-groomer", name: "Main groomer" }] }),
+    "GET /api/v1/staff/calendar": () => ({ status: 200, body: NO_CALENDAR }),
     ...overrides,
   };
 }
@@ -250,6 +261,32 @@ describe("StaffApp", () => {
     await signIn();
     expect(await screen.findByText("owner@studio.example")).toBeInTheDocument();
     expect(screen.getByText(/3 sent in the last 7 days/)).toBeInTheDocument();
+  });
+
+  it("shows whether the calendar works, and why not", async () => {
+    let status: Record<string, unknown> = { ...NO_CALENDAR, connected: true, calendar_id: "owner@gmail.com", waiting: 2 };
+    mockApi(dashboardRoutes({ "GET /api/v1/staff/calendar": () => ({ status: 200, body: status }) }));
+    render(<StaffApp />);
+    const user = await signIn();
+    expect(await screen.findByText("owner@gmail.com")).toBeInTheDocument();
+    expect(screen.getByText("Waiting to sync").nextElementSibling).toHaveTextContent("2");
+    status = {
+      ...status,
+      problem_code: "calendar_not_shared",
+      problem: "We can't see that calendar yet.",
+      last_error: "saving the event returned HTTP 403",
+    };
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+    const alert = await screen.findByText(/We can't see that calendar yet/);
+    expect(alert).toHaveTextContent("can't book");
+    expect(screen.getByText(/HTTP 403/)).toBeInTheDocument();
+  });
+
+  it("says when no calendar is connected", async () => {
+    mockApi(dashboardRoutes());
+    render(<StaffApp />);
+    await signIn();
+    expect(await screen.findByText(/No Google Calendar is connected/)).toBeInTheDocument();
   });
 
   it("at a barbershop, shows clients and no dog column", async () => {

@@ -299,6 +299,7 @@ function GoogleCalendarConnect({
   onCalendarId,
   busy,
   onConnect,
+  onCheck,
   onDisconnect,
 }: {
   shareEmail: string | null;
@@ -307,6 +308,7 @@ function GoogleCalendarConnect({
   onCalendarId: (value: string) => void;
   busy: boolean;
   onConnect: () => void;
+  onCheck: () => void;
   onDisconnect: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -316,9 +318,18 @@ function GoogleCalendarConnect({
         <p>
           <strong>Connected:</strong> {connectedId}. New bookings, changes and cancellations appear in it within a few seconds.
         </p>
-        <button type="button" className="button button-secondary" disabled={busy} onClick={onDisconnect}>
-          Disconnect
-        </button>
+        <p className="muted">
+          If you change its sharing in Google Calendar, check the connection here. Disconnecting stops new bookings going to it;
+          events already in it stay.
+        </p>
+        <div className="actions">
+          <button type="button" className="button button-secondary" disabled={busy} onClick={onCheck}>
+            Check connection
+          </button>
+          <button type="button" className="button button-secondary" disabled={busy} onClick={onDisconnect}>
+            Disconnect
+          </button>
+        </div>
       </div>
     );
   }
@@ -445,6 +456,13 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
       });
       load(await subscriberApi.connectCalendar(token, calendarId.trim()));
       setSaved("Your calendar is connected.");
+    });
+
+  const checkCalendar = () =>
+    run(async () => {
+      const result = await subscriberApi.checkCalendar(token);
+      if (result.ok) setSaved("Your calendar is working: bookings can be added to it.");
+      else setError(result.message ?? "Your calendar can't be reached right now.");
     });
 
   const disconnectCalendar = () =>
@@ -646,6 +664,7 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
                 onCalendarId={setCalendarId}
                 busy={busy}
                 onConnect={connectCalendar}
+                onCheck={checkCalendar}
                 onDisconnect={disconnectCalendar}
               />
             )}

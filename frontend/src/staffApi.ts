@@ -127,6 +127,18 @@ export interface WebhookStatus {
   last_error: string | null;
 }
 
+export interface CalendarStatus {
+  connected: boolean;
+  calendar_id: string | null;
+  /** From a live check with Google; null when bookings can be read and written. */
+  problem_code: string | null;
+  problem: string | null;
+  /** Bookings still to be written to or removed from the calendar. */
+  waiting: number;
+  last_synced_at: string | null;
+  last_error: string | null;
+}
+
 export interface EmailStatus {
   /** Where emails about bookings and callback requests go; null when none are sent. */
   address: string | null;
@@ -156,5 +168,6 @@ export const staffApi = {
     authed<StaffCallback>(token, `/callbacks/${encodeURIComponent(id)}/done`, { method: "POST" }),
   webhooks: (token: string) => authed<WebhookStatus>(token, "/webhooks"),
   emails: (token: string) => authed<EmailStatus>(token, "/emails"),
+  calendar: (token: string) => authed<CalendarStatus>(token, "/calendar"),
   sendTestEvent: (token: string) => authed<{ event_id: string }>(token, "/webhooks/test", { method: "POST" }),
 };
