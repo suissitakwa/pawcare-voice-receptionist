@@ -55,13 +55,43 @@ Businesses connect their calendar themselves, in the **Your calendar** step of t
 
 **Once per deployment:** create the service account (step 1 above), set `GOOGLE_SERVICE_ACCOUNT_JSON` to its key on Railway, and make sure `INTEGRATIONS_KEY` is set. Leave `GOOGLE_CALENDAR_ID` empty unless the deployment's own business (`BUSINESS_SLUG`) should use a calendar too. Without the key, the profile says the calendar will be connected during setup.
 
-**What the owner does:**
+### Connect with Google (recommended)
+
+With a Google OAuth client set up, the owner chooses **Google Calendar**, presses **Connect with Google**, signs in, and picks their booking calendar from a list of the calendars they own (their main one first). The backend shares it with the service account (**Make changes to events**, without a Google notification email), checks it as below, and connects it. Nothing about their Google account is kept.
+
+How it's kept safe:
+
+- Google is asked for two permissions only: to see their calendar list (`calendar.calendarlist.readonly`) and to change a calendar's sharing (`calendar.acls`). Both are needed; if they untick one, they're asked to allow both. No refresh token is asked for (`access_type=online`).
+- The `state` sent to Google is encrypted with `INTEGRATIONS_KEY`, names the signed-in account and expires after 10 minutes, so nobody else can finish their sign-in.
+- Google's access token reaches the page only inside an encrypted ticket bound to the same account and expiring after 10 minutes. It's used once, to share the chosen calendar, and never stored.
+- Only calendars they own are listed, since only an owner can change sharing.
+
+| Problem | Owner sees |
+| --- | --- |
+| They cancel at Google | "Google sign-in was cancelled. Connect with Google again, or share the calendar yourself." |
+| A permission unticked | "Please allow both permissions Google asks for…" |
+| Google Workspace blocks sharing outside the organisation | "…Your Google Workspace may block sharing outside your organisation: ask your admin, or choose a personal calendar." |
+| Took longer than 10 minutes | "That Google sign-in has expired. Please connect again." |
+
+New sharing can take a moment at Google, so the access check right after it is tried up to three times, a second apart.
+
+**Once per deployment**, to offer it:
+
+1. In the same Google Cloud project as the service account, **APIs & Services → OAuth consent screen**: user type **External**, app name HelloEver AI, support email, and the two scopes above. While the app is in **Testing**, add each pilot owner's Google address under **Test users**. To let anyone sign in, publish it and send it for Google's verification (the scopes are "sensitive"); until then owners see an "unverified app" warning, for up to 100 users.
+2. **Credentials → Create credentials → OAuth client ID**, type **Web application**, authorised redirect URI `PUBLIC_SITE_URL/get-started` (for example `https://example.netlify.app/get-started`).
+3. On Railway's backend: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, with `PUBLIC_SITE_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON` and `INTEGRATIONS_KEY` already set. Without any of them, the profile shows only the steps below.
+
+### Share it by hand
+
+Always available, under **Or share it yourself** when Connect with Google is offered:
 
 1. Chooses **Google Calendar**. The step shows the service account's address with a copy button.
 2. In Google Calendar's settings, shares their booking calendar with that address, choosing **Make changes to events**.
 3. Pastes the **Calendar ID** (their Gmail address for their main calendar) and presses **Connect calendar**.
 
-The backend checks access before saving, by adding the calendar to the service account's calendar list, which answers with the access the owner gave:
+### The access check
+
+Either way, the backend checks access before saving, by adding the calendar to the service account's calendar list, which answers with the access the owner gave:
 
 | Google says | Owner sees |
 | --- | --- |

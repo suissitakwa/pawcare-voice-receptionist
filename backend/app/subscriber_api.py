@@ -7,6 +7,7 @@ document reading are later steps.
 
 import hashlib
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta
 from typing import Annotated
@@ -18,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import integrations
+from app import google_oauth, integrations
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
@@ -52,7 +53,12 @@ from app.subscriber_schemas import (
     CalendarCheck,
     CalendarConnectRequest,
     DocumentPublic,
+    GoogleCalendars,
+    GoogleConnect,
+    GoogleReturn,
+    GoogleStart,
     Option,
+    OwnedCalendarPublic,
     ProfileDetails,
     ProfileOptions,
     ProfilePublic,
@@ -210,6 +216,7 @@ def options(settings: Config) -> ProfileOptions:
             for kind, sizes in SIZES_BY_TYPE.items()
         },
         calendar_share_email=shared_account_email(settings),
+        google_sign_in=google_oauth.available(settings),
     )
 
 
@@ -400,23 +407,83 @@ def set_calendar(
         ) from None
 
 
+SHARING_SETTLES_SECONDS = 1.0
+
+
+def connect_checked(
+    db: Session,
+    settings: Settings,
+    account: SubscriberAccount,
+    calendar_id: str,
+    now: datetime,
+    attempts: int = 1,
+) -> ProfilePublic:
+    """Connects the calendar once HelloEver's service account is shown to make changes to it.
+    Right after sharing it for the owner, Google may take a moment, so it's tried again."""
+    profile = load_profile(db, account.id)
+    for attempt in range(1, attempts + 1):
+        try:
+            check_access(settings, calendar_id)
+            break
+        except CalendarAccessProblem as problem:
+            if attempt == attempts or problem.code != "calendar_not_shared":
+                raise ApiError(422, problem.code, problem.message) from None
+            time.sleep(SHARING_SETTLES_SECONDS)
+    before = snapshot(db, profile)
+    set_calendar(db, settings, profile, calendar_id)
+    note_change(db, account, profile, changed_sections(before, snapshot(db, profile)), now)
+    db.commit()
+    return to_public(db, profile)
+
+
 @router.post("/profile/calendar", response_model=ProfilePublic)
 def connect_calendar(
     body: CalendarConnectRequest, context: Account, db: DbSession, settings: Config, now: Now
 ) -> ProfilePublic:
     """Connects a Google Calendar the owner shared with HelloEver's service account, after
     checking the account can make changes to it."""
-    profile = load_profile(db, context[0].id)
+    return connect_checked(db, settings, context[0], body.calendar_id.strip(), now)
+
+
+def sign_in_failed(problem: google_oauth.SignInProblem) -> ApiError:
+    return ApiError(problem.status, problem.code, problem.message)
+
+
+@router.post("/profile/calendar/google/start", response_model=GoogleStart)
+def start_google(context: Account, settings: Config) -> GoogleStart:
+    """Where to send the owner to sign in with Google and pick their calendar."""
+    try:
+        return GoogleStart(url=google_oauth.start_url(settings, context[0].id, context[0].email))
+    except google_oauth.SignInProblem as problem:
+        raise sign_in_failed(problem) from None
+
+
+@router.post("/profile/calendar/google/calendars", response_model=GoogleCalendars)
+def google_calendars(body: GoogleReturn, context: Account, settings: Config) -> GoogleCalendars:
+    """After Google sends the owner back: the calendars they own, to pick one."""
+    try:
+        ticket, calendars = google_oauth.calendars_for(
+            settings, context[0].id, body.code, body.state
+        )
+    except google_oauth.SignInProblem as problem:
+        raise sign_in_failed(problem) from None
+    return GoogleCalendars(
+        ticket=ticket,
+        calendars=[OwnedCalendarPublic(id=c.id, name=c.name, primary=c.primary) for c in calendars],
+    )
+
+
+@router.post("/profile/calendar/google/connect", response_model=ProfilePublic)
+def connect_google(
+    body: GoogleConnect, context: Account, db: DbSession, settings: Config, now: Now
+) -> ProfilePublic:
+    """Shares the picked calendar with HelloEver's service account, then connects it."""
     calendar_id = body.calendar_id.strip()
     try:
-        check_access(settings, calendar_id)
-    except CalendarAccessProblem as problem:
-        raise ApiError(422, problem.code, problem.message) from None
-    before = snapshot(db, profile)
-    set_calendar(db, settings, profile, calendar_id)
-    note_change(db, context[0], profile, changed_sections(before, snapshot(db, profile)), now)
-    db.commit()
-    return to_public(db, profile)
+        google_oauth.share(settings, context[0].id, body.ticket, calendar_id)
+    except google_oauth.SignInProblem as problem:
+        raise sign_in_failed(problem) from None
+    return connect_checked(db, settings, context[0], calendar_id, now, attempts=3)
 
 
 @router.post("/profile/calendar/check", response_model=CalendarCheck)

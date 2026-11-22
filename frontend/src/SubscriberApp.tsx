@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
 import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
 import { siteRoot } from "./site";
-import { subscriberApi, type Account, type FaqItem, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
+import { subscriberApi, type Account, type FaqItem, type GooglePick, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
 
 // The terms and privacy policy live on the company website.
 const LEGAL_SITE = (import.meta.env.VITE_LEGAL_SITE_URL as string | undefined) || "https://helloeverai.com";
@@ -51,6 +51,24 @@ function writeToken(token: string | null) {
   } catch {
     // Storage can be unavailable in private browsing. Sign-in still works for this page view.
   }
+}
+
+/** Leaving for Google's sign-in page; replaced in tests. */
+export const navigation = { go: (url: string) => window.location.assign(url) };
+
+type GoogleReturn = { code: string; state: string } | { error: string } | null;
+
+/** Google's answer after signing in, taken out of the address so a reload doesn't reuse it. */
+function takeGoogleReturn(): GoogleReturn {
+  const params = new URLSearchParams(window.location.search);
+  const state = params.get("state");
+  if (!state) return null;
+  const code = params.get("code");
+  const error = params.get("error");
+  for (const name of ["state", "code", "error", "scope", "authuser", "prompt", "hd"]) params.delete(name);
+  const query = params.toString();
+  window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : "") + window.location.hash);
+  return code ? { code, state } : { error: error ?? "unknown" };
 }
 
 function errorText(error: unknown): string {
@@ -292,22 +310,74 @@ function cleanDetails(details: ProfileDetails, urls: string, zips: string): Prof
   };
 }
 
+function CalendarPicker({
+  pick,
+  busy,
+  onPick,
+  onCancel,
+}: {
+  pick: GooglePick;
+  busy: boolean;
+  onPick: (calendarId: string) => void;
+  onCancel: () => void;
+}) {
+  const [chosen, setChosen] = useState(pick.calendars.find((c) => c.primary)?.id ?? pick.calendars[0]?.id ?? "");
+  if (pick.calendars.length === 0) {
+    return (
+      <div className="calendar-connect" role="status">
+        <p>No calendars you own were found in that Google account. Sign in with the account that owns your booking calendar.</p>
+        <button type="button" className="button button-secondary" onClick={onCancel}>
+          Back
+        </button>
+      </div>
+    );
+  }
+  return (
+    <fieldset className="calendar-connect">
+      <legend>Which calendar do you book appointments in?</legend>
+      {pick.calendars.map((calendar) => (
+        <label key={calendar.id} className="check-row">
+          <input type="radio" name="google-calendar" value={calendar.id} checked={chosen === calendar.id} onChange={() => setChosen(calendar.id)} />
+          <span>
+            {calendar.name}
+            {calendar.primary && " (your main calendar)"}
+            {calendar.name !== calendar.id && <span className="muted"> {calendar.id}</span>}
+          </span>
+        </label>
+      ))}
+      <p className="muted">We'll share it with our booking address so bookings can be added, and check it works.</p>
+      <div className="actions">
+        <button type="button" className="button button-primary" disabled={busy || !chosen} onClick={() => onPick(chosen)}>
+          Connect this calendar
+        </button>
+        <button type="button" className="button button-secondary" disabled={busy} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
 function GoogleCalendarConnect({
   shareEmail,
+  googleSignIn,
   connectedId,
   calendarId,
   onCalendarId,
   busy,
   onConnect,
+  onSignIn,
   onCheck,
   onDisconnect,
 }: {
   shareEmail: string | null;
+  googleSignIn: boolean;
   connectedId: string | null;
   calendarId: string;
   onCalendarId: (value: string) => void;
   busy: boolean;
   onConnect: () => void;
+  onSignIn: () => void;
   onCheck: () => void;
   onDisconnect: () => void;
 }) {
@@ -340,9 +410,9 @@ function GoogleCalendarConnect({
       () => setCopied(false),
     );
   };
-  return (
-    <div className="calendar-connect">
-      <p className="muted">Connect it now, on a computer, in three steps:</p>
+  const byHand = (
+    <>
+      <p className="muted">{googleSignIn ? "Share it with us yourself, in three steps:" : "Connect it now, on a computer, in three steps:"}</p>
       <ol>
         <li>
           Open <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noreferrer">Google Calendar settings</a> and,
@@ -365,15 +435,46 @@ function GoogleCalendarConnect({
           <input {...props} type="text" maxLength={200} placeholder="you@gmail.com" value={calendarId} onChange={(e) => onCalendarId(e.target.value)} />
         )}
       </Field>
-      <button type="button" className="button button-primary" disabled={busy || calendarId.trim().length < 3} onClick={onConnect}>
+      <button type="button" className={googleSignIn ? "button button-secondary" : "button button-primary"} disabled={busy || calendarId.trim().length < 3} onClick={onConnect}>
         Connect calendar
       </button>
+    </>
+  );
+  if (!googleSignIn) return <div className="calendar-connect">{byHand}</div>;
+  return (
+    <div className="calendar-connect">
+      <p>
+        Sign in with Google and choose your booking calendar. We share it with our booking address for you, and we don't keep
+        access to your Google account.
+      </p>
+      <button type="button" className="button button-primary" disabled={busy} onClick={onSignIn}>
+        Connect with Google
+      </button>
+      <details>
+        <summary>Or share it yourself</summary>
+        {byHand}
+      </details>
     </div>
   );
 }
 
-function ProfileForm({ token, options, onSignOut }: { token: string; options: ProfileOptions; onSignOut: (notice?: string) => void }) {
+const CALENDAR_STEP = STEPS.findIndex((s) => s.id === "calendar");
+
+function ProfileForm({
+  token,
+  options,
+  onSignOut,
+  googleReturn = null,
+}: {
+  token: string;
+  options: ProfileOptions;
+  onSignOut: (notice?: string) => void;
+  googleReturn?: GoogleReturn;
+}) {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [pick, setPick] = useState<GooglePick | null>(null);
+  // A code from Google works once, so it's exchanged once even if effects run twice.
+  const exchanged = useRef(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState(0);
   const [urls, setUrls] = useState("");
@@ -402,6 +503,25 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
   useEffect(() => {
     subscriberApi.profile(token).then(load, handleError);
   }, [token, load, handleError]);
+
+  useEffect(() => {
+    if (!googleReturn || exchanged.current) return;
+    exchanged.current = true;
+    setStep(CALENDAR_STEP);
+    if ("error" in googleReturn) {
+      setError(
+        googleReturn.error === "access_denied"
+          ? "Google sign-in was cancelled. Connect with Google again, or share the calendar yourself."
+          : "Google sign-in didn't finish. Please connect again.",
+      );
+      return;
+    }
+    setBusy(true);
+    subscriberApi
+      .googleCalendars(token, googleReturn.code, googleReturn.state)
+      .then(setPick, handleError)
+      .finally(() => setBusy(false));
+  }, [googleReturn, token, handleError]);
 
   if (!profile || !draft) {
     return error ? (
@@ -456,6 +576,26 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
       });
       load(await subscriberApi.connectCalendar(token, calendarId.trim()));
       setSaved("Your calendar is connected.");
+    });
+
+  // Unsaved edits are saved first: the page is left for Google's sign-in.
+  const signInWithGoogle = () =>
+    run(async () => {
+      if (!draft) return;
+      await subscriberApi.save(token, {
+        business_name: orNull(draft.business_name),
+        business_type: draft.business_type || null,
+        details: cleanDetails(draft.details, urls, zips),
+      });
+      navigation.go((await subscriberApi.googleStart(token)).url);
+    });
+
+  const connectPicked = (calendarId: string) =>
+    run(async () => {
+      if (!pick) return;
+      load(await subscriberApi.googleConnect(token, pick.ticket, calendarId));
+      setPick(null);
+      setSaved("Your calendar is connected and shared with us.");
     });
 
   const checkCalendar = () =>
@@ -656,17 +796,23 @@ function ProfileForm({ token, options, onSignOut }: { token: string; options: Pr
                 </select>
               )}
             </Field>
-            {details.calendar_provider === "google" && (
-              <GoogleCalendarConnect
-                shareEmail={options.calendar_share_email ?? null}
-                connectedId={details.google_calendar_connected ? (details.google_calendar_id ?? null) : null}
-                calendarId={calendarId}
-                onCalendarId={setCalendarId}
-                busy={busy}
-                onConnect={connectCalendar}
-                onCheck={checkCalendar}
-                onDisconnect={disconnectCalendar}
-              />
+            {pick ? (
+              <CalendarPicker pick={pick} busy={busy} onPick={connectPicked} onCancel={() => setPick(null)} />
+            ) : (
+              details.calendar_provider === "google" && (
+                <GoogleCalendarConnect
+                  shareEmail={options.calendar_share_email ?? null}
+                  googleSignIn={options.google_sign_in ?? false}
+                  connectedId={details.google_calendar_connected ? (details.google_calendar_id ?? null) : null}
+                  calendarId={calendarId}
+                  onCalendarId={setCalendarId}
+                  busy={busy}
+                  onConnect={connectCalendar}
+                  onSignIn={signInWithGoogle}
+                  onCheck={checkCalendar}
+                  onDisconnect={disconnectCalendar}
+                />
+              )
             )}
             {details.calendar_provider === "other" && (
               <Field label="Which system?">
@@ -805,6 +951,7 @@ export default function SubscriberApp() {
   const [notice, setNotice] = useState("");
   const [resetToken, setResetToken] = useState<string | null>(takeResetToken);
   const [forgot, setForgot] = useState(false);
+  const [googleReturn] = useState<GoogleReturn>(takeGoogleReturn);
 
   useEffect(() => {
     document.title = "Set up your AI receptionist";
@@ -863,7 +1010,7 @@ export default function SubscriberApp() {
                 Sign out{account ? ` ${account.full_name}` : ""}
               </button>
             </div>
-            <ProfileForm token={token} options={options} onSignOut={signOut} />
+            <ProfileForm token={token} options={options} onSignOut={signOut} googleReturn={googleReturn} />
           </>
         )
       )}

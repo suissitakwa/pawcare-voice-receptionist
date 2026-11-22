@@ -16,6 +16,20 @@ export interface ProfileOptions {
   sizes?: Record<string, Option[]>;
   /** The address owners share their Google Calendar with to connect it; null while not offered. */
   calendar_share_email?: string | null;
+  /** Owners can sign in with Google to pick their calendar and share it in one go. */
+  google_sign_in?: boolean;
+}
+
+export interface OwnedCalendar {
+  id: string;
+  name: string;
+  primary: boolean;
+}
+
+/** The calendars the owner can pick, and a short-lived ticket to share the chosen one. */
+export interface GooglePick {
+  ticket: string;
+  calendars: OwnedCalendar[];
 }
 
 export interface Account {
@@ -151,6 +165,11 @@ export const subscriberApi = {
     }),
   connectCalendar: (token: string, calendar_id: string) =>
     authed<Profile>(token, "/profile/calendar", { method: "POST", ...json({ calendar_id }) }),
+  googleStart: (token: string) => authed<{ url: string }>(token, "/profile/calendar/google/start", { method: "POST" }),
+  googleCalendars: (token: string, code: string, state: string) =>
+    authed<GooglePick>(token, "/profile/calendar/google/calendars", { method: "POST", ...json({ code, state }) }),
+  googleConnect: (token: string, ticket: string, calendar_id: string) =>
+    authed<Profile>(token, "/profile/calendar/google/connect", { method: "POST", ...json({ ticket, calendar_id }) }),
   checkCalendar: (token: string) => authed<CalendarCheck>(token, "/profile/calendar/check", { method: "POST" }),
   disconnectCalendar: (token: string) => authed<Profile>(token, "/profile/calendar", { method: "DELETE" }),
   removeDocument: (token: string, id: string) => authed<void>(token, `/profile/documents/${id}`, { method: "DELETE" }),

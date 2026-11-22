@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     # may be pasted as is or base64-encoded. Both empty: no calendar.
     google_calendar_id: str = ""
     google_service_account_json: str = Field(default="", repr=False)
+    # A Google OAuth client (web application) so owners connect their calendar by signing in:
+    # they pick one of their calendars and it's shared with the service account above. Its
+    # redirect URI is PUBLIC_SITE_URL + /get-started. Empty: owners share it by hand.
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = Field(default="", repr=False)
 
     # Automation webhook, for example an n8n Webhook node. Events are signed with the
     # secret. Empty URL: events are kept for a while but not sent.
