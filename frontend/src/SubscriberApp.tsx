@@ -67,7 +67,8 @@ function takeGoogleReturn(): GoogleReturn {
   if (!state) return null;
   const code = params.get("code");
   const error = params.get("error");
-  for (const name of ["state", "code", "error", "scope", "authuser", "prompt", "hd"]) params.delete(name);
+  // Google also sends "iss" (its own address), which only clutters the address bar.
+  for (const name of ["state", "code", "error", "scope", "authuser", "prompt", "hd", "iss"]) params.delete(name);
   const query = params.toString();
   window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : "") + window.location.hash);
   return code ? { code, state } : { error: error ?? "unknown" };
