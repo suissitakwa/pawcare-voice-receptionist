@@ -271,7 +271,7 @@ describe("SubscriberApp", () => {
     let connected: Record<string, unknown> = {};
     const connectedProfile = {
       ...PROFILE,
-      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true },
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true, google_calendar_name: "Sam Rivera" },
     };
     const calls = mockApi(
       routes({
@@ -301,7 +301,7 @@ describe("SubscriberApp", () => {
     // Unsaved edits are saved before connecting.
     const keys = calls.map((c) => c.key);
     expect(keys.indexOf("PATCH /api/v1/subscribers/profile")).toBeLessThan(keys.indexOf("POST /api/v1/subscribers/profile/calendar"));
-    expect(screen.getByText(/sam@gmail.com\. New bookings/)).toBeInTheDocument();
+    expect(screen.getByText("Sam Rivera", { selector: ".calendar-connect strong" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Disconnect" }));
     expect(await screen.findByText("Your calendar is disconnected.")).toBeInTheDocument();
   });
@@ -355,7 +355,7 @@ describe("SubscriberApp", () => {
     let connected: unknown = null;
     const connectedProfile = {
       ...PROFILE,
-      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "team@group.calendar.google.com", google_calendar_connected: true },
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "team@group.calendar.google.com", google_calendar_connected: true, google_calendar_name: "Team" },
     };
     mockApi(
       routes({
@@ -389,7 +389,9 @@ describe("SubscriberApp", () => {
     await user.click(screen.getByRole("button", { name: "Connect this calendar" }));
     expect(await screen.findByText("Your calendar is connected and shared with us.")).toBeInTheDocument();
     expect(connected).toEqual({ ticket: "ticket-1", calendar_id: "team@group.calendar.google.com" });
-    expect(screen.getByText(/team@group\.calendar\.google\.com\. New bookings/)).toBeInTheDocument();
+    expect(screen.getByText("Team", { selector: ".calendar-connect strong" })).toBeInTheDocument();
+    // Its name, not the long id.
+    expect(screen.queryByText(/team@group\.calendar\.google\.com/)).not.toBeInTheDocument();
   });
 
   it("says so when the owner cancels Google's sign-in", async () => {
@@ -404,7 +406,7 @@ describe("SubscriberApp", () => {
   it("checks a connected calendar and says what's wrong with its sharing", async () => {
     const connectedProfile = {
       ...PROFILE,
-      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true },
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "sam@gmail.com", google_calendar_connected: true, google_calendar_name: "Sam Rivera" },
     };
     let shared = true;
     mockApi(

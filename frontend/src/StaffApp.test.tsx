@@ -264,11 +264,13 @@ describe("StaffApp", () => {
   });
 
   it("shows whether the calendar works, and why not", async () => {
-    let status: Record<string, unknown> = { ...NO_CALENDAR, connected: true, calendar_id: "owner@gmail.com", waiting: 2 };
+    let status: Record<string, unknown> = { ...NO_CALENDAR, connected: true, calendar_id: "owner@gmail.com", calendar_name: "Shaggy Chic bookings", waiting: 2 };
     mockApi(dashboardRoutes({ "GET /api/v1/staff/calendar": () => ({ status: 200, body: status }) }));
     render(<StaffApp />);
     const user = await signIn();
-    expect(await screen.findByText("owner@gmail.com")).toBeInTheDocument();
+    // The calendar's name, not its id.
+    expect(await screen.findByText("Shaggy Chic bookings")).toBeInTheDocument();
+    expect(screen.queryByText(/owner@gmail\.com/)).not.toBeInTheDocument();
     expect(screen.getByText("Waiting to sync").nextElementSibling).toHaveTextContent("2");
     status = {
       ...status,

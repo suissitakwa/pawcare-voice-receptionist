@@ -992,3 +992,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend | Unchanged |
 | Live | Not deployed |
 
+## Calendars shown by name (2026-11-22)
+
+**Outcome:** the profile and the staff dashboard showed a connected calendar by its ID, often a long `…@group.calendar.google.com` string. Both now show its name in Google Calendar ("Connected to **Shaggy Chic bookings**"). The access check already reads the calendar's list entry, so it now returns the name. Connecting saves it on the profile (`google_calendar_name`, server-set), **Check connection** refreshes it after a rename, and the dashboard gets it from its live check. A calendar connected before this shows "your Google Calendar" until checked. See [calendar.md](calendar.md#is-it-still-working).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 694 passed (local PostgreSQL 14), 4 new in `test_calendar_connect.py`: the check returns the owner's name for the calendar (trimmed; none when Google gives none), connecting keeps it and a check refreshes it and disconnecting clears it, a profile edit can't set it, the dashboard status names the calendar and drops the name when the check fails |
+| Frontend | Typecheck and build pass; 107 tests pass (Node 22): the profile shows the picked calendar's name, not its ID, after connecting by hand and with Google; the dashboard shows the name, not the ID |
+| Live | Not deployed |
+

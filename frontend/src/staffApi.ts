@@ -130,6 +130,8 @@ export interface WebhookStatus {
 export interface CalendarStatus {
   connected: boolean;
   calendar_id: string | null;
+  /** Its name in Google Calendar, when the live check could read it. */
+  calendar_name?: string | null;
   /** From a live check with Google; null when bookings can be read and written. */
   problem_code: string | null;
   problem: string | null;

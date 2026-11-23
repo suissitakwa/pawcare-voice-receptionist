@@ -566,7 +566,7 @@ function CalendarPanel({ token }: { token: string }) {
             </p>
           ) : (
             <p className="muted">
-              Connected to <strong>{status.calendar_id}</strong>. Busy times in it block booking, and bookings are
+              Connected to <strong>{status.calendar_name ?? "your Google Calendar"}</strong>. Busy times in it block booking, and bookings are
               added to it within seconds.
             </p>
           )}
