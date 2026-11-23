@@ -484,12 +484,32 @@ class VoiceToolRequest(BaseModel):
     arguments: str = Field(default="", max_length=4000)
 
 
+class PendingManage(BaseModel):
+    """A change or cancellation waiting for the visitor's click on the website."""
+
+    action: Literal["change", "cancel"]
+    reference: str
+    was: dict
+    new: dict | None = None
+    # Only the visitor's click sends it back. The model never sees it.
+    confirm_token: str
+
+
 class VoiceToolResult(BaseModel):
     ok: bool
     # Sent back to the model.
     result: dict
     # Shown on screen only. Holds the confirmation token, which the model never sees.
     prepared: PreparedBooking | None = None
+    # Shown on screen only, like `prepared`.
+    manage: PendingManage | None = None
+
+
+class VoiceManageConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_token: str = Field(min_length=20, max_length=128)
+    confirm_token: str = Field(min_length=20, max_length=128)
 
 
 class WebhookStatus(BaseModel):

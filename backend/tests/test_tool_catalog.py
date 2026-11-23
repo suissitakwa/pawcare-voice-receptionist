@@ -14,7 +14,14 @@ from app.config import Settings, get_settings
 from app.main import app, get_now
 from app.models import Business, Service
 from app.vapi import vapi_tools
-from app.voice import TOOLS, ToolCatalog, browser_tools, phone_tools, tool_catalog
+from app.voice import (
+    BROWSER_MANAGE_TOOLS,
+    TOOLS,
+    ToolCatalog,
+    browser_tools,
+    phone_tools,
+    tool_catalog,
+)
 
 LA = ZoneInfo("America/Los_Angeles")
 NOW = datetime(2027, 1, 5, 10, 0, tzinfo=LA)
@@ -31,7 +38,8 @@ def enums(tools: list[dict], name: str) -> dict[str, list[str] | None]:
 
 
 def test_the_demo_catalog_gives_the_same_tools_as_before(db) -> None:
-    assert browser_tools(tool_catalog(db, business_id(db, "pawcare-demo"))) == TOOLS
+    demo = browser_tools(tool_catalog(db, business_id(db, "pawcare-demo")))
+    assert demo == [*TOOLS, *BROWSER_MANAGE_TOOLS]
 
 
 def test_another_business_gets_only_its_own_services(db, second_business) -> None:

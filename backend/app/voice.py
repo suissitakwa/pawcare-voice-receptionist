@@ -285,7 +285,7 @@ def for_industry(tools: list[dict], catalog: ToolCatalog | None) -> list[dict]:
 
 
 def browser_tools(catalog: ToolCatalog | None = None) -> list[dict]:
-    return for_industry(with_catalog(TOOLS, catalog), catalog)
+    return for_industry([*with_catalog(TOOLS, catalog), *BROWSER_MANAGE_TOOLS], catalog)
 
 
 def phone_tools(catalog: ToolCatalog | None = None) -> list[dict]:
@@ -404,6 +404,29 @@ MANAGE_TOOLS = [
             "booking to the caller, asked whether to cancel it, and they clearly said yes."
         ),
         "parameters": CALLER_CONFIRMED,
+    },
+]
+
+
+# The website's versions only put a change or cancellation on screen; the visitor clicks.
+BROWSER_MANAGE_TOOLS = [
+    {
+        **MANAGE_TOOLS[1],
+        "description": (
+            "Show a change to the booking the caller confirmed earlier in this conversation: a "
+            "new time, service or dog size, or a corrected owner or dog name. Pass only what "
+            "changes. Changes nothing: the caller must press Confirm change on screen. Use a "
+            "starts_at from check_availability."
+        ),
+    },
+    {
+        "type": "function",
+        "name": "prepare_cancel",
+        "description": (
+            "Show the booking the caller confirmed earlier in this conversation with a Cancel "
+            "booking button. Cancels nothing: the caller must press the button."
+        ),
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
 ]
 
@@ -759,7 +782,13 @@ def confirm_line(channel: str) -> str:
             "After prepare_booking succeeds, tell the caller the summary is on their screen and "
             "that they must press Confirm booking to book it. You cannot confirm bookings. Never "
             "say an appointment is booked or confirmed unless a system message says the caller "
-            "confirmed it and gives the reference. Then read the reference out."
+            "confirmed it and gives the reference. Then read the reference out. If the caller "
+            "then wants to change or cancel that booking, check_availability for a new time if "
+            "needed, then call prepare_change or prepare_cancel, and tell them to press Confirm "
+            "change or Cancel booking on screen. You cannot change or cancel it yourself, and "
+            "never say it is changed or cancelled unless a system message says so. Only a "
+            "booking made in this conversation can be changed here; for any other, ask them to "
+            "contact the business."
         )
     return (
         "After prepare_booking succeeds, read its summary to the caller: the service, the "

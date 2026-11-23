@@ -5,8 +5,10 @@ the session token, limited to the session's lifetime and a call budget, and ever
 is validated here as untrusted input. The model never receives confirmation tokens.
 """
 
+import hmac
 import json
 import logging
+import secrets
 import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -27,12 +29,20 @@ from app.booking import sha256 as booking_sha256
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time
-from app.manage import cancel, confirm_change, find_booking, prepare_change
+from app.manage import (
+    CHANGE_LIFETIME,
+    cancel,
+    confirm_change,
+    describe,
+    find_booking,
+    prepare_change,
+)
 from app.models import Booking, BookingDraft, CallbackRequest, VoiceSession
 from app.names import clean_name
 from app.schemas import (
     EMAIL_PATTERN,
     PHONE_PATTERN,
+    PendingManage,
     PrepareBookingRequest,
     VoiceToolResult,
 )
@@ -40,13 +50,16 @@ from app.voice import MAX_TOOL_CALLS, MESSAGE_TOOLS, SESSION_GRACE, sha256
 from app.webhooks import callback_data, enqueue
 
 logger = logging.getLogger("pawcare.voice")
-# Managing existing bookings needs a spoken yes, so it is phone only.
+# Managing a booking found by reference needs a spoken yes, so it is phone only.
 PHONE_MANAGE_TOOLS = {
     "find_booking": find_booking,
     "prepare_change": prepare_change,
     "confirm_change": confirm_change,
     "cancel_booking": cancel,
 }
+# On the website the assistant only shows a change or cancellation; the visitor clicks to
+# apply it.
+BROWSER_MANAGE_TOOLS = {"prepare_change", "prepare_cancel"}
 # A full day at 15-minute steps is under 40 starts, so the model can see every one.
 MAX_TIMES_RETURNED = 40
 
@@ -298,6 +311,8 @@ def run_tool(
             outcome = confirm_spoken(session, business, record, raw, now)
         elif name in PHONE_MANAGE_TOOLS and record.channel == "phone":
             outcome = PHONE_MANAGE_TOOLS[name](session, business, record, raw, now)
+        elif name in BROWSER_MANAGE_TOOLS and record.channel != "phone":
+            outcome = prepare_on_screen(session, business, record, name, raw, now)
         elif name == "create_callback_request":
             outcome = create_callback(session, business, record, raw, now)
         else:
@@ -316,6 +331,11 @@ def run_tool(
     if not outcome.ok:
         record.tool_failures += 1
         logger.info("Voice tool %s returned %s", name, outcome.result.get("error"))
+    save_call_state(session, record)
+    return outcome
+
+
+def save_call_state(session: Session, record: VoiceSession) -> None:
     session.execute(
         update(VoiceSession)
         .where(VoiceSession.id == record.id)
@@ -328,4 +348,108 @@ def run_tool(
             lookup_failures=record.lookup_failures,
         )
     )
+
+
+def booked_here(session: Session, record: VoiceSession) -> Booking | None:
+    """The latest booking the visitor confirmed in this website conversation."""
+    return session.scalar(
+        select(Booking)
+        .where(
+            Booking.business_id == record.business_id,
+            Booking.voice_session_id == record.id,
+            Booking.status == "confirmed",
+        )
+        # The session remembers the last reference confirmed; otherwise the newest.
+        .order_by(
+            (Booking.reference == (record.booking_reference or "")).desc(),
+            Booking.created_at.desc(),
+        )
+        .limit(1)
+    )
+
+
+def prepare_on_screen(
+    session: Session, business, record: VoiceSession, name: str, raw: dict, now: datetime
+) -> VoiceToolResult:
+    """Website only. Shows a change or cancellation of a booking made in this conversation,
+    for the visitor to confirm by clicking. The model can never apply it."""
+    booking = booked_here(session, record)
+    if booking is None:
+        return tool_error(
+            "no_booking_in_this_conversation",
+            "Only a booking the caller confirmed earlier in this conversation can be changed "
+            "here. For any other booking, ask them to contact the business using the details "
+            "on this page.",
+        )
+    record.managed_booking_id = booking.id
+    timezone = ZoneInfo(business.timezone)
+    if name == "prepare_change":
+        outcome = prepare_change(session, business, record, raw, now)
+        if not outcome.ok:
+            return outcome
+        was, new = outcome.result["was"], outcome.result["new"]
+        button = "Confirm change"
+    else:
+        if raw:
+            return tool_error("invalid_arguments", "prepare_cancel takes no arguments.")
+        if booking.starts_at <= now:
+            return tool_error("booking_started", "That appointment has already started.")
+        was, new = describe(booking.summary, timezone), None
+        record.pending_change = {
+            "action": "cancel",
+            "booking_id": str(booking.id),
+            "expires_at": (now + CHANGE_LIFETIME).isoformat(),
+        }
+        button = "Cancel booking"
+    token = secrets.token_urlsafe(32)
+    record.pending_change = {**record.pending_change, "token_hash": booking_sha256(token)}
+    return VoiceToolResult(
+        ok=True,
+        result={
+            "status": "awaiting_caller_confirmation",
+            "reference": booking.reference,
+            "was": was,
+            **({"new": new} if new else {}),
+            "next_step": f"Tell the caller the details are on their screen and that they must "
+            f"press {button}. Nothing has changed yet.",
+        },
+        manage=PendingManage(
+            action="change" if new else "cancel",
+            reference=booking.reference,
+            was=was,
+            new=new,
+            confirm_token=token,
+        ),
+    )
+
+
+def confirm_on_screen(
+    session: Session,
+    business_id: uuid.UUID,
+    session_id: uuid.UUID,
+    token: str,
+    confirm_token: str,
+    settings: Settings,
+    now: datetime,
+) -> VoiceToolResult:
+    """The visitor pressed Confirm change or Cancel booking. Applies exactly what was shown."""
+    record = authorize(session, business_id, session_id, token, settings, now)
+    if record.channel == "phone":
+        raise ApiError(404, "voice_session_not_found", "That voice session was not found.")
+    business = load_business(session, business_id)
+    record.tool_calls += 1
+    pending = record.pending_change or {}
+    if not hmac.compare_digest(pending.get("token_hash", ""), booking_sha256(confirm_token)):
+        raise ApiError(
+            409, "nothing_to_confirm", "That change is no longer waiting. Ask the assistant again."
+        )
+    if pending.get("action") == "cancel":
+        if datetime.fromisoformat(pending["expires_at"]) <= now:
+            record.pending_change = None
+            outcome = tool_error("change_expired", "That expired. Ask the assistant again.")
+        else:
+            outcome = cancel(session, business, record, {"caller_confirmed": True}, now)
+    else:
+        outcome = confirm_change(session, business, record, {"caller_confirmed": True}, now)
+    save_call_state(session, record)
     return outcome

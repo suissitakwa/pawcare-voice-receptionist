@@ -62,6 +62,7 @@ from app.schemas import (
     SlotPublic,
     StaffMemberPublic,
     VoiceEndRequest,
+    VoiceManageConfirmRequest,
     VoiceSessionStarted,
     VoiceToolRequest,
     VoiceToolResult,
@@ -71,7 +72,7 @@ from app.staff_api import router as staff_router
 from app.subscriber_api import router as subscriber_router
 from app.vapi_api import router as vapi_router
 from app.voice import end_voice_session, start_voice_session
-from app.voice_tools import run_tool
+from app.voice_tools import confirm_on_screen, run_tool
 from app.webhooks import run_worker
 
 logger = logging.getLogger("pawcare")
@@ -422,6 +423,28 @@ def call_voice_tool(
     """Runs one assistant tool. Tool failures return ok=false so the assistant can explain."""
     outcome = run_tool(
         db, business_id, session_id, name, body.session_token, body.arguments, settings, now
+    )
+    db.commit()
+    return outcome
+
+
+@public.post(
+    "/voice/sessions/{session_id}/manage/confirm",
+    response_model=VoiceToolResult,
+    tags=["voice"],
+)
+def confirm_voice_manage(
+    session_id: uuid.UUID,
+    body: VoiceManageConfirmRequest,
+    db: DbSession,
+    business_id: CurrentBusinessId,
+    settings: AppSettings,
+    now: Now,
+) -> VoiceToolResult:
+    """The visitor pressed Confirm change or Cancel booking for a booking made in this website
+    conversation. Applies exactly what the assistant showed."""
+    outcome = confirm_on_screen(
+        db, business_id, session_id, body.session_token, body.confirm_token, settings, now
     )
     db.commit()
     return outcome
