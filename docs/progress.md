@@ -1091,3 +1091,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 727 passed (local PostgreSQL 14). New checks: a website booking changed and another cancelled by the customer, a form booking, then a staff cancellation, as staff see them; a phone booking changed and one cancelled on the call show as phone and by the customer |
 | Frontend | Typecheck and build pass; 118 tests pass (Node 22), 1 new: the source, the customer's change and who cancelled, in the bookings table |
 | Live | Not deployed |
+
+## A list of calls on the staff dashboard (2026-11-23)
+
+**Outcome:** owners could see how many calls their receptionist took, but not the calls themselves. The staff dashboard now has a **Calls** section with the latest 50 conversations, by phone and on the website, newest first: when, how long, what came of it (booked, changed or cancelled a booking, asked for a callback, message only over the call limit, or questions only), assistant errors, how it ended, and the cost when Vapi reports one. A session that never reported its end isn't shown as in progress after an hour. Calls aren't recorded, so the list shows outcomes, not what was said. New endpoint `GET /api/v1/staff/calls`. See [api.md](api.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 730 passed (local PostgreSQL 14), 3 new in `test_staff_calls.py`: newest first with each outcome, length, how it ended and Vapi's cost; a change made after the call isn't credited to it and a session that never ended isn't shown as live; only the business's own calls, sign-in needed, the limit checked |
+| Frontend | Typecheck and build pass; 120 tests pass (Node 22), 2 new: a call's outcome, length, errors, ending and cost, then Refresh; no calls yet |
+| Live | Not deployed |

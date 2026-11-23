@@ -224,6 +224,7 @@ h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.3125rem; font-weig
 .service-card .numeric { padding-right: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .service-card tbody .numeric { font-weight: 600; }
 .size-note { display: block; color: var(--ink-soft); font-size: 0.8125rem; font-weight: 400; }
+.call-outcome { display: block; }
 .assessment-note { max-width: 65ch; margin: 20px 0 0; }
 
 .faq-list { max-width: 75ch; border-top: 1px solid var(--line); }

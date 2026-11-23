@@ -48,6 +48,7 @@ from app.schemas import (
     PlanStatus,
     StaffBlock,
     StaffBooking,
+    StaffCall,
     StaffCallback,
     StaffLogin,
     StaffLoginResult,
@@ -467,6 +468,97 @@ def percentile(values: list[int], pct: int) -> int | None:
         return None
     rank = max(1, -(-pct * len(values) // 100))
     return values[rank - 1]
+
+
+# How a call ended, in plain words. Unknown reasons fall back to "Ended".
+ENDED_BY = {
+    "caller_hung_up": "Caller hung up",
+    "user_ended": "Visitor ended it",
+    "page_closed": "Visitor left the page",
+    "assistant_ended": "Assistant ended it",
+    "time_limit": "Reached the time limit",
+    "timeout": "Reached the time limit",
+    "silence": "Caller went quiet",
+    "mic_denied": "Microphone blocked",
+    "disconnected": "Connection dropped",
+    "connection_error": "Connection dropped",
+    "server_stopped": "Interrupted by an update",
+    "accept_failed": "Couldn't be answered",
+    "error": "Something went wrong",
+}
+
+
+def during(moment: datetime | None, call: VoiceSession, now: datetime) -> bool:
+    return moment is not None and call.started_at <= moment <= (call.ended_at or now)
+
+
+@router.get("/calls", response_model=list[StaffCall])
+def list_calls(context: Staff, db: DbSession, now: Now, limit: int = 50):
+    """The receptionist's conversations, newest first, with what came of each."""
+    if not 1 <= limit <= 200:
+        raise ApiError(422, "invalid_request", "Check these fields: limit.")
+    business_id = context.staff.business_id
+    timezone = business_timezone(db, business_id)
+    calls = db.scalars(
+        select(VoiceSession)
+        .where(VoiceSession.business_id == business_id)
+        .order_by(VoiceSession.started_at.desc())
+        .limit(limit)
+    ).all()
+    ids = [call.id for call in calls]
+    with_callbacks = set(
+        db.scalars(
+            select(CallbackRequest.voice_session_id).where(
+                CallbackRequest.voice_session_id.in_(ids)
+            )
+        )
+    )
+    managed = {
+        booking.id: booking
+        for booking in db.scalars(
+            select(Booking).where(
+                Booking.id.in_([c.managed_booking_id for c in calls if c.managed_booking_id])
+            )
+        )
+    }
+    result = []
+    for call in calls:
+        usage = call.usage or {}
+        if call.ended_at is not None:
+            duration = round((call.ended_at - call.started_at).total_seconds())
+        elif isinstance(usage.get("duration_seconds"), int | float):
+            duration = round(usage["duration_seconds"])
+        else:
+            duration = None
+        booking = managed.get(call.managed_booking_id)
+        cancelled = (
+            booking is not None
+            and booking.cancelled_via == "caller"
+            and during(booking.cancelled_at, call, now)
+        )
+        changed = booking is not None and not cancelled and during(booking.changed_at, call, now)
+        cost = usage.get("cost_usd")
+        result.append(
+            StaffCall(
+                id=call.id,
+                started_at=call.started_at,
+                local_start=call.started_at.astimezone(timezone),
+                channel="phone" if call.channel == "phone" else "website",
+                test_mode=call.mode == "test",
+                # A session that never reported its end isn't shown as live forever.
+                in_progress=call.status == "started" and now - call.started_at < timedelta(hours=1),
+                duration_seconds=duration,
+                ended_by=ENDED_BY.get(call.end_reason or "", "Ended" if call.end_reason else None),
+                booked_reference=call.booking_reference,
+                changed_reference=booking.reference if changed else None,
+                cancelled_reference=booking.reference if cancelled else None,
+                callback_requested=call.id in with_callbacks,
+                message_only=call.message_only,
+                tool_failures=call.tool_failures,
+                cost_usd=float(cost) if isinstance(cost, int | float) else None,
+            )
+        )
+    return result
 
 
 @router.get("/callbacks", response_model=list[StaffCallback])

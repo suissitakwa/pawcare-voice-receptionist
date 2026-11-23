@@ -14,6 +14,7 @@ import {
   type EmailStatus,
   type StaffBlock,
   type StaffBooking,
+  type StaffCall,
   type StaffCallback,
   type StaffMetrics,
   type StaffUser,
@@ -509,6 +510,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
           </ul>
         )}
       </section>
+      <CallsPanel token={token} />
       <section aria-labelledby="staff-blocks">
         <h2 id="staff-blocks">Blocked time</h2>
         <p className="muted">Times are in the business time zone. Blocked time cannot be booked online.</p>
@@ -547,6 +549,104 @@ const CALENDAR_EFFECT: Record<string, string> = {
 };
 
 // Whether the connected Google Calendar still works, checked live with Google on each load.
+function callLength(seconds: number | null): string {
+  if (seconds === null) return "";
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
+}
+
+/** What came of a call, in the order it matters to staff. */
+function callOutcomes(call: StaffCall): string[] {
+  const outcomes: string[] = [];
+  if (call.booked_reference) outcomes.push(`Booked ${call.booked_reference}`);
+  if (call.changed_reference) outcomes.push(`Changed ${call.changed_reference}`);
+  if (call.cancelled_reference) outcomes.push(`Cancelled ${call.cancelled_reference}`);
+  if (call.callback_requested) outcomes.push("Callback requested");
+  if (call.message_only) outcomes.push("Message only: over the call limit");
+  if (outcomes.length === 0) outcomes.push(call.in_progress ? "Still talking" : "Questions only");
+  return outcomes;
+}
+
+// Each conversation with the receptionist and what came of it. No audio or transcript is kept.
+function CallsPanel({ token }: { token: string }) {
+  const [calls, setCalls] = useState<StaffCall[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    setBusy(true);
+    setFailed(false);
+    staffApi
+      .calls(token)
+      .then(setCalls, () => setFailed(true))
+      .finally(() => setBusy(false));
+  }, [token]);
+
+  useEffect(refresh, [refresh]);
+
+  return (
+    <section aria-labelledby="staff-calls">
+      <h2 id="staff-calls">Calls</h2>
+      <p className="muted">
+        The latest 50 conversations with your receptionist, by phone and on your website. Calls aren't recorded, so
+        this shows what came of each one, not what was said.
+      </p>
+      {failed && <p className="muted">Calls are unavailable right now.</p>}
+      {calls !== null && calls.length === 0 && <p className="muted">No calls yet.</p>}
+      {calls !== null && calls.length > 0 && (
+        <div className="table-scroll">
+          <table className="staff-table">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Via</th>
+                <th scope="col">Length</th>
+                <th scope="col">Outcome</th>
+                <th scope="col">How it ended</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calls.map((call) => (
+                <tr key={call.id}>
+                  <td>{when(call.local_start)}</td>
+                  <td>
+                    {call.channel === "phone" ? "Phone" : "Website voice"}
+                    {call.test_mode && <span className="size-note">Test preview</span>}
+                  </td>
+                  <td>{callLength(call.duration_seconds)}</td>
+                  <td>
+                    {callOutcomes(call).map((outcome) => (
+                      <span key={outcome} className="call-outcome">
+                        {outcome}
+                      </span>
+                    ))}
+                    {call.tool_failures > 0 && (
+                      <span className="size-note">
+                        {call.tool_failures} assistant {call.tool_failures === 1 ? "error" : "errors"}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {call.in_progress ? "In progress" : (call.ended_by ?? "")}
+                    {call.cost_usd !== null && <span className="size-note">Cost ${call.cost_usd.toFixed(2)}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="actions">
+        <button type="button" className="button button-secondary" disabled={busy} onClick={refresh}>
+          {busy ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function CalendarPanel({ token }: { token: string }) {
   const [status, setStatus] = useState<CalendarStatus | null>(null);
   const [failed, setFailed] = useState(false);
