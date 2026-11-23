@@ -69,6 +69,9 @@ def tell_live(
             "booking_url": site_link(settings, business.slug),
             "dashboard_url": site_link(settings, business.slug, "/staff"),
             "calendar_id": calendar_id,
+            "trial_ends_at": business.trial_ends_at.isoformat()
+            if business.plan == "trial" and business.trial_ends_at
+            else None,
         },
         now or datetime.now(UTC),
     )
@@ -101,6 +104,23 @@ def tell_phone_ready(
     return True
 
 
+def trial_lines(trial_ends_at: str | None) -> list[str]:
+    """The free trial, for a business that has one."""
+    if not trial_ends_at:
+        return []
+    from app.plans import MONTHLY_CALLS, PRICE, TRIAL_DAYS
+
+    ends = datetime.fromisoformat(trial_ends_at)
+    return [
+        f"Your free trial: {TRIAL_DAYS} days, until {ends:%B} {ends.day}. After that it's "
+        f"{PRICE} a month for up to {MONTHLY_CALLS} calls. No card is needed and nothing is "
+        'charged automatically: to keep your receptionist, press "Keep my receptionist" on '
+        "your dashboard and we'll send you an invoice. If you don't, it only takes messages "
+        "after the trial.",
+        "",
+    ]
+
+
 def compose(event_type: str, data: dict, service_name: str) -> tuple[str, list[str]]:
     business = data.get("business_name") or "your business"
     if event_type == LIVE:
@@ -129,6 +149,7 @@ def compose(event_type: str, data: dict, service_name: str) -> tuple[str, list[s
             "Your phone number: we're setting it up now, and we'll email you as soon as your "
             "receptionist answers calls.",
             "",
+            *trial_lines(data.get("trial_ends_at")),
             "To change your hours, services or prices, change them in your profile or reply to "
             "this email, and we'll update your receptionist.",
             "",

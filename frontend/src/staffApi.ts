@@ -127,6 +127,17 @@ export interface WebhookStatus {
   last_error: string | null;
 }
 
+/** The free trial or plan, and this month's calls against its allowance. */
+export interface PlanStatus {
+  plan: "trial" | "starter" | "unlimited";
+  state: "trial" | "trial_ended" | "active" | "allowance_used" | "unlimited";
+  price: string;
+  calls_included: number | null;
+  calls_this_month: number;
+  trial_ends_at: string | null;
+  upgrade_requested_at: string | null;
+}
+
 export interface CalendarStatus {
   connected: boolean;
   calendar_id: string | null;
@@ -171,5 +182,7 @@ export const staffApi = {
   webhooks: (token: string) => authed<WebhookStatus>(token, "/webhooks"),
   emails: (token: string) => authed<EmailStatus>(token, "/emails"),
   calendar: (token: string) => authed<CalendarStatus>(token, "/calendar"),
+  plan: (token: string) => authed<PlanStatus>(token, "/plan"),
+  requestPlan: (token: string) => authed<PlanStatus>(token, "/plan/request", { method: "POST" }),
   sendTestEvent: (token: string) => authed<{ event_id: string }>(token, "/webhooks/test", { method: "POST" }),
 };

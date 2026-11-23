@@ -502,6 +502,20 @@ class WebhookStatus(BaseModel):
     last_error: str | None
 
 
+class PlanStatus(BaseModel):
+    """The business's plan: a free trial, the paid plan, or unlimited (app/plans.py)."""
+
+    plan: str
+    # trial, trial_ended, active, allowance_used, or unlimited.
+    state: str
+    price: str
+    # None for unlimited.
+    calls_included: int | None
+    calls_this_month: int
+    trial_ends_at: datetime | None
+    upgrade_requested_at: datetime | None
+
+
 class CalendarStatus(BaseModel):
     connected: bool
     calendar_id: str | None

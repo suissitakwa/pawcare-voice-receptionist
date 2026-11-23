@@ -169,3 +169,16 @@ def test_the_demo_never_gets_one(db) -> None:
 )
 def test_numbers_are_written_the_way_people_read_them(number, spoken) -> None:
     assert go_live.spoken_number(number) == spoken
+
+
+def test_approve_starts_a_free_trial_and_says_so(db, live) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    assert live.plan == "trial"
+    left = live.trial_ends_at - datetime.now(UTC)
+    assert timedelta(days=13, hours=23) < left <= timedelta(days=14)
+    [event] = notices(db, go_live.LIVE)
+    body = message_for(event, None, get_settings(), "sam@example.com").get_content()
+    assert "Your free trial: 14 days, until" in body
+    assert "$49 a month for up to 100 calls. No card is needed" in body
+    assert '"Keep my receptionist"' in body

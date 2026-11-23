@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
+import { MONTHLY_CALLS, PLAN_PRICE, TRIAL_DAYS } from "./PlanPanel";
 import { KnowledgeSuggestions } from "./KnowledgeSuggestions";
 import { WebsiteFindings, useWebsiteFindings } from "./WebsiteFindings";
 import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
@@ -136,6 +137,12 @@ function AuthForm({
           ? "For pet groomers, hair salons, and barbershops. Create an account, then tell us about your business."
           : "Continue setting up your receptionist."}
       </p>
+      {mode === "signup" && (
+        <p className="form-info">
+          <strong>Free for {TRIAL_DAYS} days</strong>, then {PLAN_PRICE} a month for up to {MONTHLY_CALLS} calls. No card
+          needed, and nothing is charged automatically.
+        </p>
+      )}
       {mode === "signup" && (
         <div className="field">
           <label htmlFor={`${id}-name`}>Your name</label>

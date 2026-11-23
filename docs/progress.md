@@ -1013,3 +1013,20 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 693 passed (local PostgreSQL 14), 9 new in `test_website_details.py`: mobile, area, time zone and answers kept when the site says them and an unquoted answer dropped; salons never mobile and an area needs its words; the time zone from the address's state (Pacific, Central, Eastern with ZIP+4 and USA, Arizona; none without a state or outside the US); the request asks for mobile, area and answers |
 | Frontend | Typecheck and build pass; 110 tests pass (Node 22), 3 new: time zone, mobile, area and hours offered and used together, nothing offered over what the owner filled in, answers added one at a time or all at once with ones they have hidden |
 | Live | Not deployed. Not tried with a real OpenAI key or on real business websites |
+
+## Pricing and the free trial (2026-11-22)
+
+**Outcome:** businesses from a sign-up now start a 14-day free trial when they go live, then cost $49 a month for up to 100 phone calls. No card is taken and nothing is charged automatically.
+
+- **Sign-up and emails:** the sign-up page and the "set up" email say so.
+- **Dashboard:** a **Your plan** section shows the days left, this month's calls, and **Keep my receptionist ($49 a month)**, which emails you once to send an invoice. `python -m app.plans set <slug> starter` marks them paid.
+- **After an unpaid trial, or past 100 calls in a month:** the receptionist only takes messages, by phone and Vapi, and the website's voice assistant pauses. The booking form keeps working.
+- **Existing businesses:** the demo, pilots and earlier businesses are `unlimited` (migration `0030`), so nothing changes for them. See [pricing.md](pricing.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 713 passed (local PostgreSQL 14), 10 new: 9 in `test_plans.py` and 1 in `test_go_live.py`. Covered: a trial works until it ends; 100 calls run out and come back next month in the business's time zone; unlimited never runs out; after the trial, calls only take messages, and past the allowance too; the website voice assistant pauses; the dashboard shows the trial and its calls; asking to keep it emails you once, and marking it paid answers it; unlimited has nothing to ask; trials extend and unknown plans are refused; approve starts the trial and the "set up" email says so. Migration `0030` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 114 tests pass (Node 22), 5 new: the trial with days left, calls and the request; the ended trial; the used-up month; nothing shown for unlimited; the price on the sign-up page |
+| Live | Not deployed. Invoices are by hand; Stripe and reminder emails before the trial ends come next |
+
