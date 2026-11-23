@@ -108,7 +108,12 @@ def call_token(call_id: str) -> str:
     return f"call:{call_id}"
 
 
-def accept_body(settings: Settings, instructions: str, tools: list[dict] | None = None) -> dict:
+def accept_body(
+    settings: Settings,
+    instructions: str,
+    tools: list[dict] | None = None,
+    voice: str | None = None,
+) -> dict:
     return {
         "type": "realtime",
         "model": settings.phone_model_name,
@@ -127,7 +132,8 @@ def accept_body(settings: Settings, instructions: str, tools: list[dict] | None 
                     "interrupt_response": True,
                 },
             },
-            "output": {"voice": settings.phone_voice_name},
+            # The business's own voice wins over PHONE_VOICE.
+            "output": {"voice": voice or settings.phone_voice_name},
         },
     }
 
@@ -279,7 +285,7 @@ def handle_incoming(
             if record.message_only
             else phone_tools(tool_catalog(session, business.id))
         )
-        calls.accept(call_id, accept_body(settings, instructions, tools))
+        calls.accept(call_id, accept_body(settings, instructions, tools, business.voice))
     except CallControlError as error:
         logger.error("Accepting a call failed: %s", error)
         record.status = "ended"

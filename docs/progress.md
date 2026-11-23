@@ -957,3 +957,16 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Frontend | Typecheck and build pass; 107 tests pass (Node 22), 6 new: the website is read after the first step and its hours and address are offered and used on the next, services added with blanks kept and ones already there not offered again, the phone offered only while empty, the team added or turned down, nothing shown once used, reading and failure with Try again |
 | Live | Not deployed. Not tried with a real OpenAI key or on real business websites |
 
+## Owners hear when they're live, in the voice they chose (2026-11-22)
+
+**Outcome:** two gaps at the end of onboarding are closed.
+
+- **The voice:** the sign-up profile asks for a female or male voice, but every business sounded like the deployment's default. A business now keeps its owner's choice (`businesses.voice`, migration `0028`, set by `provision approve` and the business file's `voice`). Website sessions and OpenAI phone calls use it ahead of `VOICE_NAME` and `PHONE_VOICE`. Vapi calls use `VAPI_MALE_VOICE_ID` (ElevenLabs "Adam") for `cedar`.
+- **Being told:** nobody told the owner they were live. Approving now emails them "<business> is set up with HelloEver AI", with their booking page, staff dashboard and how to sign in, their calendar, and that their number is coming. Registering the business's first phone number emails "Your receptionist answers at <number>", with a test call to make and how to forward their own number to it. Replies go to `ADMIN_EMAIL`. See [email.md](email.md#going-live).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 684 passed (local PostgreSQL 14), 11 new in `test_go_live.py`: approve keeps the chosen voice; phone calls and browser sessions use the business voice over the deployment's; Vapi gets the male voice only from ElevenLabs; the approval email (owner address, Reply-To, links, calendar not connected, no number promised) and a connected calendar named; the first number emails the owner once (not again for the same or a second number); businesses without a sign-up and the demo get none; numbers written as people read them. Migration `0028` upgrades and downgrades cleanly |
+| Frontend | Unchanged |
+| Live | Not deployed. Needs `PUBLIC_SITE_URL` for full links; the Vapi male voice id not tried on a call |

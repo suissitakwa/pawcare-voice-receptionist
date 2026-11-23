@@ -25,6 +25,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import go_live
 from app.businesses import TEMPLATE_FILE, load_business, read_seed
 from app.config import get_settings
 from app.industries import STANDARD_SIZE
@@ -204,6 +205,7 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "size_categories": template["size_categories"] if pets else STANDARD_SIZES,
         "services": services,
         "faqs": faqs or template["faqs"],
+        "voice": details.voice,
     }
     if not details.timezone:
         gaps.append("time zone (Pacific assumed)")
@@ -289,7 +291,8 @@ def follow_ups(details: ProfileDetails) -> list[str]:
             + ", ".join(details.knowledge_urls)
         )
     steps.append(
-        "Buy their Twilio number and register it: python -m app.phone_numbers add <slug> <number>."
+        "Buy their Twilio number and register it: python -m app.phone_numbers add <slug> <number>. "
+        "That emails them the number and how to forward theirs to it."
     )
     return steps
 
@@ -314,6 +317,10 @@ def create(session: Session, email: str, seed: BusinessSeed) -> tuple[uuid.UUID,
     # Their sign-up password also opens the staff dashboard.
     upsert_staff(session, seed.slug, account.email, account.full_name, account.password_hash)
     session.flush()
+    connected = details.google_calendar_id if details.google_calendar_connected else None
+    go_live.tell_live(
+        session, get_settings(), account, session.get(Business, business_id), connected
+    )
     return business_id, follow_ups(ProfileDetails.from_stored(profile.details))
 
 
@@ -344,7 +351,8 @@ def main() -> None:
                     sys.exit("Nothing created.")
                 seed, _, steps = approve(session, args[0])
                 print(f"Created {seed.name} at /b/{seed.slug}. {args[0]} can sign in at")
-                print(f"/b/{seed.slug}/staff with their account password.")
+                print(f"/b/{seed.slug}/staff with their account password. They're emailed")
+                print("their booking page and dashboard now, and their number once it's added.")
                 print("Still to do:")
                 for step in steps:
                     print(f"- {step}")

@@ -98,6 +98,14 @@ def first_message(business: Business) -> str:
     return f"Hi, thanks for calling {business.name}! I'm the AI assistant. How can I help?"
 
 
+def vapi_voice(settings: Settings, business: Business) -> str:
+    """The male ElevenLabs voice for a business that chose "cedar"; otherwise the default.
+    Another voice provider always gets the default, since the ids are ElevenLabs'."""
+    if business.voice == "cedar" and settings.vapi_voice_provider == "11labs":
+        return settings.vapi_male_voice_id
+    return settings.vapi_voice_id
+
+
 def assistant(
     settings: Settings,
     business: Business,
@@ -116,7 +124,10 @@ def assistant(
             "messages": [{"role": "system", "content": instructions}],
             "tools": vapi_shape(message_tools()) if message_only else vapi_tools(catalog),
         },
-        "voice": {"provider": settings.vapi_voice_provider, "voiceId": settings.vapi_voice_id},
+        "voice": {
+            "provider": settings.vapi_voice_provider,
+            "voiceId": vapi_voice(settings, business),
+        },
         "transcriber": {
             "provider": "deepgram",
             "model": settings.vapi_transcriber_model,

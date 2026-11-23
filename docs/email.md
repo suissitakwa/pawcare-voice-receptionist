@@ -52,6 +52,15 @@ After they've submitted, any change to their profile (business name, phone, cale
 
 Without `ADMIN_EMAIL`, only their receipt is sent. `SERVICE_NAME` (default `HelloEver AI`) names the sender and signs the receipt.
 
+## Going live
+
+Owners who signed up hear twice, so each email says only what's true when it's sent. Replies go to `ADMIN_EMAIL`.
+
+- **When you approve them** (`provision approve` or `create`): **"<business> is set up with HelloEver AI"**. It gives their booking page and staff dashboard, says to sign in with their sign-up email and password, names their connected Google Calendar (or says how to connect one), and says their phone number is coming.
+- **When their first number is registered** (`phone_numbers add`): **"Your receptionist answers at <number>"**. It says what the receptionist does, asks them to make a test call and booking and cancel it from the dashboard, and explains how to forward their existing number (all calls, or only unanswered and busy ones) through their phone provider.
+
+Links use `PUBLIC_SITE_URL`; set it, or the emails show only the `/b/<slug>` path. Businesses loaded from a file (no sign-up) and the demo get neither email.
+
 ## Calendar problems
 
 When a business's connected Google Calendar stops working, the owner gets **"Action needed: <business> can't use your Google Calendar"**, with Google's reason, what it means for booking, and the dashboard link. `ADMIN_EMAIL` gets **"Calendar failing: <business> (<code>)"** with the `integrations show` command. Both get one more email when it works again. See [calendar.md](calendar.md#when-it-stops-working).

@@ -53,6 +53,8 @@ class Business(Base):
     buffer_minutes: Mapped[int] = mapped_column(server_default=text("15"))
     min_notice_minutes: Mapped[int] = mapped_column(server_default=text("120"))
     booking_horizon_days: Mapped[int] = mapped_column(server_default=text("30"))
+    # The voice the owner chose, "marin" (female) or "cedar" (male). Empty: the deployment's.
+    voice: Mapped[str | None] = mapped_column(String(16))
     # Daily limits for this business. Empty: the deployment's defaults apply.
     voice_daily_limit: Mapped[int | None]
     phone_daily_limit: Mapped[int | None]
