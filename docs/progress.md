@@ -1059,3 +1059,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Frontend | Typecheck and build pass; 115 tests pass (Node 22), 1 new: the read stops waiting after the time limit and offers to try again |
 | Live | Not deployed. Not timed against OpenAI here (no key on this machine): after deploying, the Railway log line "Structured profile_details reply in … s" gives the real time |
 
+## Change or cancel a booking on the same call (2026-11-22)
+
+**Outcome:** a caller who books and then changes their mind before hanging up had to give back the reference and phone number they had just heard, as if it were an old booking. `confirm_booking` now remembers the new booking for the rest of the call, so the assistant moves or cancels it straight away, still only after reading it back and a clear yes. A later booking on the same call becomes the one being managed. The phone instructions and the booking result tell the assistant to skip `find_booking` for it. See [phone.md](phone.md#changing-or-cancelling-by-phone).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 718 passed (local PostgreSQL 14), 3 new in `test_manage_by_phone.py`: book then move without a lookup, book then cancel only on a yes, a new booking replaces one found earlier on the call |
+| Frontend | Unchanged |
+| Live | Not deployed; not yet tried on a real call |

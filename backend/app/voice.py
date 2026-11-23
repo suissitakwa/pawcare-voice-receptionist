@@ -653,7 +653,9 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
         "it back, and confirm the same way. To cancel, read the booking back, ask whether "
         "to cancel it, and call cancel_booking only on a clear yes. Never say anything was "
         "changed or cancelled unless the tool said so. If find_booking can't find it twice, "
-        "offer a callback instead.",
+        "offer a callback instead. A booking made earlier on this same call is already found: "
+        "if the caller changes their mind about it, don't ask for the reference or contact, "
+        "go straight to prepare_change or cancel_booking.",
     ]
     if caller_number:
         lines.append(

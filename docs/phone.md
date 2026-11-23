@@ -38,6 +38,8 @@ Callers can move, change or cancel a booking they made earlier:
 4. **To cancel:** the assistant reads the booking back and asks; only a clear yes calls `cancel_booking`.
 5. Bookings that have started or are already cancelled can't be changed. The booking records who cancelled it (`staff` or `caller`), and n8n gets `booking.changed` or `booking.cancelled`.
 
+A caller who changes their mind about a booking made earlier on the **same call** skips step 1: `confirm_booking` already remembers the new booking as theirs, so the assistant goes straight to moving or cancelling it, with the same read-back and spoken yes. A later booking on the call replaces it as the one being managed.
+
 These tools exist only on phone calls. The website assistant can't use them.
 
 ## Limits and privacy

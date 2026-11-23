@@ -28,7 +28,7 @@ from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time
 from app.manage import cancel, confirm_change, find_booking, prepare_change
-from app.models import BookingDraft, CallbackRequest, VoiceSession
+from app.models import Booking, BookingDraft, CallbackRequest, VoiceSession
 from app.names import clean_name
 from app.schemas import (
     EMAIL_PATTERN,
@@ -245,13 +245,22 @@ def confirm_spoken(
     confirmation, _ = confirm_prepared(
         session, business, draft.token_hash, draft.summary_hash, key, now
     )
+    # The caller just made it on this call, so they may change or cancel it without giving
+    # the reference and contact back.
+    record.managed_booking_id = session.scalar(
+        select(Booking.id).where(
+            Booking.business_id == business.id, Booking.reference == confirmation.reference
+        )
+    )
+    record.pending_change = None
     return VoiceToolResult(
         ok=True,
         result={
             "status": "booked",
             "reference": confirmation.reference,
             "next_step": "Tell the caller it is booked and read the reference one character at "
-            "a time.",
+            "a time. If they then want to change or cancel it, don't call find_booking: use "
+            "prepare_change or cancel_booking directly.",
         },
     )
 
