@@ -57,12 +57,13 @@ def configured(db: Session, monkeypatch) -> Iterator[None]:
 @pytest.fixture
 def google(monkeypatch) -> dict:
     """What the fake access check answers: None for writable, or a problem to raise."""
-    state: dict = {"problem": None, "checked": []}
+    state: dict = {"problem": None, "checked": [], "name": None}
 
-    def fake_check(settings: Settings, calendar_id: str) -> None:
+    def fake_check(settings: Settings, calendar_id: str) -> str | None:
         state["checked"].append(calendar_id)
         if state["problem"]:
             raise state["problem"]
+        return state["name"]
 
     monkeypatch.setattr(subscriber_api, "check_access", fake_check)
     return state
@@ -218,12 +219,13 @@ def test_a_shared_calendar_needs_the_service_account_key(db) -> None:
 @pytest.fixture
 def access(monkeypatch) -> dict:
     """What the live check against Google answers for a connected calendar."""
-    state: dict = {"problem": None, "checked": []}
+    state: dict = {"problem": None, "checked": [], "name": None}
 
-    def fake_check(account_json: str, calendar_id: str) -> None:
+    def fake_check(account_json: str, calendar_id: str) -> str | None:
         state["checked"].append((json.loads(account_json)["client_email"], calendar_id))
         if state["problem"]:
             raise state["problem"]
+        return state["name"]
 
     monkeypatch.setattr(google_calendar, "check_account_access", fake_check)
     return state
@@ -362,7 +364,12 @@ def test_the_profile_checks_a_connected_calendar(client, google) -> None:
     assert response.json()["error"]["code"] == "calendar_not_connected"
 
     client.post(f"{API}/profile/calendar", headers=headers, json={"calendar_id": CALENDAR_ID})
-    assert client.post(check, headers=headers).json() == {"ok": True, "code": None, "message": None}
+    assert client.post(check, headers=headers).json() == {
+        "ok": True,
+        "code": None,
+        "message": None,
+        "name": None,
+    }
 
     google["problem"] = CalendarAccessProblem("calendar_not_shared", f"Share it with {EMAIL}")
     body = client.post(check, headers=headers).json()
@@ -371,3 +378,59 @@ def test_the_profile_checks_a_connected_calendar(client, google) -> None:
     # A failed check disconnects nothing.
     details = client.get(f"{API}/profile", headers=headers).json()["details"]
     assert details["google_calendar_connected"] is True
+
+
+# The calendar's name, shown instead of its id
+
+
+def test_the_check_returns_the_calendar_name_as_its_owner_sees_it() -> None:
+    send = FakeGoogle(
+        {
+            ("POST", LIST): (
+                200,
+                {"id": CALENDAR_ID, "accessRole": "writer", "summary": " Shaggy Chic bookings "},
+            )
+        }
+    )
+    assert check_access(SETTINGS, CALENDAR_ID, send) == "Shaggy Chic bookings"
+    nameless = FakeGoogle({("POST", LIST): (200, {"id": CALENDAR_ID, "accessRole": "owner"})})
+    assert check_access(SETTINGS, CALENDAR_ID, nameless) is None
+
+
+def test_connecting_keeps_the_name_and_a_check_refreshes_it(client, google) -> None:
+    headers = auth(client)
+    google["name"] = "Shaggy Chic bookings"
+    client.post(f"{API}/profile/calendar", headers=headers, json={"calendar_id": CALENDAR_ID})
+    details = client.get(f"{API}/profile", headers=headers).json()["details"]
+    assert details["google_calendar_name"] == "Shaggy Chic bookings"
+
+    google["name"] = "Shaggy Chic appointments"
+    body = client.post(f"{API}/profile/calendar/check", headers=headers).json()
+    assert body["name"] == "Shaggy Chic appointments"
+    details = client.get(f"{API}/profile", headers=headers).json()["details"]
+    assert details["google_calendar_name"] == "Shaggy Chic appointments"
+
+    client.delete(f"{API}/profile/calendar", headers=headers)
+    details = client.get(f"{API}/profile", headers=headers).json()["details"]
+    assert details["google_calendar_name"] is None
+
+
+def test_a_profile_edit_cannot_set_the_calendar_name(client) -> None:
+    headers = auth(client)
+    client.patch(
+        f"{API}/profile", headers=headers, json={"details": {"google_calendar_name": "Fake"}}
+    )
+    assert (
+        client.get(f"{API}/profile", headers=headers).json()["details"]["google_calendar_name"]
+        is None
+    )
+
+
+def test_the_dashboard_status_names_the_calendar(db, access) -> None:
+    share_calendar(db, SETTINGS, "pawcare-demo", CALENDAR_ID)
+    db.commit()
+    access["name"] = "Shaggy Chic bookings"
+    status = calendar_status(db, SETTINGS, demo_id(db))
+    assert status.calendar_name == "Shaggy Chic bookings"
+    access["problem"] = CalendarAccessProblem("calendar_not_shared", "Share it")
+    assert calendar_status(db, SETTINGS, demo_id(db)).calendar_name is None
