@@ -15,6 +15,7 @@ from app.models import Booking, WebhookEvent
 from app.schemas import PrepareBookingRequest
 from tests.factories import make_booking
 from tests.test_phone import (
+    BOOKING,
     CALLER,
     LA,
     NINE,
@@ -312,3 +313,63 @@ def test_a_change_stays_with_the_same_staff_member(db: Session) -> None:
     assert found["ok"]
     assert moved["error"] == "slot_unavailable"
     assert regroomed["error"] == "staff_not_qualified"
+
+
+def test_a_caller_moves_the_booking_just_made_without_giving_the_reference(db: Session) -> None:
+    socket = ScriptedSocket(
+        [
+            tool_call("prepare_booking", BOOKING, "c1"),
+            tool_call("confirm_booking", {"caller_confirmed": True}, "c2"),
+            tool_call("prepare_change", {"starts_at": TWO_PM.isoformat()}, "c3"),
+            tool_call("confirm_change", {"caller_confirmed": True}, "c4"),
+        ]
+    )
+    _, record = play(db, socket)
+    _, booked, prepared, changed = outputs(socket)
+    assert booked["ok"] and "find_booking" in booked["next_step"]
+    assert prepared["ok"] and prepared["was"]["time"] == "9 AM"
+    assert prepared["new"]["time"] == "2 PM"
+    assert changed["ok"] and changed["reference"] == booked["reference"]
+    db.expire_all()
+    [booking] = db.scalars(select(Booking))
+    assert booking.starts_at == TWO_PM and booking.status == "confirmed"
+    assert record.managed_booking_id == booking.id and record.lookup_failures == 0
+    assert len(events(db, "booking.changed")) == 1
+
+
+def test_a_caller_cancels_the_booking_just_made_only_on_a_yes(db: Session) -> None:
+    socket = ScriptedSocket(
+        [
+            tool_call("prepare_booking", BOOKING, "c1"),
+            tool_call("confirm_booking", {"caller_confirmed": True}, "c2"),
+            tool_call("cancel_booking", {"caller_confirmed": False}, "c3"),
+            tool_call("cancel_booking", {"caller_confirmed": True}, "c4"),
+        ]
+    )
+    play(db, socket)
+    _, booked, refused, cancelled = outputs(socket)
+    assert not refused["ok"]
+    assert cancelled["ok"] and cancelled["status"] == "cancelled"
+    db.expire_all()
+    booking = db.scalar(select(Booking).where(Booking.reference == booked["reference"]))
+    assert booking.status == "cancelled" and booking.cancelled_via == "caller"
+    assert len(events(db, "booking.cancelled")) == 1
+
+
+def test_a_new_booking_on_the_call_replaces_one_found_earlier(db: Session) -> None:
+    earlier = existing_booking(db)
+    socket = ScriptedSocket(
+        [
+            find(earlier.reference),
+            tool_call("prepare_booking", {**BOOKING, "starts_at": TWO_PM.isoformat()}, "c2"),
+            tool_call("confirm_booking", {"caller_confirmed": True}, "c3"),
+            tool_call("cancel_booking", {"caller_confirmed": True}, "c4"),
+        ]
+    )
+    play(db, socket)
+    _, _, booked, cancelled = outputs(socket)
+    assert cancelled["ok"]
+    db.expire_all()
+    assert db.get(Booking, earlier.id).status == "confirmed"
+    new = db.scalar(select(Booking).where(Booking.reference == booked["reference"]))
+    assert new.status == "cancelled"
