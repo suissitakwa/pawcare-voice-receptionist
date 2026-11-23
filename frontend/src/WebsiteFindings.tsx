@@ -35,6 +35,9 @@ export function readWebsite(token: string): Promise<WebsiteDetails> {
   });
 }
 
+/** The server reads pages for up to 45 seconds and waits up to 90 for the answers. */
+export const READ_TIMEOUT_MS = 150_000;
+
 type Section = "phone" | "hours" | "services" | "team" | "faqs";
 
 const ZONES: Record<string, string> = {
@@ -59,14 +62,27 @@ export function useWebsiteFindings(token: string, onSignedOut: (err: unknown) =>
   const read = useCallback(
     (url: string) => {
       setState({ url, status: "reading" });
-      readWebsite(token).then(
-        (found) => setState((now) => (now?.url === url ? { url, status: "done", found, used: [] } : now)),
-        (err) => {
-          if (err instanceof ApiRequestError && err.status === 401) onSignedOut(err);
-          const message = err instanceof ApiRequestError ? err.message : "Something went wrong.";
-          setState((now) => (now?.url === url ? { url, status: "failed", message } : now));
-        },
+      // Never wait forever: past the server's own limits, say so and offer to try again. An
+      // answer that still arrives later is used.
+      const timer = setTimeout(
+        () =>
+          setState((now) =>
+            now?.url === url && now.status === "reading"
+              ? { url, status: "failed", message: "it took too long. Try again in a minute." }
+              : now,
+          ),
+        READ_TIMEOUT_MS,
       );
+      readWebsite(token)
+        .then(
+          (found) => setState((now) => (now?.url === url ? { url, status: "done", found, used: [] } : now)),
+          (err) => {
+            if (err instanceof ApiRequestError && err.status === 401) onSignedOut(err);
+            const message = err instanceof ApiRequestError ? err.message : "Something went wrong.";
+            setState((now) => (now?.url === url ? { url, status: "failed", message } : now));
+          },
+        )
+        .finally(() => clearTimeout(timer));
     },
     [token, onSignedOut],
   );
@@ -132,7 +148,7 @@ export function WebsiteFindings({
     if (step === "business") return null;
     return (
       <p className="muted" role="status">
-        Reading your website for details to fill in…
+        Reading your website for details to fill in… This can take up to a minute; you can keep going meanwhile.
       </p>
     );
   }

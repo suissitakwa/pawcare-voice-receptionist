@@ -39,6 +39,12 @@ One OpenAI call (`KNOWLEDGE_MODEL`, strict structured output, `store: false`) pi
 
 Items that fail are dropped, and the reply says how many. Blank lengths and prices are shown blank in the form. A price row is saved only once it has both, as before.
 
+## How long it takes
+
+Reading the pages takes a second or two; drafting the details is most of the wait. The call asks for minimal reasoning (`KNOWLEDGE_REASONING_EFFORT`, default `minimal`; leave it empty for a model without reasoning). Picking facts out of text needs little, and at its default effort a reasoning model can take minutes on a whole website. Each call logs how long it took and its token counts ("Structured profile_details reply in …"), and an unfinished reply logs why.
+
+The steps say "This can take up to a minute; you can keep going meanwhile". If there's no answer after 150 seconds, they say it took too long and offer **Try reading it again**. An answer that still arrives later is used.
+
 ## Limits
 
 Reading the website counts as one run against `KNOWLEDGE_RUNS_PER_HOUR` (40 per owner per hour, shared with suggested answers). It needs `OPENAI_API_KEY`; without one, the endpoint answers 503 and the steps say reading isn't available.

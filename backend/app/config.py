@@ -121,6 +121,9 @@ class Settings(BaseSettings):
     # Suggested answers drafted from an owner's web pages and documents, for them to review.
     # Uses OPENAI_API_KEY; without one, suggestions are off. Each run reads one source.
     knowledge_model: str = "gpt-5-mini"
+    # Picking facts out of text needs little reasoning, and a reasoning model at its default
+    # effort can take minutes on a whole website. Empty for a model without reasoning.
+    knowledge_reasoning_effort: str = "minimal"
     knowledge_runs_per_hour: int = 40
 
     @field_validator("database_url")

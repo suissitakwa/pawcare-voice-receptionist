@@ -443,11 +443,24 @@ def structured(
         "instructions": instructions,
         "input": [{"role": "user", "content": text}],
         "text": {"format": {"type": "json_schema", "name": name, "strict": True, "schema": schema}},
-        "max_output_tokens": 8000,
+        # Reasoning counts against this too, so leave room for it as well as the reply.
+        "max_output_tokens": 16000,
         "store": False,
         "safety_identifier": hashlib.sha256(f"subscriber:{account_id}".encode()).hexdigest(),
     }
-    raw = output_text(post(settings, body))
+    if settings.knowledge_reasoning_effort:
+        body["reasoning"] = {"effort": settings.knowledge_reasoning_effort}
+    started = time.monotonic()
+    reply = post(settings, body)
+    usage = reply.get("usage") if isinstance(reply.get("usage"), dict) else {}
+    logger.info(
+        "Structured %s reply in %.1f s, %s input and %s output tokens",
+        name,
+        time.monotonic() - started,
+        usage.get("input_tokens"),
+        usage.get("output_tokens"),
+    )
+    raw = output_text(reply)
     try:
         data = json.loads(raw)
         if not isinstance(data, dict):
@@ -499,7 +512,12 @@ def post(settings: Settings, body: dict) -> dict:
 
 def output_text(data: dict) -> str:
     if data.get("status") not in (None, "completed"):
-        logger.error("Drafting answers ended as %s", data.get("status"))
+        details = data.get("incomplete_details") or {}
+        logger.error(
+            "Drafting answers ended as %s (%s)",
+            data.get("status"),
+            details.get("reason") if isinstance(details, dict) else "",
+        )
         raise unavailable()
     for item in data.get("output") or []:
         if item.get("type") != "message":

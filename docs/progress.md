@@ -1044,3 +1044,18 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 691 passed (local PostgreSQL 14). In `test_auto_approve.py`: no receipt for an approved sign-up and the number named; no number explained with the add command; a failed approval gets the receipt and the reason with the approve command; the receipt greets by first name |
 | Frontend | Unchanged |
 | Live | Not deployed |
+
+## The website read no longer waits forever (2026-11-22)
+
+**Outcome:** on the live sign-up, "Reading your website for details to fill in…" stayed on screen across steps. Fetching was not the cause: bishops.co's home page and 4 of its pages read in 1.6 seconds (28,000 characters). The wait was the drafting call. `gpt-5-mini` is a reasoning model, and at its default effort a whole website can take minutes. Its reasoning also counted against the 8,000-token output limit, so the reply could stop unfinished. Meanwhile the page waited with no limit.
+
+- **The call:** it now asks for minimal reasoning (`KNOWLEDGE_REASONING_EFFORT`) and allows 16,000 output tokens. It logs its time and token counts, and why a reply stopped unfinished.
+- **The page:** it says the read can take a minute, and gives up after 150 seconds with **Try reading it again**.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 715 passed (local PostgreSQL 14), 2 changed or new in `test_knowledge.py`: the request asks for minimal reasoning and 16,000 tokens; a model without reasoning gets no reasoning setting |
+| Frontend | Typecheck and build pass; 115 tests pass (Node 22), 1 new: the read stops waiting after the time limit and offers to try again |
+| Live | Not deployed. Not timed against OpenAI here (no key on this machine): after deploying, the Railway log line "Structured profile_details reply in … s" gives the real time |
+
