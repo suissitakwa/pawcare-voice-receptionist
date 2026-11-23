@@ -970,3 +970,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 684 passed (local PostgreSQL 14), 11 new in `test_go_live.py`: approve keeps the chosen voice; phone calls and browser sessions use the business voice over the deployment's; Vapi gets the male voice only from ElevenLabs; the approval email (owner address, Reply-To, links, calendar not connected, no number promised) and a connected calendar named; the first number emails the owner once (not again for the same or a second number); businesses without a sign-up and the demo get none; numbers written as people read them. Migration `0028` upgrades and downgrades cleanly |
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `PUBLIC_SITE_URL` for full links; the Vapi male voice id not tried on a call |
+
+## More of the sign-up filled in from the website (2026-11-22)
+
+**Outcome:** the website read now covers every step it can, not only hours, services and team. "Where and when" also offers the time zone (from the checked address's state), "we're mobile" and the area served (groomers only), and the address, each only while that field is empty. "What the receptionist should know" offers the questions the website answers (cancellations, deposits, payment, vaccinations, what to bring, parking, policies), with **Add** for each and **Add all**. Every item is still checked against the site's words: mobile and area need their own quotes, answers need a 12-character quote on the site, and the time zone isn't asked of the model at all. See [website-details.md](website-details.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 693 passed (local PostgreSQL 14), 9 new in `test_website_details.py`: mobile, area, time zone and answers kept when the site says them and an unquoted answer dropped; salons never mobile and an area needs its words; the time zone from the address's state (Pacific, Central, Eastern with ZIP+4 and USA, Arizona; none without a state or outside the US); the request asks for mobile, area and answers |
+| Frontend | Typecheck and build pass; 110 tests pass (Node 22), 3 new: time zone, mobile, area and hours offered and used together, nothing offered over what the owner filled in, answers added one at a time or all at once with ones they have hidden |
+| Live | Not deployed. Not tried with a real OpenAI key or on real business websites |
+
