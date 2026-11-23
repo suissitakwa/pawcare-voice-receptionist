@@ -281,8 +281,11 @@ def follow_ups(details: ProfileDetails) -> list[str]:
             "keep bookings in Google Calendar during the pilot, or the receptionist's own."
         )
     if details.knowledge_urls:
+        # Pages are never read on calls; only the answers the owner added from them are.
         steps.append(
-            "Their web pages aren't read automatically. Turn what callers ask into FAQs: "
+            f"The receptionist knows only their {len(details.faqs)} answers to common "
+            "questions, not the pages themselves. If something callers ask is missing, ask "
+            "them to use Suggest answers in their profile (docs/knowledge.md): "
             + ", ".join(details.knowledge_urls)
         )
     steps.append(

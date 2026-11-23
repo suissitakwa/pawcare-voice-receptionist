@@ -37,6 +37,7 @@ from app.customer_texts import run_text_worker, texts_customers
 from app.db import get_db, get_engine
 from app.errors import ApiError
 from app.google_calendar import run_sync_worker
+from app.knowledge_api import router as knowledge_router
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory
 from app.owner_email import run_email_worker
 from app.phone import answer_problem
@@ -433,5 +434,6 @@ app.include_router(
 app.include_router(staff_router)
 app.include_router(business_staff_router)
 app.include_router(subscriber_router)
+app.include_router(knowledge_router)
 app.include_router(phone_router)
 app.include_router(vapi_router)

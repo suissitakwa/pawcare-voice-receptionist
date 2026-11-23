@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     service_name: str = "HelloEver AI"
     admin_email: str = ""
 
+    # Suggested answers drafted from an owner's web pages and documents, for them to review.
+    # Uses OPENAI_API_KEY; without one, suggestions are off. Each run reads one source.
+    knowledge_model: str = "gpt-5-mini"
+    knowledge_runs_per_hour: int = 40
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

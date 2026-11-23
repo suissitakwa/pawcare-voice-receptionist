@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
+import { KnowledgeSuggestions } from "./KnowledgeSuggestions";
 import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
 import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type GooglePick, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
@@ -611,6 +612,18 @@ function ProfileForm({
       setSaved("Your calendar is disconnected.");
     });
 
+  // Only saved pages are read, so unsaved edits are saved before suggesting answers.
+  const saveForSuggestions = async () => {
+    if (!draft) throw new ApiRequestError("not_loaded", "Your profile is still loading.");
+    const next = await subscriberApi.save(token, {
+      business_name: orNull(draft.business_name),
+      business_type: draft.business_type || null,
+      details: cleanDetails(draft.details, urls, zips),
+    });
+    load(next);
+    return next;
+  };
+
   const upload = (files: FileList | null) =>
     run(async () => {
       for (const file of Array.from(files ?? [])) {
@@ -859,6 +872,13 @@ function ProfileForm({
                 />
               </label>
             </div>
+            <KnowledgeSuggestions
+              token={token}
+              faqs={details.faqs}
+              prepare={saveForSuggestions}
+              onAdd={(faq) => setDetails({ faqs: [...details.faqs, faq] })}
+              onSignedOut={handleError}
+            />
             <h3>Questions customers ask</h3>
             <FaqEditor faqs={details.faqs} onChange={(faqs) => setDetails({ faqs })} />
           </>

@@ -1,8 +1,8 @@
 """Subscriber sign-up, sign-in, and the business profile that configures a receptionist.
 
 A profile is collected and stored here. After review, `python -m app.provision` turns a
-submitted profile into a live business; the profile then names it. Website import and
-document reading are later steps.
+submitted profile into a live business; the profile then names it. Suggested answers from
+the owner's pages and documents are in knowledge_api.
 """
 
 import hashlib
