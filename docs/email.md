@@ -45,6 +45,7 @@ Without `RESEND_API_KEY` or `SMTP_HOST`, or without `EMAIL_FROM`, no emails are 
 
 When someone submits their profile for the first time, two emails go out:
 
+- With `AUTO_APPROVE_SIGNUPS` on, the "New sign-up" email says it was approved automatically instead of giving the approve command.
 - **To you**, at `ADMIN_EMAIL` (for example `takwa@helloeverai.com`): "New sign-up: <business> (<type>)", with their contact details, calendar, and the `python -m app.provision draft <email>` command to start from.
 - **To them**: "We received your profile for <business>", saying you'll be in touch within one business day, with replies going to `ADMIN_EMAIL`.
 

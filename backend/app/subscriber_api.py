@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import google_oauth, integrations
+from app.auto_approve import approve_signup
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
@@ -522,7 +523,7 @@ def count_documents(db: Session, profile: BusinessProfile) -> int:
 
 
 @router.post("/profile/submit", response_model=ProfilePublic)
-def submit_profile(context: Account, db: DbSession, now: Now) -> ProfilePublic:
+def submit_profile(context: Account, db: DbSession, now: Now, settings: Config) -> ProfilePublic:
     profile = load_profile(db, context[0].id)
     details = ProfileDetails.from_stored(profile.details)
     missing = missing_fields(profile, details, count_documents(db, profile))
@@ -535,8 +536,12 @@ def submit_profile(context: Account, db: DbSession, now: Now) -> ProfilePublic:
         profile.submitted_at = now
         # Only the first submission: you hear about the sign-up, and they get a receipt.
         data = signup_data(context[0], profile, details, count_documents(db, profile))
-        enqueue_notice(db, "profile.submitted", data, now)
+        auto = settings.auto_approve_signups
+        enqueue_notice(db, "profile.submitted", {**data, "auto_approved": auto}, now)
         enqueue_notice(db, "profile.received", data, now)
+        if auto:
+            db.flush()
+            approve_signup(db, context[0])
     db.commit()
     return to_public(db, profile)
 

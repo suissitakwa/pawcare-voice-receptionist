@@ -152,8 +152,17 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             f"Answers to common questions: {data.get('faqs', 0)}, documents: "
             f"{data.get('documents', 0)}",
             "",
-            "Next: check it with them, then in Railway's backend Console:",
-            f"/opt/venv/bin/python -m app.provision approve {data.get('owner_email')}",
+            *(
+                [
+                    "AUTO_APPROVE_SIGNUPS is on: it was approved automatically, with the "
+                    "phone number above ringing it. Check: python -m app.provision list"
+                ]
+                if data.get("auto_approved")
+                else [
+                    "Next: check it with them, then in Railway's backend Console:",
+                    f"/opt/venv/bin/python -m app.provision approve {data.get('owner_email')}",
+                ]
+            ),
         ]
     elif event.event_type == "profile.updated":
         subject = f"Profile updated: {business}"

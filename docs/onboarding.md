@@ -30,6 +30,21 @@ Hours, services, prices and team in a profile may have come from the owner's web
 
 Pet groomers, hair salons and barbershops can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner".
 
+## Trying onboarding end to end (automatic approval)
+
+While you're testing, set `AUTO_APPROVE_SIGNUPS=true` on Railway. Every profile then goes live the moment it's submitted, exactly as `provision approve --yes` would:
+
+1. Sign up at `/get-started` and fill in the profile. As the business phone number, give the demo line **+1 (269) 699-2551**.
+2. Submit. The profile shows the booking page and dashboard straight away. The sign-up's number is registered to ring the new business, and you get the "New sign-up" email saying it was approved automatically.
+3. The owner gets both go-live emails: set up, then "Your receptionist answers at (269) 699-2551" ([email.md](email.md#going-live)).
+4. Call +1 (269) 699-2551: the newest test business answers.
+
+The line rings one business at a time, so **the newest sign-up with it takes it**, from the demo or from an earlier sign-up. Earlier test businesses keep their booking site and dashboard. A number you registered for a business with `phone_numbers add` is never taken; that sign-up goes live without a number. A sign-up number without an area code is skipped. A profile that can't be approved (no hours or services) stays waiting, as usual.
+
+To give the line back to the PawCare demo: `python -m app.phone_numbers remove +12696992551`. Calls to `PHONE_NUMBER` then reach the demo again.
+
+**Turn it off before real customers sign up.** A real owner's own number isn't on our phone line, so registering it doesn't make their calls reach the receptionist, yet the email would say it does. Next, each new customer gets their own Twilio number, linked to the business number they gave at sign-up, which they forward to it.
+
 ## 0. Before the first real business
 
 Once per deployment:

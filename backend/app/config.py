@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # The service's own name and inbox: new sign-ups are emailed to ADMIN_EMAIL, and the
     # owner's receipt is signed with the name. Empty ADMIN_EMAIL: no sign-up notices.
     service_name: str = "HelloEver AI"
+    # For trying onboarding end to end: every submitted profile goes live at once, with the
+    # phone number given at sign-up ringing it. Off: every sign-up waits for review. Turn it
+    # off before real customers sign up (docs/onboarding.md).
+    auto_approve_signups: bool = False
     admin_email: str = ""
 
     # Suggested answers drafted from an owner's web pages and documents, for them to review.
