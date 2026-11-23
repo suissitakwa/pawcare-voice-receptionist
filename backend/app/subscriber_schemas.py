@@ -194,6 +194,8 @@ class ProfileDetails(Strict):
     # changes to the calendar; a profile edit can't set them.
     google_calendar_id: str | None = Field(default=None, max_length=200)
     google_calendar_connected: bool = False
+    # Its name in Google Calendar, shown to the owner instead of the id.
+    google_calendar_name: str | None = Field(default=None, max_length=200)
     knowledge_urls: list[str] = Field(default_factory=list, max_length=10)
     faqs: list[FaqItem] = Field(default_factory=list, max_length=100)
     voice: Voice | None = None
@@ -357,3 +359,5 @@ class CalendarCheck(BaseModel):
     ok: bool
     code: str | None = None
     message: str | None = None
+    # The calendar's name in Google Calendar, when it works.
+    name: str | None = None

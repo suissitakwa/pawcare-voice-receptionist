@@ -505,6 +505,8 @@ class WebhookStatus(BaseModel):
 class CalendarStatus(BaseModel):
     connected: bool
     calendar_id: str | None
+    # Its name in Google Calendar, shown instead of the id when known.
+    calendar_name: str | None = None
     # From a live check with Google: None when bookings can be read and written.
     problem_code: str | None
     problem: str | None

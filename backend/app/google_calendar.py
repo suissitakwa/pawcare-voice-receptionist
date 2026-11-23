@@ -210,9 +210,9 @@ def shared_account_email(settings: Settings) -> str | None:
 WRITABLE = ("owner", "writer")
 
 
-def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -> None:
-    """Checks that HelloEver's account can make changes to this calendar. Raises
-    CalendarAccessProblem otherwise.
+def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -> str | None:
+    """Checks that HelloEver's account can make changes to this calendar, and returns its
+    name. Raises CalendarAccessProblem otherwise.
 
     Adding the calendar to the account's own list answers with the access the owner gave, and
     fails when nothing was shared. The list entry is harmless and is how Google expects a shared
@@ -223,12 +223,13 @@ def check_access(settings: Settings, calendar_id: str, send: Send = http_send) -
             "calendar_not_offered",
             "Connecting a calendar isn't available yet. We'll do it with you.",
         )
-    check_account_access(settings.google_service_account_json, calendar_id, send)
+    return check_account_access(settings.google_service_account_json, calendar_id, send)
 
 
-def check_account_access(account_json: str, calendar_id: str, send: Send = http_send) -> None:
-    """Checks that this service account can make changes to the calendar. Raises
-    CalendarAccessProblem otherwise, in words for the owner."""
+def check_account_access(account_json: str, calendar_id: str, send: Send = http_send) -> str | None:
+    """Checks that this service account can make changes to the calendar, and returns the
+    calendar's name as its owner sees it. Raises CalendarAccessProblem otherwise, in words
+    for the owner."""
     calendar = GoogleCalendar(calendar_id, load_service_account(account_json), send)
     email = calendar.email
     try:
@@ -256,6 +257,9 @@ def check_account_access(account_json: str, calendar_id: str, send: Send = http_
             f'The calendar is shared, but only to see it. Change {email} to "Make changes to '
             'events" so bookings can be added.',
         )
+    # The owner's own name for it; an override would be the service account's.
+    name = data.get("summary")
+    return (name.strip()[:200] or None) if isinstance(name, str) else None
 
 
 @dataclass(frozen=True)
@@ -269,6 +273,8 @@ class CalendarStatus:
     waiting: int
     last_synced_at: datetime | None
     last_error: str | None
+    # The calendar's name, from the same check; None when it failed or has none.
+    calendar_name: str | None = None
 
 
 UNREADABLE = (
@@ -299,16 +305,16 @@ def calendar_status(session: Session, settings: Settings, business_id: uuid.UUID
         return CalendarStatus(True, None, *UNREADABLE, waiting, last_synced_at, last_error)
     if config is None:
         return CalendarStatus(False, None, None, None, waiting, last_synced_at, None)
-    code = message = None
+    code = message = name = None
     try:
-        check_account_access(config.service_account_json, config.calendar_id)
+        name = check_account_access(config.service_account_json, config.calendar_id)
     except CalendarAccessProblem as problem:
         code, message = problem.code, problem.message
     except (ValueError, KeyError) as error:
         logger.error("Calendar key for business %s can't be used: %s", business_id, error)
         code, message = UNREADABLE
     return CalendarStatus(
-        True, config.calendar_id, code, message, waiting, last_synced_at, last_error
+        True, config.calendar_id, code, message, waiting, last_synced_at, last_error, name
     )
 
 

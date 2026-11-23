@@ -197,7 +197,7 @@ def to_public(db: Session, profile: BusinessProfile) -> ProfilePublic:
 
 Config = Annotated[Settings, Depends(get_settings)]
 # Fields only the server sets; a profile edit sending them is ignored for them.
-SERVER_SET = ("google_calendar_id", "google_calendar_connected")
+SERVER_SET = ("google_calendar_id", "google_calendar_connected", "google_calendar_name")
 
 
 @router.get("/options", response_model=ProfileOptions)
@@ -382,7 +382,11 @@ def update_profile(body: ProfileUpdate, context: Account, db: DbSession, now: No
 
 
 def set_calendar(
-    db: Session, settings: Settings, profile: BusinessProfile, calendar_id: str | None
+    db: Session,
+    settings: Settings,
+    profile: BusinessProfile,
+    calendar_id: str | None,
+    name: str | None = None,
 ) -> None:
     """Records the profile's connected calendar and, for a live business, connects or
     disconnects it at once, so bookings start or stop going to it."""
@@ -390,6 +394,7 @@ def set_calendar(
     update = {
         "google_calendar_id": calendar_id,
         "google_calendar_connected": calendar_id is not None,
+        "google_calendar_name": name if calendar_id is not None else None,
     }
     if calendar_id is not None:
         update["calendar_provider"] = "google"
@@ -422,16 +427,17 @@ def connect_checked(
     """Connects the calendar once HelloEver's service account is shown to make changes to it.
     Right after sharing it for the owner, Google may take a moment, so it's tried again."""
     profile = load_profile(db, account.id)
+    name = None
     for attempt in range(1, attempts + 1):
         try:
-            check_access(settings, calendar_id)
+            name = check_access(settings, calendar_id)
             break
         except CalendarAccessProblem as problem:
             if attempt == attempts or problem.code != "calendar_not_shared":
                 raise ApiError(422, problem.code, problem.message) from None
             time.sleep(SHARING_SETTLES_SECONDS)
     before = snapshot(db, profile)
-    set_calendar(db, settings, profile, calendar_id)
+    set_calendar(db, settings, profile, calendar_id, name)
     note_change(db, account, profile, changed_sections(before, snapshot(db, profile)), now)
     db.commit()
     return to_public(db, profile)
@@ -490,16 +496,24 @@ def connect_google(
 @router.post("/profile/calendar/check", response_model=CalendarCheck)
 def check_calendar(context: Account, db: DbSession, settings: Config) -> CalendarCheck:
     """Checks with Google that the connected calendar is still shared to make changes. Saves
-    nothing; the owner fixes the sharing in Google Calendar and checks again."""
-    details = ProfileDetails.from_stored(load_profile(db, context[0].id).details)
+    nothing but the calendar's current name; the owner fixes the sharing in Google Calendar
+    and checks again."""
+    profile = load_profile(db, context[0].id)
+    details = ProfileDetails.from_stored(profile.details)
     db.commit()
     if not (details.google_calendar_connected and details.google_calendar_id):
         raise ApiError(409, "calendar_not_connected", "Connect your calendar first.")
     try:
-        check_access(settings, details.google_calendar_id)
+        name = check_access(settings, details.google_calendar_id)
     except CalendarAccessProblem as problem:
         return CalendarCheck(ok=False, code=problem.code, message=problem.message)
-    return CalendarCheck(ok=True)
+    if name and name != details.google_calendar_name:
+        # Connected before names were kept, or renamed in Google Calendar since.
+        profile.details = details.model_copy(update={"google_calendar_name": name}).model_dump(
+            mode="json"
+        )
+        db.commit()
+    return CalendarCheck(ok=True, name=name)
 
 
 @router.delete("/profile/calendar", response_model=ProfilePublic)

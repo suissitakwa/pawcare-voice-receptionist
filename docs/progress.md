@@ -992,6 +992,17 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend | Unchanged |
 | Live | Not deployed |
 
+## Calendars shown by name (2026-11-22)
+
+**Outcome:** the profile and the staff dashboard showed a connected calendar by its ID, often a long `…@group.calendar.google.com` string. Both now show its name in Google Calendar ("Connected to **Shaggy Chic bookings**"). The access check already reads the calendar's list entry, so it now returns the name. Connecting saves it on the profile (`google_calendar_name`, server-set), **Check connection** refreshes it after a rename, and the dashboard gets it from its live check. A calendar connected before this shows "your Google Calendar" until checked. See [calendar.md](calendar.md#is-it-still-working).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 694 passed (local PostgreSQL 14), 4 new in `test_calendar_connect.py`: the check returns the owner's name for the calendar (trimmed; none when Google gives none), connecting keeps it and a check refreshes it and disconnecting clears it, a profile edit can't set it, the dashboard status names the calendar and drops the name when the check fails |
+| Frontend | Typecheck and build pass; 107 tests pass (Node 22): the profile shows the picked calendar's name, not its ID, after connecting by hand and with Google; the dashboard shows the name, not the ID |
+| Live | Not deployed |
+
 ## The receipt matches what happened to the sign-up (2026-11-22)
 
 **Outcome:** with automatic approval on, the owner still got "we'll contact you within one business day … goes live after that" right before "you're set up", and the "New sign-up" email said it was approved automatically even when approval failed. Now:
@@ -1006,4 +1017,3 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 691 passed (local PostgreSQL 14). In `test_auto_approve.py`: no receipt for an approved sign-up and the number named; no number explained with the add command; a failed approval gets the receipt and the reason with the approve command; the receipt greets by first name |
 | Frontend | Unchanged |
 | Live | Not deployed |
-
