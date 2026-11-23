@@ -17,6 +17,13 @@ export interface WebsiteDetails {
   hours: (OpeningHours & { quote: string })[];
   services: (ServiceItem & { quote: string })[];
   team: { name: string; quote: string }[];
+  /** A mobile groomer's "yes", and the area it serves in the site's words. */
+  mobile?: Found | null;
+  service_area?: Found | null;
+  /** From the address's state; the quote is the address's. */
+  timezone?: Found | null;
+  /** Questions the site answers, beyond hours, prices and services. */
+  faqs?: { question: string; answer: string; quote: string }[];
   /** Items left out because the website doesn't say them. */
   dropped: number;
 }
@@ -28,7 +35,17 @@ export function readWebsite(token: string): Promise<WebsiteDetails> {
   });
 }
 
-type Section = "phone" | "hours" | "services" | "team";
+type Section = "phone" | "hours" | "services" | "team" | "faqs";
+
+const ZONES: Record<string, string> = {
+  "America/Los_Angeles": "Pacific",
+  "America/Denver": "Mountain",
+  "America/Phoenix": "Arizona",
+  "America/Chicago": "Central",
+  "America/New_York": "Eastern",
+  "America/Anchorage": "Alaska",
+  "Pacific/Honolulu": "Hawaii",
+};
 
 export type WebsiteState =
   | { url: string; status: "reading" }
@@ -110,7 +127,7 @@ export function WebsiteFindings({
   onUsed: (section: Section) => void;
   onRetry: () => void;
 }) {
-  if (!state || !["business", "hours", "services", "team"].includes(step)) return null;
+  if (!state || !["business", "hours", "services", "team", "knowledge"].includes(step)) return null;
   if (state.status === "reading") {
     if (step === "business") return null;
     return (
@@ -162,28 +179,50 @@ export function WebsiteFindings({
     return box("phone", "Phone number on your website", <p>{phone.value}</p>, () => onChange({ business_phone: phone.value }), "Use this number");
   }
 
-  if (step === "hours" && found.hours.length > 0) {
-    const address = !isMobile && !details.address?.trim() ? found.address : null;
+  if (step === "hours") {
+    // Only what the owner hasn't filled in yet, except hours, which can be replaced.
+    const zone = !details.timezone && found.timezone && ZONES[found.timezone.value] ? found.timezone : null;
+    const mobile = !details.is_mobile && found.mobile ? found.mobile : null;
+    const area = (mobile || details.is_mobile) && !details.service_area?.trim() ? (found.service_area ?? null) : null;
+    const address = !isMobile && !mobile && !details.address?.trim() ? found.address : null;
+    if (!zone && !mobile && !area && !address && found.hours.length === 0) return null;
+    const quotes = [
+      ...(zone && !address ? [zone.quote] : []),
+      ...(mobile ? [mobile.quote] : []),
+      ...(area ? [area.quote] : []),
+      ...(address ? [address.quote] : []),
+      ...found.hours.map((h) => h.quote),
+    ];
     return box(
       "hours",
-      "Opening hours on your website",
+      "Where and when on your website",
       <>
-        <ul>
-          {found.hours.map((h) => (
-            <li key={h.weekday}>
-              {DAYS[h.weekday]}: {time(h.opens_at)} to {time(h.closes_at)}
-            </li>
-          ))}
-        </ul>
+        {zone && <p>Time zone: {ZONES[zone.value]} (from your address)</p>}
+        {mobile && <p>You're a mobile groomer: you go to your customers.</p>}
+        {area && <p>Area you serve: {area.value}</p>}
         {address && <p>Address: {address.value}</p>}
-        <Quotes quotes={[...found.hours.map((h) => h.quote), ...(address ? [address.quote] : [])]} />
+        {found.hours.length > 0 && (
+          <ul>
+            {found.hours.map((h) => (
+              <li key={h.weekday}>
+                {DAYS[h.weekday]}: {time(h.opens_at)} to {time(h.closes_at)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Quotes quotes={quotes} />
       </>,
       () =>
         onChange({
-          hours: found.hours.map(({ weekday, opens_at, closes_at }) => ({ weekday, opens_at, closes_at })),
+          ...(found.hours.length > 0
+            ? { hours: found.hours.map(({ weekday, opens_at, closes_at }) => ({ weekday, opens_at, closes_at })) }
+            : {}),
+          ...(zone ? { timezone: zone.value } : {}),
+          ...(mobile ? { is_mobile: true } : {}),
+          ...(area ? { service_area: area.value } : {}),
           ...(address ? { address: address.value } : {}),
         }),
-      (details.hours ?? []).length > 0 ? "Replace with these hours" : "Use these hours",
+      (details.hours ?? []).length > 0 && found.hours.length > 0 ? "Use these, replacing my hours" : "Use these",
     );
   }
 
@@ -231,6 +270,43 @@ export function WebsiteFindings({
       </>,
       () => onChange({ team: [...(details.team ?? []), ...fresh.map((m): TeamMember => ({ name: m.name, services: [] }))] }),
       fresh.length === 1 ? `Add ${fresh[0].name}` : "Add them to your team",
+    );
+  }
+  if (step === "knowledge") {
+    const have = new Set(details.faqs.map((f) => f.question.trim().toLowerCase()));
+    const fresh = (found.faqs ?? []).filter((f) => !have.has(f.question.toLowerCase()));
+    if (fresh.length === 0 || used.includes("faqs")) return null;
+    const add = (items: typeof fresh) =>
+      onChange({ faqs: [...details.faqs, ...items.map(({ question, answer }) => ({ question, answer }))] });
+    return (
+      <div className="form-info website-findings" role="region" aria-label="Answers on your website">
+        <p>
+          <strong>Answers on your website</strong>
+        </p>
+        <ul className="block-list">
+          {fresh.map((f) => (
+            <li key={f.question}>
+              <p>
+                <strong>{f.question}</strong> {f.answer}
+              </p>
+              <p className="field-hint">From your website: “{f.quote}”</p>
+              <button type="button" className="link-button" onClick={() => add([f])}>
+                Add “{f.question}”
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="inline-actions">
+          {fresh.length > 1 && (
+            <button type="button" className="button button-secondary" onClick={() => add(fresh)}>
+              Add all {fresh.length}
+            </button>
+          )}
+          <button type="button" className="link-button" onClick={() => onUsed("faqs")}>
+            Not these
+          </button>
+        </div>
+      </div>
     );
   }
   return null;

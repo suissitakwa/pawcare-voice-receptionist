@@ -162,6 +162,13 @@ class WebsiteDetails(BaseModel):
     hours: list[FoundHours]
     services: list[FoundService]
     team: list[FoundPerson]
+    # A mobile groomer's "yes", and the area it serves, in the site's words.
+    mobile: Found | None = None
+    service_area: Found | None = None
+    # From the address's state; the quote is the address's.
+    timezone: Found | None = None
+    # Questions the site answers, beyond hours, prices and services.
+    faqs: list[SuggestedAnswer] = []
     # Items left out because the website doesn't say them.
     dropped: int
 

@@ -383,3 +383,105 @@ def test_reading_the_website_shares_the_hourly_limit(client, site, drafting) -> 
         client.post(f"{API}/profile/website/read", headers=headers).status_code for _ in range(3)
     ]
     assert codes == [200, 200, 429]
+
+
+# Mobile grooming, the time zone, and questions the site answers
+
+MORE = (
+    "Visit 12 Market St, San Jose, CA 95113.\n"
+    "We're a mobile grooming van: we come to you in San Jose, Campbell and Santa Clara.\n"
+    "We ask for 24 hours' notice to cancel. Late cancellations are charged $20.\n"
+    "All dogs must have a current rabies vaccination."
+)
+
+
+def more(**changes) -> dict:
+    data = {
+        "business_phone": None,
+        "address": {
+            "value": "12 Market St, San Jose, CA 95113",
+            "quote": "Visit 12 Market St, San Jose, CA 95113",
+        },
+        "hours": [],
+        "services": [],
+        "team": [],
+        "mobile": {"value": "yes", "quote": "We're a mobile grooming van: we come to you"},
+        "service_area": {
+            "value": "San Jose, Campbell and Santa Clara",
+            "quote": "we come to you in San Jose, Campbell and Santa Clara",
+        },
+        "faqs": [
+            {
+                "question": "How much notice do I need to cancel?",
+                "answer": "Please give 24 hours' notice; late cancellations are $20.",
+                "quote": "We ask for 24 hours' notice to cancel",
+            },
+            {
+                "question": "Do dogs need vaccinations?",
+                "answer": "Yes, a current rabies vaccination.",
+                "quote": "All dogs must have a current rabies vaccination",
+            },
+            {
+                "question": "Do you groom cats?",
+                "answer": "Yes.",
+                "quote": "We groom cats every Tuesday",
+            },
+        ],
+    }
+    return {**data, **changes}
+
+
+def test_mobile_area_time_zone_and_answers_are_kept_when_the_site_says_them() -> None:
+    found, dropped = website_details.check(more(), MORE, "pet_grooming")
+    assert found["mobile"] == {
+        "value": "yes",
+        "quote": "We're a mobile grooming van: we come to you",
+    }
+    assert found["service_area"]["value"] == "San Jose, Campbell and Santa Clara"
+    assert found["timezone"] == {
+        "value": "America/Los_Angeles",
+        "quote": "Visit 12 Market St, San Jose, CA 95113",
+    }
+    assert [f["question"] for f in found["faqs"]] == [
+        "How much notice do I need to cancel?",
+        "Do dogs need vaccinations?",
+    ]
+    assert found["faqs"][1] == {
+        "question": "Do dogs need vaccinations?",
+        "answer": "Yes, a current rabies vaccination.",
+        "quote": "All dogs must have a current rabies vaccination",
+    }
+    # The cat answer isn't on the site.
+    assert dropped == 1
+
+
+def test_salons_are_never_mobile_and_an_area_needs_its_words() -> None:
+    found, _ = website_details.check(more(), MORE, "hair_salon")
+    assert found["mobile"] is None and found["service_area"] is None
+    found, dropped = website_details.check(
+        more(service_area={"value": "All of the Bay Area", "quote": "we come to you in San Jose"}),
+        MORE,
+        "pet_grooming",
+    )
+    assert found["mobile"] is not None and found["service_area"] is None
+    assert dropped == 2
+
+
+@pytest.mark.parametrize(
+    ("address", "zone"),
+    [
+        ("12 Market St, San Jose, CA 95113", "America/Los_Angeles"),
+        ("1 Main St, Austin, TX", "America/Chicago"),
+        ("5 Elm St, Boston, MA 02110-1234, USA", "America/New_York"),
+        ("9 Camelback Rd, Phoenix, AZ 85016", "America/Phoenix"),
+        ("12 Market St", None),
+        ("10 Rue de Rivoli, Paris", None),
+    ],
+)
+def test_the_time_zone_comes_from_the_address_state(address, zone) -> None:
+    assert website_details.zone_of(address) == zone
+
+
+def test_the_request_asks_for_mobile_area_and_answers() -> None:
+    required = website_details.schema(["small"])["required"]
+    assert {"mobile", "service_area", "faqs"} <= set(required)

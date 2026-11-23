@@ -57,7 +57,12 @@ Leave out days that are closed or not given,
 - the services customers can book, with a short description if the text gives one, and prices \
 by {size_rule}. Give the price in dollars and the length in minutes only when the text states \
 them, otherwise null,
-- the names of the people who take appointments.
+- the names of the people who take appointments,
+- whether the business is mobile, going to its customers instead of them coming in (null if \
+the text doesn't say so), and the area it serves in the text's own words (null if not given),
+- questions customers ask that the text answers, such as cancellations, deposits, payment, \
+vaccinations, what to bring, parking or policies, each with a short answer to say aloud. Leave \
+out hours, prices and services, which are covered above.
 
 For every item, copy into "quote" the exact words from the text it comes from, character for \
 character. Never guess, round, or fill gaps."""
@@ -108,8 +113,20 @@ def schema(sizes: list[str]) -> dict:
                 ),
             },
             "team": {"type": "array", "items": _found({"name": text})},
+            "mobile": {"anyOf": [_found({"value": text}), {"type": "null"}]},
+            "service_area": {"anyOf": [_found({"value": text}), {"type": "null"}]},
+            "faqs": {"type": "array", "items": _found({"question": text, "answer": text})},
         },
-        "required": ["business_phone", "address", "hours", "services", "team"],
+        "required": [
+            "business_phone",
+            "address",
+            "hours",
+            "services",
+            "team",
+            "mobile",
+            "service_area",
+            "faqs",
+        ],
         "additionalProperties": False,
     }
 
@@ -317,7 +334,103 @@ def check(data: dict, text: str, business_type: str | None) -> tuple[dict, int]:
         people.add(_words(name))
         found["team"].append({"name": name, "quote": quote})
 
+    # Only groomers can be mobile, as in the profile.
+    pets = (business_type or "pet_grooming") == "pet_grooming"
+    mobile = data.get("mobile")
+    found["mobile"] = None
+    if mobile is not None:
+        quote = quote_of(mobile) if pets else None
+        if quote:
+            found["mobile"] = {"value": "yes", "quote": quote}
+        else:
+            dropped += 1
+
+    def area_ok(value: str, quote: str) -> bool:
+        return 2 <= len(value) <= 200 and _words(value) in _words(quote)
+
+    area = data.get("service_area") if found["mobile"] else None
+    found["service_area"] = single(area, area_ok)
+
+    found["timezone"] = None
+    if found["address"]:
+        zone = zone_of(found["address"]["value"])
+        if zone:
+            found["timezone"] = {"value": zone, "quote": found["address"]["quote"]}
+
+    answers, unquoted = knowledge.verified(
+        [i for i in data.get("faqs") or [] if isinstance(i, dict)], text
+    )
+    found["faqs"] = [vars(a) for a in answers]
+    dropped += unquoted
+
     return found, dropped
+
+
+# The time zone most of each state uses. A state split between two zones gets the one most
+# of its people use; the owner sees it before using it.
+STATE_ZONES = {
+    **dict.fromkeys(["CA", "WA", "OR", "NV"], "America/Los_Angeles"),
+    **dict.fromkeys(["CO", "UT", "NM", "WY", "MT", "ID"], "America/Denver"),
+    "AZ": "America/Phoenix",
+    **dict.fromkeys(
+        [
+            "TX",
+            "IL",
+            "MN",
+            "WI",
+            "IA",
+            "MO",
+            "AR",
+            "LA",
+            "MS",
+            "AL",
+            "OK",
+            "KS",
+            "NE",
+            "SD",
+            "ND",
+            "TN",
+        ],
+        "America/Chicago",
+    ),  # fmt: skip
+    **dict.fromkeys(
+        [
+            "NY",
+            "NJ",
+            "PA",
+            "CT",
+            "MA",
+            "RI",
+            "VT",
+            "NH",
+            "ME",
+            "DE",
+            "MD",
+            "DC",
+            "VA",
+            "WV",
+            "NC",
+            "SC",
+            "GA",
+            "FL",
+            "OH",
+            "MI",
+            "IN",
+            "KY",
+        ],
+        "America/New_York",
+    ),  # fmt: skip
+    "AK": "America/Anchorage",
+    "HI": "Pacific/Honolulu",
+}
+
+
+def zone_of(address: str) -> str | None:
+    """The time zone of a US address that names its state: "…, San Jose, CA 95113"."""
+    match = re.search(
+        r",\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?\s*(?:,\s*(?:USA|US|United States))?\s*$", address
+    )
+    return STATE_ZONES.get(match[1]) if match else None
 
 
 def details_from_site(

@@ -549,14 +549,14 @@ describe("SubscriberApp", () => {
     await user.type(await screen.findByLabelText("Website (optional)"), "https://shaggy.example/");
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
 
-    const found = await screen.findByRole("region", { name: "Opening hours on your website" });
+    const found = await screen.findByRole("region", { name: "Where and when on your website" });
     expect(found).toHaveTextContent("Tuesday: 9 AM to 5 PM");
     expect(found).toHaveTextContent("Address: 12 Market St, San Jose");
-    expect(found).toHaveTextContent("From your website: “Tuesdays 9am to 5pm”");
+    expect(found).toHaveTextContent("From your website: “Visit 12 Market St, San Jose” “Tuesdays 9am to 5pm”");
     expect(calls.filter((c) => c.key === "POST /api/v1/subscribers/profile/website/read")).toHaveLength(1);
 
-    await user.click(within(found).getByRole("button", { name: "Use these hours" }));
-    expect(screen.queryByRole("region", { name: "Opening hours on your website" })).not.toBeInTheDocument();
+    await user.click(within(found).getByRole("button", { name: "Use these" }));
+    expect(screen.queryByRole("region", { name: "Where and when on your website" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Address (optional)")).toHaveValue("12 Market St, San Jose");
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
     const saved = JSON.parse(String(calls.filter((c) => c.key === "PATCH /api/v1/subscribers/profile").at(-1)?.init?.body));
