@@ -350,7 +350,7 @@ describe("SubscriberApp", () => {
 
   it("back from Google, lists the owner's calendars and connects the chosen one", async () => {
     sessionStorage.setItem("receptionist-subscriber-token", "s-1");
-    window.history.replaceState(null, "", "/get-started?state=st-1&code=co-1&scope=x");
+    window.history.replaceState(null, "", "/get-started?state=st-1&code=co-1&scope=x&iss=https%3A%2F%2Faccounts.google.com");
     let exchanged: unknown = null;
     let connected: unknown = null;
     const connectedProfile = {

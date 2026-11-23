@@ -982,3 +982,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `AUTO_APPROVE_SIGNUPS=true` on Railway, and the demo line on the OpenAI trunk or Vapi as today |
 
+## Profile layout fixes (2026-11-22)
+
+**Outcome:** three things seen on the live profile are fixed. A long Google Calendar ID (`…@group.calendar.google.com`) ran out of the calendar box; text there now wraps inside it. A step name that wraps ("What the receptionist should know") had its number beside the second line; the number now sits on the first. Google's `iss` parameter stayed in the address bar after signing in with Google; it's now removed with the rest.
+
+| Check | Result |
+| --- | --- |
+| Frontend | Typecheck and build pass; 107 tests pass (Node 22), the Google return test now includes `iss`. Checked in a browser with the built stylesheet at 1280 px and 375 px: the ID wraps inside its box, no sideways scrolling, step 6's number on its first line |
+| Backend | Unchanged |
+| Live | Not deployed |
+

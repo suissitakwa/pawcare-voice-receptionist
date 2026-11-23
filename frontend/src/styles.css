@@ -337,6 +337,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .check-option { display: flex; align-items: center; gap: 8px; padding-block: 4px; }
 .profile-layout { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 24px; }
 .step-list { display: grid; gap: 10px; margin: 0; padding-left: 20px; }
+/* A block, left-aligned label keeps its number on the first line when it wraps. */
+.step-list .link-button { display: block; text-align: left; }
 .step-list [aria-current="step"] { font-weight: 700; text-decoration: none; }
 .file-button { position: relative; justify-self: start; }
 .file-button:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -357,7 +359,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .service-price { margin: 12px 0 0; font-size: 1.05rem; }
 
 /* Connecting a Google Calendar from the profile. */
-.calendar-connect { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid var(--line, #d9e2e1); border-radius: 12px; }
+/* Calendar IDs can be one long word (…@group.calendar.google.com), so any text may break. */
+.calendar-connect { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid var(--line, #d9e2e1); border-radius: 12px; min-width: 0; overflow-wrap: anywhere; }
 .calendar-connect ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .calendar-connect code { overflow-wrap: anywhere; }
 .calendar-connect .button { justify-self: start; }
