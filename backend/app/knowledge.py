@@ -176,8 +176,22 @@ def request(
         connection.close()
 
 
+@dataclass(frozen=True)
+class Page:
+    # Where the page ended up, after any redirects.
+    url: str
+    text: str
+    # Links on the page as (address, link text), addresses made absolute.
+    links: list[tuple[str, str]]
+
+
 def fetch_page(url: str) -> str:
     """The readable text of a public web page."""
+    return fetch(url).text
+
+
+def fetch(url: str) -> Page:
+    """A public web page's text and links."""
     deadline = time.monotonic() + PAGE_SECONDS
     for _ in range(MAX_REDIRECTS + 1):
         scheme, host, port, path = target(url)
@@ -193,7 +207,14 @@ def fetch_page(url: str) -> str:
             continue
         if status != 200:
             raise KnowledgeError("page_unreachable", f"That page answered with error {status}.")
-        return page_text(body, headers.get_content_type(), headers.get_content_charset())
+        content_type = headers.get_content_type()
+        if content_type in ("text/html", "application/xhtml+xml"):
+            parser = parse_html(decode(body, headers.get_content_charset()))
+            links = [(urljoin(url, href), text) for href, text in parser.links]
+            return Page(url=url, text=clean("".join(parser.parts)), links=links)
+        return Page(
+            url=url, text=page_text(body, content_type, headers.get_content_charset()), links=[]
+        )
     raise KnowledgeError("page_unreachable", "That page redirects too many times.")
 
 
@@ -226,29 +247,44 @@ class _TextParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
         self.skipping = 0
+        self.links: list[tuple[str, str]] = []
+        self.link: tuple[str, list[str]] | None = None
 
     def handle_starttag(self, tag: str, attrs) -> None:
         if tag in self.SKIP:
             self.skipping += 1
         elif tag in self.BLOCK:
             self.parts.append("\n")
+        elif tag == "a":
+            href = dict(attrs).get("href")
+            self.link = (href, []) if href else None
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self.SKIP:
             self.skipping = max(0, self.skipping - 1)
         elif tag in self.BLOCK:
             self.parts.append("\n")
+        elif tag == "a" and self.link is not None:
+            href, words = self.link
+            self.links.append((href, " ".join("".join(words).split())))
+            self.link = None
 
     def handle_data(self, data: str) -> None:
         if not self.skipping:
             self.parts.append(data)
+            if self.link is not None:
+                self.link[1].append(data)
 
 
-def html_text(html: str) -> str:
+def parse_html(html: str) -> _TextParser:
     parser = _TextParser()
     parser.feed(html)
     parser.close()
-    return clean("".join(parser.parts))
+    return parser
+
+
+def html_text(html: str) -> str:
+    return clean("".join(parse_html(html).parts))
 
 
 def clean(text: str) -> str:
@@ -398,29 +434,38 @@ def verified(items: list[dict], source: str) -> tuple[list[Suggestion], int]:
     return kept, len(items) - len(kept)
 
 
-def draft_answers(
-    settings: Settings, text: str, business_name: str, kind: str, account_id: str
-) -> tuple[list[Suggestion], int]:
+def structured(
+    settings: Settings, instructions: str, text: str, name: str, schema: dict, account_id: str
+) -> dict:
+    """One Responses API call whose reply must follow the schema."""
     body = {
         "model": settings.knowledge_model,
-        "instructions": INSTRUCTIONS.format(kind=kind, name=business_name, limit=MAX_SUGGESTIONS),
+        "instructions": instructions,
         "input": [{"role": "user", "content": text}],
-        "text": {
-            "format": {"type": "json_schema", "name": "answers", "strict": True, "schema": SCHEMA}
-        },
+        "text": {"format": {"type": "json_schema", "name": name, "strict": True, "schema": schema}},
         "max_output_tokens": 8000,
         "store": False,
         "safety_identifier": hashlib.sha256(f"subscriber:{account_id}".encode()).hexdigest(),
     }
-    data = post(settings, body)
-    raw = output_text(data)
+    raw = output_text(post(settings, body))
     try:
-        items = json.loads(raw)["answers"]
-        if not isinstance(items, list):
+        data = json.loads(raw)
+        if not isinstance(data, dict):
             raise TypeError
-    except (json.JSONDecodeError, KeyError, TypeError):
-        logger.error("Drafted answers had an unexpected shape")
+    except (json.JSONDecodeError, TypeError):
+        logger.error("Structured reply had an unexpected shape")
         raise unavailable() from None
+    return data
+
+
+def draft_answers(
+    settings: Settings, text: str, business_name: str, kind: str, account_id: str
+) -> tuple[list[Suggestion], int]:
+    instructions = INSTRUCTIONS.format(kind=kind, name=business_name, limit=MAX_SUGGESTIONS)
+    items = structured(settings, instructions, text, "answers", SCHEMA, account_id).get("answers")
+    if not isinstance(items, list):
+        logger.error("Drafted answers had an unexpected shape")
+        raise unavailable()
     return verified([i for i in items if isinstance(i, dict)], text)
 
 

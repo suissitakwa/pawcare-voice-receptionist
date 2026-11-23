@@ -517,4 +517,47 @@ describe("SubscriberApp", () => {
     expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
     expect(sessionStorage.getItem("receptionist-subscriber-token")).toBeNull();
   });
+  it("reads the website after the first step and offers its hours on the next", async () => {
+    let profile: Record<string, unknown> = PROFILE;
+    const calls = mockApi(
+      routes({
+        "GET /api/v1/subscribers/profile": () => ({ status: 200, body: profile }),
+        "PATCH /api/v1/subscribers/profile": (init) => {
+          const update = JSON.parse(String(init?.body));
+          profile = { ...profile, details: { ...EMPTY_DETAILS, ...update.details } };
+          return { status: 200, body: profile };
+        },
+        "POST /api/v1/subscribers/profile/website/read": () => ({
+          status: 200,
+          body: {
+            source: "https://shaggy.example/",
+            pages: ["https://shaggy.example/"],
+            business_phone: null,
+            address: { value: "12 Market St, San Jose", quote: "Visit 12 Market St, San Jose" },
+            hours: [{ weekday: 1, opens_at: "09:00", closes_at: "17:00", quote: "Tuesdays 9am to 5pm" }],
+            services: [],
+            team: [],
+            dropped: 0,
+          },
+        }),
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.type(await screen.findByLabelText("Website (optional)"), "https://shaggy.example/");
+    await user.click(screen.getByRole("button", { name: "Save and continue" }));
+
+    const found = await screen.findByRole("region", { name: "Opening hours on your website" });
+    expect(found).toHaveTextContent("Tuesday: 9 AM to 5 PM");
+    expect(found).toHaveTextContent("Address: 12 Market St, San Jose");
+    expect(found).toHaveTextContent("From your website: “Tuesdays 9am to 5pm”");
+    expect(calls.filter((c) => c.key === "POST /api/v1/subscribers/profile/website/read")).toHaveLength(1);
+
+    await user.click(within(found).getByRole("button", { name: "Use these hours" }));
+    expect(screen.queryByRole("region", { name: "Opening hours on your website" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Address (optional)")).toHaveValue("12 Market St, San Jose");
+    await user.click(screen.getByRole("button", { name: "Save and continue" }));
+    const saved = JSON.parse(String(calls.filter((c) => c.key === "PATCH /api/v1/subscribers/profile").at(-1)?.init?.body));
+    expect(saved.details.hours).toEqual([{ weekday: 1, opens_at: "09:00", closes_at: "17:00" }]);
+  });
 });

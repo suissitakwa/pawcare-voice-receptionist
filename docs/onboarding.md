@@ -24,6 +24,8 @@ A profile submitted before hours and prices were asked for can't be approved. Ei
 /opt/venv/bin/python -m app.provision create owner@example.com /tmp/their-business.json
 ```
 
+Hours, services, prices and team in a profile may have come from the owner's website: the sign-up steps offer what the website says, and the owner chose to use it and could change it ([website-details.md](website-details.md)). Read prices in `approve`'s summary as carefully as typed ones.
+
 **What the receptionist knows** is the profile's answers to common questions, plus services, prices and hours. Its web pages and documents are never read on calls. Owners can turn them into answers with **Suggest answers** in the profile: every suggestion is tied to words from the page or document, and only the ones they add are kept ([knowledge.md](knowledge.md)). Before approving, read the answers in `draft`. If a page they listed obviously covers something callers ask (prices, cancellations, deposits) and no answer covers it, ask them to add one.
 
 Pet groomers, hair salons and barbershops can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner".

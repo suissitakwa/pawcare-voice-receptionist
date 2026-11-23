@@ -86,6 +86,8 @@ Errors:
 | 502 | `suggestions_unavailable` | OpenAI failed |
 | 503 | `suggestions_unavailable` | No OpenAI key |
 
+The first sign-up step's website is also read to fill in the next steps (hours, services, team): see [website-details.md](website-details.md).
+
 ## Not done yet
 
 - Not tried against OpenAI with a real key: the request shape is covered by tests with a stand-in.
