@@ -107,8 +107,10 @@ Either way, the backend checks access before saving, by adding the calendar to t
 
 Sharing can change after connecting: the owner unshares the calendar, or turns it down to "See all event details". The connection is checked live with Google, the same way as when connecting, in two places:
 
-- **Staff dashboard, Calendar section** (`GET /api/v1/staff/calendar`): the connected calendar, or the problem with what it means for booking, the bookings waiting to sync, when one last synced, and the last sync error. It checks on every load and on **Check again**.
-- **Profile, Your calendar step:** **Check connection** (`POST /api/v1/subscribers/profile/calendar/check`) says it's working or gives Google's reason. It saves and disconnects nothing.
+Both show the calendar by its name in Google Calendar ("Shaggy Chic bookings"), never its long ID. The name comes from the same access check. For the profile it's saved when connecting (`google_calendar_name`, which a profile edit can't set) and refreshed by **Check connection**. A calendar connected before names were kept shows as "your Google Calendar" until it's checked. The admin's "Profile updated" email still gives the ID.
+
+- **Staff dashboard, Calendar section** (`GET /api/v1/staff/calendar`, with `calendar_name`): the connected calendar, or the problem with what it means for booking, the bookings waiting to sync, when one last synced, and the last sync error. It checks on every load and on **Check again**.
+- **Profile, Your calendar step:** **Check connection** (`POST /api/v1/subscribers/profile/calendar/check`) says it's working (with the calendar's current name, which it saves) or gives Google's reason. It disconnects nothing.
 
 | Check says | What happens to booking |
 | --- | --- |

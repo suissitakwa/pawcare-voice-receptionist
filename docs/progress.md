@@ -971,6 +971,38 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `PUBLIC_SITE_URL` for full links; the Vapi male voice id not tried on a call |
 
+## Sign-ups can go live on their own, for testing (2026-11-22)
+
+**Outcome:** trying onboarding end to end needed you at the Railway console for every test sign-up. With `AUTO_APPROVE_SIGNUPS=true`, a profile goes live the moment it's submitted, exactly as `provision approve --yes` would. The phone number given at sign-up is registered to ring the new business, and the owner gets both go-live emails. For testing, owners give the demo line +1 (269) 699-2551, and the newest sign-up with it takes it. A number is only taken from the demo or an earlier sign-up (`business_phone_numbers.from_signup`, migration `0029`), never from a business you registered it for by hand. Off by default; it must be off before real customers sign up, since their own number isn't on our phone line. See [onboarding.md](onboarding.md#trying-onboarding-end-to-end-automatic-approval).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 690 passed (local PostgreSQL 14), 6 new in `test_auto_approve.py`: a sign-up goes live with its own number ringing it and both owner emails, and the admin notice says so; the newest sign-up with the demo line takes it from the demo and from the previous one; a number registered by hand is never taken; a number without an area code is skipped; a profile that can't be approved stays waiting; switched off, every sign-up waits. Migration `0029` upgrades and downgrades cleanly |
+| Frontend | Unchanged |
+| Live | Not deployed. Needs `AUTO_APPROVE_SIGNUPS=true` on Railway, and the demo line on the OpenAI trunk or Vapi as today |
+
+## Profile layout fixes (2026-11-22)
+
+**Outcome:** three things seen on the live profile are fixed. A long Google Calendar ID (`…@group.calendar.google.com`) ran out of the calendar box; text there now wraps inside it. A step name that wraps ("What the receptionist should know") had its number beside the second line; the number now sits on the first. Google's `iss` parameter stayed in the address bar after signing in with Google; it's now removed with the rest.
+
+| Check | Result |
+| --- | --- |
+| Frontend | Typecheck and build pass; 107 tests pass (Node 22), the Google return test now includes `iss`. Checked in a browser with the built stylesheet at 1280 px and 375 px: the ID wraps inside its box, no sideways scrolling, step 6's number on its first line |
+| Backend | Unchanged |
+| Live | Not deployed |
+
+## Calendars shown by name (2026-11-22)
+
+**Outcome:** the profile and the staff dashboard showed a connected calendar by its ID, often a long `…@group.calendar.google.com` string. Both now show its name in Google Calendar ("Connected to **Shaggy Chic bookings**"). The access check already reads the calendar's list entry, so it now returns the name. Connecting saves it on the profile (`google_calendar_name`, server-set), **Check connection** refreshes it after a rename, and the dashboard gets it from its live check. A calendar connected before this shows "your Google Calendar" until checked. See [calendar.md](calendar.md#is-it-still-working).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 694 passed (local PostgreSQL 14), 4 new in `test_calendar_connect.py`: the check returns the owner's name for the calendar (trimmed; none when Google gives none), connecting keeps it and a check refreshes it and disconnecting clears it, a profile edit can't set it, the dashboard status names the calendar and drops the name when the check fails |
+| Frontend | Typecheck and build pass; 107 tests pass (Node 22): the profile shows the picked calendar's name, not its ID, after connecting by hand and with Google; the dashboard shows the name, not the ID |
+| Live | Not deployed |
+
 ## More of the sign-up filled in from the website (2026-11-22)
 
 **Outcome:** the website read now covers every step it can, not only hours, services and team. "Where and when" also offers the time zone (from the checked address's state), "we're mobile" and the area served (groomers only), and the address, each only while that field is empty. "What the receptionist should know" offers the questions the website answers (cancellations, deposits, payment, vaccinations, what to bring, parking, policies), with **Add** for each and **Add all**. Every item is still checked against the site's words: mobile and area need their own quotes, answers need a 12-character quote on the site, and the time zone isn't asked of the model at all. See [website-details.md](website-details.md).
@@ -981,4 +1013,3 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 693 passed (local PostgreSQL 14), 9 new in `test_website_details.py`: mobile, area, time zone and answers kept when the site says them and an unquoted answer dropped; salons never mobile and an area needs its words; the time zone from the address's state (Pacific, Central, Eastern with ZIP+4 and USA, Arizona; none without a state or outside the US); the request asks for mobile, area and answers |
 | Frontend | Typecheck and build pass; 110 tests pass (Node 22), 3 new: time zone, mobile, area and hours offered and used together, nothing offered over what the owner filled in, answers added one at a time or all at once with ones they have hidden |
 | Live | Not deployed. Not tried with a real OpenAI key or on real business websites |
-

@@ -67,7 +67,8 @@ function takeGoogleReturn(): GoogleReturn {
   if (!state) return null;
   const code = params.get("code");
   const error = params.get("error");
-  for (const name of ["state", "code", "error", "scope", "authuser", "prompt", "hd"]) params.delete(name);
+  // Google also sends "iss" (its own address), which only clutters the address bar.
+  for (const name of ["state", "code", "error", "scope", "authuser", "prompt", "hd", "iss"]) params.delete(name);
   const query = params.toString();
   window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : "") + window.location.hash);
   return code ? { code, state } : { error: error ?? "unknown" };
@@ -364,6 +365,7 @@ function GoogleCalendarConnect({
   shareEmail,
   googleSignIn,
   connectedId,
+  connectedName,
   calendarId,
   onCalendarId,
   busy,
@@ -375,6 +377,8 @@ function GoogleCalendarConnect({
   shareEmail: string | null;
   googleSignIn: boolean;
   connectedId: string | null;
+  /** Its name in Google Calendar; unknown for calendars connected before names were kept. */
+  connectedName: string | null;
   calendarId: string;
   onCalendarId: (value: string) => void;
   busy: boolean;
@@ -388,7 +392,8 @@ function GoogleCalendarConnect({
     return (
       <div className="calendar-connect" role="status">
         <p>
-          <strong>Connected:</strong> {connectedId}. New bookings, changes and cancellations appear in it within a few seconds.
+          Connected to <strong>{connectedName ?? "your Google Calendar"}</strong>. New bookings, changes and cancellations appear
+          in it within a few seconds.
         </p>
         <p className="muted">
           If you change its sharing in Google Calendar, check the connection here. Disconnecting stops new bookings going to it;
@@ -606,6 +611,8 @@ function ProfileForm({
   const checkCalendar = () =>
     run(async () => {
       const result = await subscriberApi.checkCalendar(token);
+      // The check also picks up the calendar's current name.
+      if (result.ok && result.name) setDetails({ google_calendar_name: result.name });
       if (result.ok) setSaved("Your calendar is working: bookings can be added to it.");
       else setError(result.message ?? "Your calendar can't be reached right now.");
     });
@@ -831,6 +838,7 @@ function ProfileForm({
                   shareEmail={options.calendar_share_email ?? null}
                   googleSignIn={options.google_sign_in ?? false}
                   connectedId={details.google_calendar_connected ? (details.google_calendar_id ?? null) : null}
+                  connectedName={details.google_calendar_name ?? null}
                   calendarId={calendarId}
                   onCalendarId={setCalendarId}
                   busy={busy}

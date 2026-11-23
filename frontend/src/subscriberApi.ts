@@ -81,6 +81,8 @@ export interface ProfileDetails {
   /** Set by connecting, after HelloEver's account could make changes to the calendar. */
   google_calendar_id?: string | null;
   google_calendar_connected?: boolean;
+  /** The connected calendar's name in Google Calendar, shown instead of its id. */
+  google_calendar_name?: string | null;
   knowledge_urls: string[];
   faqs: FaqItem[];
   voice: string | null;
@@ -122,6 +124,8 @@ export interface CalendarCheck {
   ok: boolean;
   code: string | null;
   message: string | null;
+  /** The calendar's current name, when it works. */
+  name?: string | null;
 }
 
 export interface ProfileUpdate {

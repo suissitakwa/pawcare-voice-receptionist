@@ -83,6 +83,9 @@ class BusinessPhoneNumber(Base):
     )
     # E.164, e.g. +13235550100.
     number: Mapped[str] = mapped_column(String(16))
+    # Registered from the owner's sign-up (AUTO_APPROVE_SIGNUPS), so a newer sign-up with the
+    # same number may take it. Numbers you register by hand are never taken.
+    from_signup: Mapped[bool] = mapped_column(server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
