@@ -117,6 +117,8 @@ To go live:
    | `VOICE_SESSIONS_PER_CLIENT_PER_HOUR` | Optional, default `6` |
    | `VOICE_MAX_SESSION_SECONDS` | Optional, default `300` |
    | `VOICE_MODEL` | Optional, default `gpt-realtime-2.1-mini` |
+   | `KNOWLEDGE_MODEL` | Optional, default `gpt-5-mini`. Drafts suggested answers from owners' pages and documents ([knowledge.md](knowledge.md)) |
+   | `KNOWLEDGE_RUNS_PER_HOUR` | Optional, default `40` sources read per owner per hour |
 
 3. Open the live site, click "Start talking", and allow the microphone.
 

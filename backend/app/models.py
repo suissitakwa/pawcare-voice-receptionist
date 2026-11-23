@@ -565,6 +565,20 @@ class ProfileDocument(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class KnowledgeRun(Base):
+    """One source read to suggest answers, kept to limit how often an owner can ask."""
+
+    __tablename__ = "knowledge_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("subscriber_accounts.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class WebhookEvent(Base):
     """One event waiting for, or done with, delivery to the automation webhook."""
 

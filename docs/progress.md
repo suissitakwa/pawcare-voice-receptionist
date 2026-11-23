@@ -919,3 +919,16 @@ Across the three runs the pass count went 30, 32, 34 of 34. Each run is a single
 | Backend tests | 598 passed (local PostgreSQL 14), 7 new in `test_calendar_alerts.py`: a working calendar is checked every 15 minutes with no email and its connection date kept, an unshared calendar alerts once and then says it works again, unreachable alerts only after 30 minutes, a short outage sends nothing, reconnecting checks afresh, unreadable settings alert at once, the owner's and the admin's emails. Migration `0026` upgrades and downgrades cleanly |
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `ADMIN_EMAIL`, email settings and a real shared calendar to try |
+
+## Answers from the owner's pages and documents (2026-11-22)
+
+**Outcome:** the web pages and documents owners gave at sign-up were only stored. Now the profile's "What the receptionist should know" step has **Suggest answers from my pages and documents**. It reads each saved page and document in turn and drafts questions and answers from it with OpenAI. Each answer comes with the exact words it rests on, and the server drops any answer whose words aren't in the source. The owner adds the right ones to their questions and answers or skips them. Only added answers reach calls, through the existing FAQ path and `provision approve`, so the receptionist still says only what the owner chose.
+
+Pages are fetched only from public addresses: http(s) on ports 80 and 443, every resolved address checked, the connection pinned to the checked address, redirects checked again, 20 seconds and 2 MB at most. PDFs are read with `pypdf` (new dependency) and .docx with the standard library, with DTDs refused. Each owner can read 40 sources per hour (migration `0027`). See [knowledge.md](knowledge.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 651 passed (local PostgreSQL 14), 53 new in `test_knowledge.py`: private, metadata and IPv4-in-IPv6 addresses refused, only plain http(s) on the usual ports, the connection goes to the checked address, redirects to private addresses refused, mixed public and private DNS answers refused, redirect loops, error pages and non-text pages; HTML without scripts or styles; .docx paragraphs, DTD and damaged files refused; PDF text, no text, damaged PDF; only answers whose quote is in the source are kept (curly quotes and case ignored, short quotes and repeats dropped); the drafting request (strict schema, `store: false`, hashed account); unexpected replies; the endpoint: a document's suggestions with quotes and nothing saved, only saved pages fetched, an unreadable page explains why, another owner's document not found, one source at a time, sign-in needed, off without a key, the hourly limit; the approve follow-up. Migration `0027` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 98 tests pass (Node 22), 4 new in `KnowledgeSuggestions.test.tsx`: each source read in turn with a failing one explained, add and skip, questions the owner already has hidden, stop when suggestions are unavailable, ask for a source when there is none |
+| Live | Not deployed. Drafting hasn't been tried with a real OpenAI key; the request is checked against a stand-in. Page fetching was tried by hand against a public page over http and https |
