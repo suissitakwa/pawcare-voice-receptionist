@@ -35,8 +35,10 @@ Pet groomers, hair salons and barbershops can all be approved. The business type
 While you're testing, set `AUTO_APPROVE_SIGNUPS=true` on Railway. Every profile then goes live the moment it's submitted, exactly as `provision approve --yes` would:
 
 1. Sign up at `/get-started` and fill in the profile. As the business phone number, give the demo line **+1 (269) 699-2551**.
-2. Submit. The profile shows the booking page and dashboard straight away. The sign-up's number is registered to ring the new business, and you get the "New sign-up" email saying it was approved automatically.
-3. The owner gets both go-live emails: set up, then "Your receptionist answers at (269) 699-2551" ([email.md](email.md#going-live)).
+2. Submit. The profile shows the booking page and dashboard straight away. The sign-up's number is registered to ring the new business, and you get the "New sign-up" email saying it's live and that +12696992551 rings it.
+3. The owner gets both go-live emails, set up and then "Your receptionist answers at (269) 699-2551" ([email.md](email.md#going-live)), instead of the "we'll be in touch" receipt.
+
+Automatic approval only happens on a profile's first submission, and only while the setting is on. A profile submitted before that waits; approve it by hand.
 4. Call +1 (269) 699-2551: the newest test business answers.
 
 The line rings one business at a time, so **the newest sign-up with it takes it**, from the demo or from an earlier sign-up. Earlier test businesses keep their booking site and dashboard. A number you registered for a business with `phone_numbers add` is never taken; that sign-up goes live without a number. A sign-up number without an area code is skipped. A profile that can't be approved (no hours or services) stays waiting, as usual.

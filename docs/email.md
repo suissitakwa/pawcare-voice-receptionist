@@ -45,9 +45,9 @@ Without `RESEND_API_KEY` or `SMTP_HOST`, or without `EMAIL_FROM`, no emails are 
 
 When someone submits their profile for the first time, two emails go out:
 
-- With `AUTO_APPROVE_SIGNUPS` on, the "New sign-up" email says it was approved automatically instead of giving the approve command.
+- With `AUTO_APPROVE_SIGNUPS` on, the "New sign-up" email says what happened instead of giving the approve command. Either it's live at `/b/<slug>` and which number rings it (or that none does, with the `phone_numbers add` command), or why it couldn't be approved, with the approve command for once it's fixed.
 - **To you**, at `ADMIN_EMAIL` (for example `takwa@helloeverai.com`): "New sign-up: <business> (<type>)", with their contact details, calendar, and the `python -m app.provision draft <email>` command to start from.
-- **To them**: "We received your profile for <business>", saying you'll be in touch within one business day, with replies going to `ADMIN_EMAIL`.
+- **To them**: "We received your profile for <business>", saying you'll be in touch within one business day, with replies going to `ADMIN_EMAIL`. A sign-up approved automatically doesn't get it: the go-live emails take its place, so nobody is promised a call that isn't needed.
 
 After they've submitted, any change to their profile (business name, phone, calendar, web pages, answers, voice, documents) is emailed to `ADMIN_EMAIL` as **"Profile updated: <business>"**, with the new value of each changed section. Edits are gathered: the email goes out once they've stopped editing for 10 minutes. If their receptionist is already live, it reminds you that the live receptionist doesn't change by itself.
 

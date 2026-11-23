@@ -69,10 +69,13 @@ def test_a_sign_up_goes_live_with_its_own_number(client, db) -> None:
     # The owner hears both: set up, then the number.
     assert [e.payload["data"]["owner_email"] for e in events(db, go_live.LIVE)] == ["a@example.com"]
     assert [e.payload["data"]["number"] for e in events(db, go_live.PHONE_READY)] == [DEMO_LINE]
-    # You're told it went live on its own.
+    # The go-live emails replace the "we'll be in touch" receipt.
+    assert events(db, "profile.received") == []
+    # You're told it went live on its own, and which number rings it.
     [notice] = events(db, "profile.submitted")
     body = message_for(notice, None, Settings(), "team@example.com").get_content()
-    assert "approved automatically" in body
+    assert "it's live at /b/shaggy-chic" in body
+    assert f"{DEMO_LINE} rings it." in body
     assert "provision approve" not in body
 
 
@@ -103,6 +106,10 @@ def test_a_number_without_an_area_code_is_skipped(client, db) -> None:
     profile = submit(client, "a@example.com", phone="555-0134")
     assert profile["business_slug"] == "shaggy-chic"
     assert db.scalar(select(BusinessPhoneNumber.id)) is None
+    [notice] = events(db, "profile.submitted")
+    body = message_for(notice, None, Settings(), "team@example.com").get_content()
+    assert "No number rings it" in body
+    assert "phone_numbers add shaggy-chic <number>" in body
 
 
 def test_a_profile_that_cannot_be_approved_stays_waiting(client, db, monkeypatch) -> None:
@@ -114,6 +121,16 @@ def test_a_profile_that_cannot_be_approved_stays_waiting(client, db, monkeypatch
     assert profile["status"] == "submitted"
     assert profile["business_slug"] is None
     assert db.scalar(select(BusinessPhoneNumber.id)) is None
+    # They get the usual receipt, and you're told why it waits.
+    [receipt] = events(db, "profile.received")
+    assert (
+        "within one business day"
+        in message_for(receipt, None, Settings(), "a@example.com").get_content()
+    )
+    [notice] = events(db, "profile.submitted")
+    body = message_for(notice, None, Settings(), "team@example.com").get_content()
+    assert "couldn't be approved: The profile has no hours." in body
+    assert "provision approve a@example.com" in body
 
 
 def test_switched_off_every_sign_up_waits(client, db) -> None:
@@ -123,3 +140,11 @@ def test_switched_off_every_sign_up_waits(client, db) -> None:
     assert holder(db) is None
     [notice] = events(db, "profile.submitted")
     assert "provision approve" in message_for(notice, None, Settings(), "t@x").get_content()
+
+
+def test_the_receipt_greets_by_first_name(client, db) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(auto_approve_signups=False)
+    submit(client, "a@example.com")
+    [receipt] = events(db, "profile.received")
+    body = message_for(receipt, None, Settings(), "a@example.com").get_content()
+    assert body.startswith("Hi Sam,\n")

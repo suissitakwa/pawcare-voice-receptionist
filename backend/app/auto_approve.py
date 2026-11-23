@@ -53,9 +53,12 @@ def take_number(session: Session, slug: str, raw: str | None) -> str | None:
     return number
 
 
-def approve_signup(session: Session, account: SubscriberAccount) -> str | None:
+def approve_signup(
+    session: Session, account: SubscriberAccount
+) -> tuple[str | None, str | None, str | None]:
     """Approves a just-submitted profile and registers its number. Returns the business's
-    slug, or None when it can't be approved (nothing is changed then)."""
+    slug and the number registered (or None), or, when it can't be approved, None, None and
+    why (nothing is changed then)."""
     from app.provision import ProvisionError, approve, submitted_profile
 
     try:
@@ -66,6 +69,6 @@ def approve_signup(session: Session, account: SubscriberAccount) -> str | None:
             number = take_number(session, seed.slug, phone)
     except (ProvisionError, ValueError) as error:
         logger.warning("Sign-up %s not approved automatically: %s", account.email, error)
-        return None
+        return None, None, str(error)
     logger.info("Sign-up approved as %s, number %s", seed.slug, number or "none")
-    return seed.slug
+    return seed.slug, number, None
