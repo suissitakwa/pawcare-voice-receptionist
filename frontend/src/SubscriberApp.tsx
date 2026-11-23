@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
 import { KnowledgeSuggestions } from "./KnowledgeSuggestions";
+import { WebsiteFindings, useWebsiteFindings } from "./WebsiteFindings";
 import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
 import { siteRoot } from "./site";
 import { subscriberApi, type Account, type FaqItem, type GooglePick, type Profile, type ProfileDetails, type ProfileOptions } from "./subscriberApi";
@@ -501,6 +502,8 @@ function ProfileForm({
     setCalendarId(next.details.google_calendar_id ?? "");
   }, []);
 
+  const website = useWebsiteFindings(token, handleError);
+
   useEffect(() => {
     subscriberApi.profile(token).then(load, handleError);
   }, [token, load, handleError]);
@@ -555,13 +558,14 @@ function ProfileForm({
   const save = (next?: number) =>
     run(async () => {
       if (!draft) return;
-      load(
-        await subscriberApi.save(token, {
-          business_name: orNull(draft.business_name),
-          business_type: draft.business_type || null,
-          details: cleanDetails(draft.details, urls, zips),
-        }),
-      );
+      const saved = await subscriberApi.save(token, {
+        business_name: orNull(draft.business_name),
+        business_type: draft.business_type || null,
+        details: cleanDetails(draft.details, urls, zips),
+      });
+      load(saved);
+      // A website given on the first step is read in the background for the next steps.
+      if (STEPS[step].id === "business") website.readIfUseful(saved.details);
       setSaved("Saved.");
       if (next !== undefined) setStep(next);
     });
@@ -689,6 +693,16 @@ function ProfileForm({
           </div>
         )}
 
+        <WebsiteFindings
+          step={current.id}
+          state={website.state}
+          details={details}
+          isMobile={details.is_mobile ?? false}
+          onChange={setDetails}
+          onUsed={website.markUsed}
+          onRetry={() => website.state && website.read(website.state.url)}
+        />
+
         {current.id === "business" && (
           <>
             <Field label="Business name">
@@ -705,7 +719,7 @@ function ProfileForm({
             <Field label="Business phone number" hint="The number your customers call today.">
               {(props) => <input {...props} type="tel" value={details.business_phone ?? ""} onChange={(e) => setDetails({ business_phone: e.target.value })} />}
             </Field>
-            <Field label="Website (optional)">
+            <Field label="Website (optional)" hint="We'll read it and offer what we find, such as hours and services, in the next steps.">
               {(props) => (
                 <input {...props} type="url" placeholder="https://" value={details.website_url ?? ""} onChange={(e) => setDetails({ website_url: e.target.value })} />
               )}

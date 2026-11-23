@@ -1,4 +1,5 @@
-"""Suggested answers from the owner's own web pages and documents, for them to review.
+"""Suggested answers from the owner's own web pages and documents, and details read from
+their website, for them to review.
 
 One request reads one source, so each stays within a page fetch and one drafting call. The
 suggestions are returned, not stored: the ones the owner adds become ordinary FAQs in
@@ -6,14 +7,15 @@ their profile.
 """
 
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app import knowledge
+from app import knowledge, website_details
+from app.config import Settings
 from app.errors import ApiError
 from app.knowledge import KnowledgeError
 from app.models import KnowledgeRun, ProfileDocument
@@ -74,21 +76,7 @@ def suggest(
             raise ApiError(404, "document_not_found", "No document with that id.")
         source, kind = document.filename, "document"
 
-    recent = db.scalar(
-        select(func.count())
-        .select_from(KnowledgeRun)
-        .where(
-            KnowledgeRun.account_id == account.id,
-            KnowledgeRun.created_at > now - timedelta(hours=1),
-        )
-    )
-    if recent >= settings.knowledge_runs_per_hour:
-        raise ApiError(
-            429, "too_many_requests", "That's a lot of suggestions for now. Try again in an hour."
-        )
-    # Counted before the work, so failures count too.
-    db.add(KnowledgeRun(account_id=account.id, created_at=now))
-    db.commit()
+    count_run(db, account.id, now, settings)
 
     try:
         if document is not None:
@@ -112,6 +100,94 @@ def suggest(
         answers=[SuggestedAnswer(**vars(a)) for a in answers],
         dropped=dropped,
     )
+
+
+def count_run(db, account_id: uuid.UUID, now: datetime, settings: Settings) -> None:
+    """Refuses an owner over the hourly limit; otherwise counts this run, before the work so
+    failures count too."""
+    recent = db.scalar(
+        select(func.count())
+        .select_from(KnowledgeRun)
+        .where(
+            KnowledgeRun.account_id == account_id,
+            KnowledgeRun.created_at > now - timedelta(hours=1),
+        )
+    )
+    if recent >= settings.knowledge_runs_per_hour:
+        raise ApiError(
+            429, "too_many_requests", "That's a lot of suggestions for now. Try again in an hour."
+        )
+    db.add(KnowledgeRun(account_id=account_id, created_at=now))
+    db.commit()
+
+
+class Found(BaseModel):
+    value: str
+    quote: str
+
+
+class FoundHours(BaseModel):
+    weekday: int
+    opens_at: str
+    closes_at: str
+    quote: str
+
+
+class FoundPrice(BaseModel):
+    size: str
+    duration_minutes: int | None
+    price_cents: int | None
+
+
+class FoundService(BaseModel):
+    name: str
+    description: str
+    prices: list[FoundPrice]
+    quote: str
+
+
+class FoundPerson(BaseModel):
+    name: str
+    quote: str
+
+
+class WebsiteDetails(BaseModel):
+    """What the owner's website says, for them to use or not, step by step."""
+
+    source: str
+    # Every page read: the home page, then up to four of its own pages.
+    pages: list[str]
+    business_phone: Found | None
+    address: Found | None
+    hours: list[FoundHours]
+    services: list[FoundService]
+    team: list[FoundPerson]
+    # Items left out because the website doesn't say them.
+    dropped: int
+
+
+@router.post("/profile/website/read", response_model=WebsiteDetails)
+def read_website(context: Account, db: DbSession, now: Now, settings: Config) -> WebsiteDetails:
+    """Reads the profile's saved website for details to fill in. Nothing is saved."""
+    if not settings.openai_api_key:
+        raise ApiError(503, "suggestions_unavailable", "Reading your website isn't available yet.")
+    account = context[0]
+    profile = load_profile(db, account.id)
+    details = ProfileDetails.from_stored(profile.details)
+    if not details.website_url:
+        raise ApiError(404, "no_website", "Save your website address first.")
+    count_run(db, account.id, now, settings)
+    try:
+        found = website_details.details_from_site(
+            settings,
+            details.website_url,
+            profile.business_type,
+            business_kind(profile.business_type),
+            str(account.id),
+        )
+    except KnowledgeError as error:
+        raise ApiError(error.status, error.code, error.message) from None
+    return WebsiteDetails.model_validate(found)
 
 
 def business_kind(business_type: str | None) -> str:
