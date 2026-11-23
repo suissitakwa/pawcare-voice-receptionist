@@ -107,6 +107,10 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     }),
     "GET /api/v1/staff/team": () => ({ status: 200, body: [{ slug: "main-groomer", name: "Main groomer" }] }),
     "GET /api/v1/staff/calendar": () => ({ status: 200, body: NO_CALENDAR }),
+    "GET /api/v1/staff/plan": () => ({
+      status: 200,
+      body: { plan: "unlimited", state: "unlimited", price: "$49", calls_included: null, calls_this_month: 0, trial_ends_at: null, upgrade_requested_at: null },
+    }),
     ...overrides,
   };
 }

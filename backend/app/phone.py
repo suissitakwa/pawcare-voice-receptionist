@@ -193,6 +193,11 @@ def limit_problem(
     session: Session, business: Business, settings: Settings, caller_hash: str, now: datetime
 ) -> str | None:
     """The phone limits, shared by every phone provider. None when the call may be answered."""
+    from app.plans import plan_problem
+
+    paused = plan_problem(session, business, now)
+    if paused is not None:
+        return paused
     timezone = ZoneInfo(business.timezone)
     today = now.astimezone(timezone).date()
     calls_today = session.scalar(

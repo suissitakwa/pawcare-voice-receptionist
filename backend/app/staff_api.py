@@ -12,7 +12,7 @@ from fastapi import Path as PathParam
 from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
 
-from app import google_calendar
+from app import google_calendar, plans
 from app.availability import active_staff
 from app.clock import get_now
 from app.config import Settings, get_settings
@@ -45,6 +45,7 @@ from app.schemas import (
     BlockRequest,
     CalendarStatus,
     EmailStatus,
+    PlanStatus,
     StaffBlock,
     StaffBooking,
     StaffCallback,
@@ -57,7 +58,7 @@ from app.schemas import (
     WebhookTestQueued,
 )
 from app.staff import StaffContext, authenticate, sign_in
-from app.webhooks import booking_data, business_problem, enqueue
+from app.webhooks import booking_data, business_problem, enqueue, enqueue_notice
 
 router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 
@@ -470,6 +471,39 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
         callback.resolved_by = context.staff.id
         db.commit()
     return callback
+
+
+@router.get("/plan", response_model=PlanStatus)
+def plan_status(context: Staff, db: DbSession, now: Now) -> PlanStatus:
+    """The free trial or plan, and this month's calls against its allowance."""
+    business = db.get(Business, context.staff.business_id)
+    return PlanStatus(**dataclasses.asdict(plans.status(db, business, now)))
+
+
+@router.post("/plan/request", response_model=PlanStatus)
+def request_plan(context: Staff, db: DbSession, now: Now) -> PlanStatus:
+    """The owner asks to keep their receptionist on the paid plan. Nothing is charged: you're
+    emailed to send an invoice, then mark it paid with python -m app.plans set."""
+    business = db.get(Business, context.staff.business_id)
+    if business.plan == "unlimited":
+        raise ApiError(409, "no_plan_needed", "Your receptionist doesn't need a plan.")
+    if business.upgrade_requested_at is None:
+        business.upgrade_requested_at = now
+        enqueue_notice(
+            db,
+            "plan.requested",
+            {
+                "business_name": business.name,
+                "business_slug": business.slug,
+                "plan": business.plan,
+                "requested_by": context.staff.email,
+                "contact_email": business.notify_email or business.contact_email,
+                "price": plans.PRICE,
+            },
+            now,
+        )
+        db.commit()
+    return PlanStatus(**dataclasses.asdict(plans.status(db, business, now)))
 
 
 @router.get("/calendar", response_model=CalendarStatus)

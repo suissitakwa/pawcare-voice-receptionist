@@ -58,6 +58,11 @@ class Business(Base):
     # Daily limits for this business. Empty: the deployment's defaults apply.
     voice_daily_limit: Mapped[int | None]
     phone_daily_limit: Mapped[int | None]
+    # trial, starter or unlimited (app/plans.py). Businesses from before plans are unlimited.
+    plan: Mapped[str] = mapped_column(String(16), server_default="unlimited")
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the owner asked to keep their receptionist on the paid plan; cleared once set.
+    upgrade_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
