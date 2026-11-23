@@ -119,6 +119,7 @@ To go live:
    | `VOICE_MODEL` | Optional, default `gpt-realtime-2.1-mini` |
    | `KNOWLEDGE_MODEL` | Optional, default `gpt-5-mini`. Drafts suggested answers from owners' pages and documents ([knowledge.md](knowledge.md)) |
    | `KNOWLEDGE_RUNS_PER_HOUR` | Optional, default `40` sources read per owner per hour |
+   | `AUTO_APPROVE_SIGNUPS` | Optional, default `false`. `true` while testing: every submitted profile goes live at once, rung by its sign-up number. Off before real customers sign up ([onboarding.md](onboarding.md#trying-onboarding-end-to-end-automatic-approval)) |
 
 3. Open the live site, click "Start talking", and allow the microphone.
 

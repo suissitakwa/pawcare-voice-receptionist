@@ -970,3 +970,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 684 passed (local PostgreSQL 14), 11 new in `test_go_live.py`: approve keeps the chosen voice; phone calls and browser sessions use the business voice over the deployment's; Vapi gets the male voice only from ElevenLabs; the approval email (owner address, Reply-To, links, calendar not connected, no number promised) and a connected calendar named; the first number emails the owner once (not again for the same or a second number); businesses without a sign-up and the demo get none; numbers written as people read them. Migration `0028` upgrades and downgrades cleanly |
 | Frontend | Unchanged |
 | Live | Not deployed. Needs `PUBLIC_SITE_URL` for full links; the Vapi male voice id not tried on a call |
+
+## Sign-ups can go live on their own, for testing (2026-11-22)
+
+**Outcome:** trying onboarding end to end needed you at the Railway console for every test sign-up. With `AUTO_APPROVE_SIGNUPS=true`, a profile goes live the moment it's submitted, exactly as `provision approve --yes` would. The phone number given at sign-up is registered to ring the new business, and the owner gets both go-live emails. For testing, owners give the demo line +1 (269) 699-2551, and the newest sign-up with it takes it. A number is only taken from the demo or an earlier sign-up (`business_phone_numbers.from_signup`, migration `0029`), never from a business you registered it for by hand. Off by default; it must be off before real customers sign up, since their own number isn't on our phone line. See [onboarding.md](onboarding.md#trying-onboarding-end-to-end-automatic-approval).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 690 passed (local PostgreSQL 14), 6 new in `test_auto_approve.py`: a sign-up goes live with its own number ringing it and both owner emails, and the admin notice says so; the newest sign-up with the demo line takes it from the demo and from the previous one; a number registered by hand is never taken; a number without an area code is skipped; a profile that can't be approved stays waiting; switched off, every sign-up waits. Migration `0029` upgrades and downgrades cleanly |
+| Frontend | Unchanged |
+| Live | Not deployed. Needs `AUTO_APPROVE_SIGNUPS=true` on Railway, and the demo line on the OpenAI trunk or Vapi as today |
+
