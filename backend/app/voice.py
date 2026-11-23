@@ -775,7 +775,11 @@ def greeting_line(channel: str) -> str:
 
 
 def mint_client_secret(
-    settings: Settings, instructions: str, safety_id: str, tools: list[dict] | None = None
+    settings: Settings,
+    instructions: str,
+    safety_id: str,
+    tools: list[dict] | None = None,
+    voice: str | None = None,
 ) -> tuple[str, int]:
     """Asks OpenAI for a short-lived browser credential. Returns (value, expires_at)."""
     body = {
@@ -800,7 +804,8 @@ def mint_client_secret(
                         "interrupt_response": True,
                     },
                 },
-                "output": {"voice": settings.voice_name},
+                # The business's own voice, when its owner chose one.
+                "output": {"voice": voice or settings.voice_name},
             },
         },
     }
@@ -910,6 +915,7 @@ def start_voice_session(
             build_instructions(session, business, today),
             sha256(str(record.id)),
             tools=browser_tools(tool_catalog(session, business.id)),
+            voice=business.voice,
         )
         client_secret, expires_at = value, datetime.fromtimestamp(expiry, tz=timezone)
     return VoiceSessionStarted(

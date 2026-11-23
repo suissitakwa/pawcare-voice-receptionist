@@ -21,7 +21,8 @@ import sys
 from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import Session
 
-from app.config import Settings
+from app import go_live
+from app.config import Settings, get_settings
 from app.models import Business, BusinessPhoneNumber
 
 logger = logging.getLogger("pawcare.phone")
@@ -103,9 +104,10 @@ def add_number(session: Session, business_slug: str, raw_number: str) -> str:
     number = normalize(raw_number)
     if number is None:
         raise ValueError(f"{raw_number} is not a phone number. Use E.164, e.g. +13235550100.")
-    business_id = session.scalar(select(Business.id).where(Business.slug == business_slug))
-    if business_id is None:
+    business = session.scalar(select(Business).where(Business.slug == business_slug))
+    if business is None:
         raise ValueError(f"No business with slug {business_slug}.")
+    business_id = business.id
     owner = session.scalar(
         select(Business.slug)
         .join(BusinessPhoneNumber, BusinessPhoneNumber.business_id == Business.id)
@@ -114,8 +116,14 @@ def add_number(session: Session, business_slug: str, raw_number: str) -> str:
     if owner is not None and owner != business_slug:
         raise ValueError(f"{number} already belongs to {owner}. Remove it there first.")
     if owner is None:
+        first = not session.scalar(
+            select(exists().where(BusinessPhoneNumber.business_id == business_id))
+        )
         session.add(BusinessPhoneNumber(business_id=business_id, number=number))
         session.flush()
+        if first:
+            # Its owner hears once, with the number and how to forward theirs to it.
+            go_live.tell_phone_ready(session, get_settings(), business, number)
     return number
 
 
@@ -147,6 +155,7 @@ def main() -> None:
                     print("No numbers registered.")
             elif command == "add" and len(args) == 2:
                 print(f"{add_number(session, args[0], args[1])} now rings {args[0]}.")
+                print("Its owner is emailed the number (only for the business's first number).")
             elif command == "remove" and len(args) == 1:
                 print("Removed." if remove_number(session, args[0]) else "No such number.")
             else:

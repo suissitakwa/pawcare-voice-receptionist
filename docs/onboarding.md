@@ -15,7 +15,7 @@ Check it with them (a short call), then in Railway's backend **Console**:
 /opt/venv/bin/python -m app.provision approve owner@example.com
 ```
 
-`approve` prints what it will create (address, hours, every service and price, the team) and asks before creating it. It links the profile, and the owner signs in to `/b/<slug>/staff` with their sign-up password. It prints what's left (calendar, phone number). Everyone on the team works the opening hours for now; breaks and per-person hours are set in the business file afterwards.
+`approve` prints what it will create (address, hours, every service and price, the team) and asks before creating it. It links the profile, and the owner signs in to `/b/<slug>/staff` with their sign-up password. It also keeps the voice they chose, and emails them **"<business> is set up with HelloEver AI"**: their booking page, dashboard and how to sign in, their calendar, and that their phone number is coming ([email.md](email.md#going-live)). It prints what's left (calendar, phone number). Everyone on the team works the opening hours for now; breaks and per-person hours are set in the business file afterwards.
 
 A profile submitted before hours and prices were asked for can't be approved. Either the owner fills them in (they get a "Profile updated" email to you), or use `draft` to get the business file, fill it in, and `create` it:
 
@@ -63,6 +63,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `size_categories` | Dog sizes. A size with `requires_staff_assessment: true` can't be booked directly; callers get a callback instead |
 | `services` | Each service's duration and price (in cents) for each size it's offered for |
 | `faqs` | The only answers the receptionist gives beyond services and hours. Keep them short and true |
+| `voice` | Optional. `marin` (female) or `cedar` (male), used on the website and by phone. Leave out for the deployment's `VOICE_NAME` / `PHONE_VOICE`. With Vapi, `cedar` uses `VAPI_MALE_VOICE_ID` |
 | `voice_daily_limit`, `phone_daily_limit` | Optional. Browser voice sessions and phone calls this business may take per day, replacing the deployment's `VOICE_DAILY_SESSION_LIMIT` (30) and `PHONE_DAILY_CALL_LIMIT` (50). `0` turns that channel off for the business |
 
 Check it without saving anything:
@@ -95,6 +96,8 @@ Buy a Twilio number for the business and point it at the same OpenAI trunk or Va
 ```bash
 uv run python -m app.phone_numbers add happy-tails-austin +15125550100
 ```
+
+For a business made from a sign-up, its first number emails the owner **"Your receptionist answers at <number>"**, with a test call to make and how to forward their own number to it. Buy and set up the number in Twilio first: the email goes out as soon as it's registered.
 
 Once any number is registered, register the demo's number too (or keep `PHONE_NUMBER` set), or calls to it are declined. See [phone.md](phone.md#numbers-for-several-businesses).
 

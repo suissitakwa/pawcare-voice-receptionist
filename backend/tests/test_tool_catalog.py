@@ -78,7 +78,7 @@ def test_vapi_tools_carry_the_catalog(db, second_business) -> None:
 def minted(monkeypatch) -> Iterator[list[dict]]:
     calls: list[dict] = []
 
-    def fake_mint(settings, instructions, safety_id, tools=None):
+    def fake_mint(settings, instructions, safety_id, tools=None, voice=None):
         calls.append({"instructions": instructions, "tools": tools})
         return "ek_test_secret", int((NOW + timedelta(seconds=60)).timestamp())
 

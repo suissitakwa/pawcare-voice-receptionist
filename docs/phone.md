@@ -102,7 +102,7 @@ The phone instructions ask for a warm, relaxed front-desk style: contractions, s
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `PHONE_VOICE` | empty (website voice) | For example `cedar` or `marin` |
+| `PHONE_VOICE` | empty (website voice) | For example `cedar` or `marin`. A business's own voice (the owner's choice at sign-up) wins over it |
 | `PHONE_MODEL` | empty (`VOICE_MODEL`) | For example the full `gpt-realtime` model instead of `-mini`: more natural, but costs more per minute |
 | `PHONE_VAD_EAGERNESS` | `low` | How quickly the assistant takes its turn. `low` lets callers pause mid-sentence; `medium` or `high` reply faster but interrupt more |
 

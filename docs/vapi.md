@@ -39,6 +39,7 @@ On the backend service:
 | `VAPI_SECRET` | the secret |
 | `VAPI_ENABLED` | `true` |
 | `VAPI_VOICE_ID` | optional; default is ElevenLabs "Rachel" (`21m00Tcm4TlvDq8ikWAM`) |
+| `VAPI_MALE_VOICE_ID` | optional; for businesses whose owner chose the male voice, with `VAPI_VOICE_PROVIDER=11labs`. Default ElevenLabs "Adam" (`pNInz6obpgDQGcFmaJgB`) |
 | `VAPI_VOICE_PROVIDER` | optional; default `11labs` (for example `cartesia`) |
 | `VAPI_MODEL` | optional; default `gpt-4.1-mini` |
 | `VAPI_TRANSCRIBER_MODEL` | optional; Deepgram model, default `nova-3` |

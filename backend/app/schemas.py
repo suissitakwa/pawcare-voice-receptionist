@@ -84,6 +84,9 @@ class BusinessSeed(SeedModel):
     is_mobile: bool = False
     service_zip_codes: list[str] = []
     service_area: str = Field(default="", max_length=200)
+    # The receptionist's voice: "marin" sounds female, "cedar" male. Leave out for the
+    # deployment's default.
+    voice: Literal["marin", "cedar"] | None = None
 
     @field_validator("service_zip_codes")
     @classmethod

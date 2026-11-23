@@ -22,6 +22,7 @@ from email.utils import formataddr, make_msgid, parseaddr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import go_live
 from app.config import Settings
 from app.format_text import format_time
 from app.models import Business, WebhookEvent
@@ -52,7 +53,13 @@ CALENDAR_EFFECT = {
     "calendar_settings_unreadable": "Booking is paused until we fix it; we've been told.",
 }
 # Notices that go to the account they're about.
-TO_THE_ACCOUNT = {"profile.received", "password.reset", "password.changed"}
+TO_THE_ACCOUNT = {
+    "profile.received",
+    "password.reset",
+    "password.changed",
+    go_live.LIVE,
+    go_live.PHONE_READY,
+}
 MAX_ATTEMPTS = 6
 FIRST_RETRY = timedelta(minutes=1)
 MAX_RETRY = timedelta(hours=1)
@@ -163,6 +170,8 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             )
         else:
             lines.append("They aren't live yet. Use these when you prepare their business file.")
+    elif event.event_type in (go_live.LIVE, go_live.PHONE_READY):
+        subject, lines = go_live.compose(event.event_type, data, settings.service_name)
     elif event.event_type == "password.reset":
         subject = f"Reset your {settings.service_name} password"
         lines = [
