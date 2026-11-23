@@ -196,7 +196,7 @@ Every staff endpoint except sign-in requires `Authorization: Bearer <token>`, an
 | `POST /api/v1/staff/login` | The same, for the deployment's own business (`BUSINESS_SLUG`) |
 | `POST /api/v1/staff/logout` | Revokes the token. `204` |
 | `GET /api/v1/staff/me` | The signed-in staff member: `email`, `display_name`, `business_slug`, `business_name`, `business_is_demo`. The login response's `staff` has the same shape |
-| `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details and `source` (`form` or `voice`). `scope=past` lists finished bookings, most recent first |
+| `GET /api/v1/staff/bookings?scope=upcoming` | Bookings with customer contact details, `source` (`form` or `voice`), `channel` (`form`, `phone` or `website`), `changed_at` (when the customer last changed it by phone or on the website) and `cancelled_by` (`staff` or `customer`). `scope=past` lists finished bookings, most recent first |
 | `POST /api/v1/staff/bookings/{reference}/cancel` | Cancels and frees the time. Repeating it is harmless. `404 booking_not_found` |
 | `GET /api/v1/staff/team` | Active staff members: `slug`, `name` |
 | `GET /api/v1/staff/blocks` | Current and future blocked periods, each with `staff`: the person's name, or `null` for the whole business |

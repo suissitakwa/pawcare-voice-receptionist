@@ -13,6 +13,7 @@ from app.main import app, get_now
 from app.manage import MAX_LOOKUP_FAILURES, contact_matches, normalize_reference
 from app.models import Booking, WebhookEvent
 from app.schemas import PrepareBookingRequest
+from app.staff_api import booking_rows
 from tests.factories import make_booking
 from tests.test_phone import (
     BOOKING,
@@ -334,6 +335,8 @@ def test_a_caller_moves_the_booking_just_made_without_giving_the_reference(db: S
     [booking] = db.scalars(select(Booking))
     assert booking.starts_at == TWO_PM and booking.status == "confirmed"
     assert record.managed_booking_id == booking.id and record.lookup_failures == 0
+    [row] = booking_rows(db, booking.business_id, order=Booking.starts_at)
+    assert row.channel == "phone" and row.changed_at is not None
     assert len(events(db, "booking.changed")) == 1
 
 
@@ -353,6 +356,8 @@ def test_a_caller_cancels_the_booking_just_made_only_on_a_yes(db: Session) -> No
     db.expire_all()
     booking = db.scalar(select(Booking).where(Booking.reference == booked["reference"]))
     assert booking.status == "cancelled" and booking.cancelled_via == "caller"
+    [row] = booking_rows(db, booking.business_id, order=Booking.starts_at)
+    assert row.cancelled_by == "customer" and row.channel == "phone"
     assert len(events(db, "booking.cancelled")) == 1
 
 

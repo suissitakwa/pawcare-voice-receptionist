@@ -97,24 +97,50 @@ def to_public(staff: StaffUser, business: Business) -> StaffPublic:
 def booking_rows(db: Session, business_id: uuid.UUID, *conditions, order, limit: int = 200):
     timezone = business_timezone(db, business_id)
     rows = db.execute(
-        select(Booking, Service.name, SizeCategory.label, Groomer.display_name)
+        select(
+            Booking, Service.name, SizeCategory.label, Groomer.display_name, VoiceSession.channel
+        )
         .join(Service, Service.id == Booking.service_id)
         .join(SizeCategory, SizeCategory.id == Booking.size_category_id)
         .join(Groomer, Groomer.id == Booking.groomer_id)
+        .outerjoin(VoiceSession, VoiceSession.id == Booking.voice_session_id)
         .where(Booking.business_id == business_id, *conditions)
         .order_by(order)
         .limit(limit)
     ).all()
     return [
-        to_staff_booking(booking, service, size, staff, timezone)
-        for booking, service, size, staff in rows
+        to_staff_booking(booking, service, size, staff, timezone, channel)
+        for booking, service, size, staff, channel in rows
     ]
 
 
+def cancelled_by(booking: Booking) -> str | None:
+    if booking.status != "cancelled":
+        return None
+    if booking.cancelled_via == "caller":
+        return "customer"
+    # Older staff cancellations kept who did it before `cancelled_via` existed.
+    if booking.cancelled_via == "staff" or booking.cancelled_by is not None:
+        return "staff"
+    return None
+
+
 def to_staff_booking(
-    booking: Booking, service: str, size: str, staff: str, timezone: ZoneInfo
+    booking: Booking,
+    service: str,
+    size: str,
+    staff: str,
+    timezone: ZoneInfo,
+    voice_channel: str | None = None,
 ) -> StaffBooking:
+    if booking.voice_session_id is None:
+        channel = "form"
+    else:
+        channel = "phone" if voice_channel == "phone" else "website"
     return StaffBooking(
+        channel=channel,
+        changed_at=booking.changed_at,
+        cancelled_by=cancelled_by(booking),
         staff=staff,
         service_address=booking.service_address,
         reference=booking.reference,
