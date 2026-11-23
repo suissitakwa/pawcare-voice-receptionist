@@ -263,8 +263,10 @@ Runs one assistant tool. The browser relays the model's request: `{session_token
 | `check_availability` | `service`, `size`, `date`, and `staff` at a business with a choice of staff. Returns up to 12 open times with labels and `starts_at`, plus duration and demo price |
 | `prepare_booking` | `service`, `size`, `starts_at`, `owner_name`, `pet_name`, and a phone or email. Returns a summary for the model and, separately, the prepared booking for the screen. The confirmation token is never in the model's part |
 | `create_callback_request` | `name`, a phone or email, `reason`, optional `note`. Saves a request for staff |
+| `prepare_change` | A new `starts_at`, `service` or `size`, or a corrected `owner_name` or `pet_name`, for the latest booking confirmed in this session. Returns the old and new details for the model and, separately in `manage`, the same with a `confirm_token` for the screen. Changes nothing |
+| `prepare_cancel` | No arguments. Shows the latest booking confirmed in this session with a cancel button, through `manage` like `prepare_change`. Cancels nothing |
 
-The model has no confirm tool. A booking is made only when the visitor presses Confirm booking, which calls `POST /api/v1/bookings/confirm`. The browser then tells the model the result.
+The model has no confirm tool. A booking is made only when the visitor presses Confirm booking, which calls `POST /api/v1/bookings/confirm`. A change or cancellation is made only when the visitor presses Confirm change or Cancel booking, which calls the endpoint below. The browser then tells the model the result. Only a booking confirmed earlier in the same session can be changed or cancelled here (`no_booking_in_this_conversation` otherwise).
 
 | Response | Meaning |
 |---|---|
@@ -273,6 +275,16 @@ The model has no confirm tool. A booking is made only when the visitor presses C
 | `403 voice_session_closed` | The session ended or passed its time limit plus a 60-second grace period |
 | `404 voice_session_not_found` | Wrong session or token |
 | `429 too_many_tool_calls` | The session used its budget of 40 tool calls |
+
+### `POST /api/v1/voice/sessions/{id}/manage/confirm`
+
+The visitor pressed Confirm change or Cancel booking. `{session_token, confirm_token}`, the token from the last `manage`. Applies exactly what was shown, once, within 10 minutes of showing it. Returns the same shape as a tool: `ok: true` with `status` `changed` (and the new details) or `cancelled`, or `ok: false` with `change_expired`. Webhooks get `booking.changed` or `booking.cancelled`, and the calendar is updated, as for a phone change.
+
+| Response | Meaning |
+|---|---|
+| `409 nothing_to_confirm` | Wrong token, already used, or replaced by a newer change on screen |
+| `409 slot_unavailable` | The new time was taken after it was shown |
+| `403`, `404`, `429` | As for tools |
 
 ## Phone
 

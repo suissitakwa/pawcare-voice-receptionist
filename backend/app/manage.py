@@ -268,7 +268,11 @@ def confirm_change(
     booking = managed_booking(session, record, lock=True)
     if booking is None:
         return find_first()
-    if pending is None or pending["booking_id"] != str(booking.id):
+    if (
+        pending is None
+        or pending.get("action") == "cancel"
+        or pending["booking_id"] != str(booking.id)
+    ):
         return error("nothing_to_confirm", "Prepare the change first, then read it out.")
     if datetime.fromisoformat(pending["expires_at"]) <= now:
         record.pending_change = None

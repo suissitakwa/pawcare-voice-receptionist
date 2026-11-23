@@ -5,9 +5,12 @@ import {
   ApiRequestError,
   callVoiceTool,
   confirmBooking,
+  confirmVoiceManage,
   endVoiceSession,
   startVoiceSession,
   type BookingConfirmation,
+  type ManagedDetails,
+  type PendingManage,
   type PreparedBooking,
   type VoiceEndReason,
   type VoiceSession,
@@ -78,6 +81,11 @@ export const browserDeps: RealtimeDeps = {
   },
 };
 
+function describeBooking(details: ManagedDetails): string {
+  const who = details.pet_name ? ` for ${details.pet_name}` : "";
+  return `${details.service}${who}, ${longDate(details.date)} at ${details.time}`;
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError")) {
     return "Microphone access was blocked. Allow the microphone in your browser settings, or use the booking form below.";
@@ -111,6 +119,9 @@ export default function VoiceAssistant({
   const [booked, setBooked] = useState<BookingConfirmation | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [bookingNotice, setBookingNotice] = useState("");
+  const [pendingManage, setPendingManage] = useState<PendingManage | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [managed, setManaged] = useState("");
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const timers = useRef<number[]>([]);
@@ -211,10 +222,18 @@ export default function VoiceAssistant({
         output = outcome.result;
         if (outcome.prepared) {
           setPrepared(outcome.prepared);
+          setPendingManage(null);
           setBooked(null);
           setBookingNotice("");
           // A new key per summary, so a retried click can never book twice.
           setConfirmKey(crypto.randomUUID());
+        }
+        if (outcome.manage) {
+          // Only the visitor's click below changes or cancels it.
+          setPendingManage(outcome.manage);
+          setPrepared(null);
+          setManaged("");
+          setBookingNotice("");
         }
       } catch (error) {
         output = {
@@ -257,6 +276,50 @@ export default function VoiceAssistant({
       }
     } finally {
       setConfirming(false);
+    }
+  }
+
+  async function confirmManage() {
+    const current = session.current;
+    if (!pendingManage || !current) return;
+    const { action, reference } = pendingManage;
+    const pressed = action === "cancel" ? "Cancel booking" : "Confirm change";
+    setManaging(true);
+    setBookingNotice("");
+    try {
+      const outcome = await confirmVoiceManage(current, pendingManage.confirm_token);
+      setPendingManage(null);
+      if (outcome.ok && action === "cancel") {
+        setBooked(null);
+        setManaged(`Cancelled. Booking ${reference} is cancelled.`);
+        tellAssistant(`The caller pressed Cancel booking and the booking system cancelled ${reference}. Tell them it is cancelled.`);
+      } else if (outcome.ok) {
+        const details = outcome.result as unknown as ManagedDetails;
+        setBooked(null);
+        setManaged(`Changed. Reference ${reference}: ${describeBooking(details)}.`);
+        tellAssistant(
+          `The caller pressed Confirm change and the booking system changed it. It is now ${describeBooking(details)}. Tell them, and that the reference ${reference} stays the same.`,
+        );
+      } else {
+        setBookingNotice("That had expired, so nothing changed.");
+        tellAssistant(`The caller pressed ${pressed}, but it had expired and nothing changed. Offer to show it again.`);
+      }
+    } catch (error) {
+      const code = error instanceof ApiRequestError ? error.code : "network";
+      if (code === "network") {
+        setBookingNotice("We couldn't tell whether that went through. Pressing the button again is safe.");
+        return;
+      }
+      setPendingManage(null);
+      if (code === "slot_unavailable") {
+        setBookingNotice("Sorry, that time was just taken. Nothing changed.");
+        tellAssistant(`The caller pressed ${pressed}, but that time was just booked by someone else. Nothing changed. Offer other times.`);
+      } else {
+        setBookingNotice("Nothing changed. Please ask the assistant again.");
+        tellAssistant(`The caller pressed ${pressed}, but nothing changed. Offer to try again, or a callback.`);
+      }
+    } finally {
+      setManaging(false);
     }
   }
 
@@ -410,6 +473,8 @@ export default function VoiceAssistant({
     setPrepared(null);
     setBooked(null);
     setBookingNotice("");
+    setPendingManage(null);
+    setManaged("");
     setNotice("");
     setMuted(false);
     setStatus("starting");
@@ -521,6 +586,60 @@ export default function VoiceAssistant({
           </div>
         </div>
       )}
+      {pendingManage && (
+        <div
+          className="voice-summary"
+          role="region"
+          aria-label={pendingManage.action === "cancel" ? "Cancel your booking" : "Change your booking"}
+        >
+          <h3>{pendingManage.action === "cancel" ? "Cancel this booking?" : "Check the change"}</h3>
+          <dl className="summary-list">
+            <div>
+              <dt>Reference</dt>
+              <dd>{pendingManage.reference}</dd>
+            </div>
+            <div>
+              <dt>{pendingManage.new ? "Now" : "Booking"}</dt>
+              <dd>{describeBooking(pendingManage.was)}</dd>
+            </div>
+            {pendingManage.new && (
+              <>
+                <div>
+                  <dt>Changes to</dt>
+                  <dd>{describeBooking(pendingManage.new)}</dd>
+                </div>
+                <div>
+                  <dt>Price</dt>
+                  <dd>
+                    {formatPrice(Math.round(pendingManage.new.price_dollars * 100))}
+                    {demo ? " (demo price)" : ""}
+                  </dd>
+                </div>
+              </>
+            )}
+          </dl>
+          <p className="muted">
+            Nothing changes until you press {pendingManage.action === "cancel" ? "Cancel booking" : "Confirm change"}. If
+            anything is wrong, tell the assistant.
+          </p>
+          <div className="actions">
+            <button type="button" className="button button-primary" onClick={confirmManage} disabled={managing}>
+              {managing
+                ? pendingManage.action === "cancel"
+                  ? "Cancelling…"
+                  : "Changing…"
+                : pendingManage.action === "cancel"
+                  ? "Cancel booking"
+                  : "Confirm change"}
+            </button>
+          </div>
+        </div>
+      )}
+      {managed && (
+        <p className="form-info" role="status">
+          {managed}
+        </p>
+      )}
       {booked && (
         <p className="form-info" role="status">
           Booked. Reference <strong>{booked.reference}</strong>: {booked.summary.service}
@@ -545,7 +664,8 @@ export default function VoiceAssistant({
       )}
       <p className="muted voice-fineprint">
         The assistant answers from {demo ? "this demo business's" : "our"} details and can book
-        appointments. A booking is made only when you press Confirm. Audio is not recorded. The transcript stays
+        appointments, and change or cancel one made in the same call. Nothing is booked, changed or cancelled until you
+        press the button on screen. Audio is not recorded. The transcript stays
         in your browser and disappears when you leave.
       </p>
     </div>

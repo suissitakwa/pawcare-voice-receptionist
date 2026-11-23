@@ -1069,3 +1069,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 718 passed (local PostgreSQL 14), 3 new in `test_manage_by_phone.py`: book then move without a lookup, book then cancel only on a yes, a new booking replaces one found earlier on the call |
 | Frontend | Unchanged |
 | Live | Not deployed; not yet tried on a real call |
+
+## Change or cancel on the website, in the same conversation (2026-11-23)
+
+**Outcome:** a visitor who booked through the website's voice assistant and then changed their mind had no way back except calling. The assistant can now show a change (new time, service, size or a corrected name) or a cancellation of the booking confirmed earlier in the same conversation. As with booking, it only shows it: the visitor presses **Confirm change** or **Cancel booking** on screen, and that click applies exactly what was shown, once, within 10 minutes. The token for the click never reaches the model. Only a booking from the same conversation can be managed on the website; finding one by reference stays phone-only. The change goes through the same code as a phone change, so the calendar, webhooks and owner emails follow. New endpoint `POST /api/v1/voice/sessions/{id}/manage/confirm`. See [api.md](api.md#post-apiv1voicesessionsidmanageconfirm).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 726 passed (local PostgreSQL 14), 8 new in `test_manage_on_website.py`: the website assistant can only show changes; a change shown, then applied only by the click and only once; a cancellation the same way; a wrong, replaced or other-session token changes nothing; a booking from another conversation can't be touched; the latest booking in the conversation is the one managed; an expired one isn't applied; nothing is left waiting after the click |
+| Frontend | Typecheck and build pass; 117 tests pass (Node 22), 2 new: a change shown and applied only on Confirm change, with the token kept from the model; a cancellation on Cancel booking, and an expired one explained |
+| Live | Not deployed; not tried in a real browser call |

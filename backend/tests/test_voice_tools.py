@@ -165,6 +165,7 @@ def test_bad_or_disallowed_requests_become_failures_the_assistant_can_explain(
         "ok": False,
         "result": {"error": code, "message": body["result"]["message"]},
         "prepared": None,
+        "manage": None,
     }
     assert session_record(db).tool_failures == 1
 
@@ -254,6 +255,7 @@ def test_callback_is_saved_for_staff(client, db, voice) -> None:
         "ok": True,
         "result": {"status": "callback_requested", "message": "Staff will contact the caller."},
         "prepared": None,
+        "manage": None,
     }
     callback = db.scalar(select(CallbackRequest))
     assert (callback.name, callback.reason, callback.status) == ("Sam", "health", "open")

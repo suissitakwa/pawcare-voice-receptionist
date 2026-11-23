@@ -304,6 +304,86 @@ describe("VoiceAssistant", () => {
     expect(message.item.content[0].text).toContain("booked by someone else");
   });
 
+  it("changes a booking from this call only when the visitor clicks Confirm change", async () => {
+    const was = { service: "Full Groom", pet_name: "Biscuit", owner_name: "Jordan", date: "2027-01-05", weekday: "Tuesday", time: "9 AM", duration_minutes: 120, price_dollars: 90 };
+    const changed = { ...was, time: "2 PM" };
+    const pressed: unknown[] = [];
+    const { peer, user } = await connectedCall({
+      "/tools/prepare_change": () => ({
+        status: 200,
+        body: {
+          ok: true,
+          result: { status: "awaiting_caller_confirmation", was, new: changed },
+          prepared: null,
+          manage: { action: "change", reference: "PC-VOICE234", was, new: changed, confirm_token: "manage-secret-1234567890" },
+        },
+      }),
+      "/manage/confirm": (init) => {
+        pressed.push(JSON.parse(String(init?.body)));
+        return { status: 200, body: { ok: true, result: { status: "changed", reference: "PC-VOICE234", ...changed }, prepared: null } };
+      },
+    });
+    act(() =>
+      peer.channel.emit({
+        type: "response.done",
+        response: { status: "completed", output: [{ type: "function_call", name: "prepare_change", call_id: "call_2", arguments: "{}" }] },
+      }),
+    );
+    const region = await screen.findByRole("region", { name: "Change your booking" });
+    expect(region).toHaveTextContent("at 9 AM");
+    expect(region).toHaveTextContent("at 2 PM");
+    expect(pressed).toHaveLength(0);
+    const output = peer.channel.sent.find((e) => (e as { item?: { type?: string } }).item?.type === "function_call_output") as {
+      item: { output: string };
+    };
+    expect(output.item.output).not.toContain("manage-secret");
+
+    await user.click(screen.getByRole("button", { name: "Confirm change" }));
+    expect(await screen.findByText(/Changed\. Reference PC-VOICE234/)).toBeInTheDocument();
+    expect(pressed[0]).toEqual({ session_token: LIVE.session_token, confirm_token: "manage-secret-1234567890" });
+    const message = peer.channel.sent.find((e) => (e as { item?: { role?: string } }).item?.role === "system") as {
+      item: { content: { text: string }[] };
+    };
+    expect(message.item.content[0].text).toContain("pressed Confirm change");
+    expect(screen.queryByRole("region", { name: "Change your booking" })).not.toBeInTheDocument();
+  });
+
+  it("cancels a booking from this call only on the visitor's click, and explains an expired one", async () => {
+    const was = { service: "Full Groom", owner_name: "Jordan", date: "2027-01-05", weekday: "Tuesday", time: "9 AM", duration_minutes: 120, price_dollars: 90 };
+    let expired = false;
+    const { peer, user } = await connectedCall({
+      "/tools/prepare_cancel": () => ({
+        status: 200,
+        body: {
+          ok: true,
+          result: { status: "awaiting_caller_confirmation", was },
+          prepared: null,
+          manage: { action: "cancel", reference: "PC-VOICE234", was, new: null, confirm_token: "manage-secret-1234567890" },
+        },
+      }),
+      "/manage/confirm": () =>
+        expired
+          ? { status: 200, body: { ok: false, result: { error: "change_expired" }, prepared: null } }
+          : { status: 200, body: { ok: true, result: { status: "cancelled", reference: "PC-VOICE234" }, prepared: null } },
+    });
+    const ask = () =>
+      act(() =>
+        peer.channel.emit({
+          type: "response.done",
+          response: { status: "completed", output: [{ type: "function_call", name: "prepare_cancel", call_id: "call_3", arguments: "{}" }] },
+        }),
+      );
+    ask();
+    await screen.findByRole("region", { name: "Cancel your booking" });
+    await user.click(screen.getByRole("button", { name: "Cancel booking" }));
+    expect(await screen.findByText("Cancelled. Booking PC-VOICE234 is cancelled.")).toBeInTheDocument();
+
+    expired = true;
+    ask();
+    await user.click(await screen.findByRole("button", { name: "Cancel booking" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("expired, so nothing changed");
+  });
+
   it("tells the model when a tool cannot be reached instead of leaving it waiting", async () => {
     const { peer } = await connectedCall({ "/tools/prepare_booking": () => "network" });
     requestPrepare(peer);

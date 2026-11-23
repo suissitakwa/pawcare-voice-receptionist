@@ -40,7 +40,7 @@ Callers can move, change or cancel a booking they made earlier:
 
 A caller who changes their mind about a booking made earlier on the **same call** skips step 1: `confirm_booking` already remembers the new booking as theirs, so the assistant goes straight to moving or cancelling it, with the same read-back and spoken yes. A later booking on the call replaces it as the one being managed.
 
-These tools exist only on phone calls. The website assistant can't use them.
+Finding a booking by reference exists only on phone calls. The website assistant can change or cancel only a booking made earlier in the same conversation, and only by showing it on screen: the visitor presses **Confirm change** or **Cancel booking** (see [api.md](api.md#post-apiv1voicesessionsidmanageconfirm)).
 
 ## Limits and privacy
 

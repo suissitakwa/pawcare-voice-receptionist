@@ -278,10 +278,43 @@ export function endVoiceSession(
   }).catch(() => undefined);
 }
 
+/** How the assistant describes a booking: what the visitor sees before changing it. */
+export interface ManagedDetails {
+  service: string;
+  size?: string;
+  pet_name?: string;
+  owner_name: string;
+  date: string;
+  weekday: string;
+  time: string;
+  duration_minutes: number;
+  price_dollars: number;
+  with?: string;
+  address?: string;
+}
+
+/** A change or cancellation shown on screen. Only the visitor's click applies it. */
+export interface PendingManage {
+  action: "change" | "cancel";
+  reference: string;
+  was: ManagedDetails;
+  new: ManagedDetails | null;
+  confirm_token: string;
+}
+
 export interface VoiceToolResult {
   ok: boolean;
   result: Record<string, unknown>;
   prepared: PreparedBooking | null;
+  manage?: PendingManage | null;
+}
+
+export function confirmVoiceManage(session: VoiceSession, confirmToken: string): Promise<VoiceToolResult> {
+  return request<VoiceToolResult>(publicApi(`/voice/sessions/${session.session_id}/manage/confirm`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_token: session.session_token, confirm_token: confirmToken }),
+  });
 }
 
 export function callVoiceTool(session: VoiceSession, name: string, args: string): Promise<VoiceToolResult> {
