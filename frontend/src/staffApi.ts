@@ -36,6 +36,25 @@ export interface StaffBooking {
   service_address?: string | null;
 }
 
+/** One conversation with the receptionist, by phone or on the website. */
+export interface StaffCall {
+  id: string;
+  started_at: string;
+  local_start: string;
+  channel: "phone" | "website";
+  test_mode: boolean;
+  in_progress: boolean;
+  duration_seconds: number | null;
+  ended_by: string | null;
+  booked_reference: string | null;
+  changed_reference: string | null;
+  cancelled_reference: string | null;
+  callback_requested: boolean;
+  message_only: boolean;
+  tool_failures: number;
+  cost_usd: number | null;
+}
+
 export interface StaffCallback {
   id: string;
   name: string;
@@ -182,6 +201,7 @@ export const staffApi = {
     authed<void>(token, `/blocks/${encodeURIComponent(id)}`, { method: "DELETE" }),
   metrics: (token: string) => authed<StaffMetrics>(token, "/metrics"),
   callbacks: (token: string) => authed<StaffCallback[]>(token, "/callbacks?status=open"),
+  calls: (token: string) => authed<StaffCall[]>(token, "/calls"),
   completeCallback: (token: string, id: string) =>
     authed<StaffCallback>(token, `/callbacks/${encodeURIComponent(id)}/done`, { method: "POST" }),
   webhooks: (token: string) => authed<WebhookStatus>(token, "/webhooks"),

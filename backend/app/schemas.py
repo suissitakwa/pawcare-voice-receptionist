@@ -442,6 +442,29 @@ class StaffCallback(BaseModel):
     resolved_at: datetime | None
 
 
+class StaffCall(BaseModel):
+    """One conversation with the receptionist, by phone or on the website, for staff."""
+
+    id: uuid.UUID
+    started_at: datetime
+    local_start: datetime
+    channel: Literal["phone", "website"]
+    # A scripted preview on the website, not a real conversation.
+    test_mode: bool
+    in_progress: bool
+    duration_seconds: int | None
+    ended_by: str | None
+    booked_reference: str | None
+    changed_reference: str | None
+    cancelled_reference: str | None
+    callback_requested: bool
+    # Answered after the daily limit or plan ran out, so it could only take a message.
+    message_only: bool
+    tool_failures: int
+    # Only when the provider reports one (Vapi).
+    cost_usd: float | None
+
+
 class VoiceSessionStarted(BaseModel):
     session_id: uuid.UUID
     session_token: str

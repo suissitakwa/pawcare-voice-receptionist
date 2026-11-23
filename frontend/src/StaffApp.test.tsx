@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StaffApp from "./StaffApp";
@@ -100,6 +100,7 @@ function dashboardRoutes(overrides: Record<string, Route> = {}): Record<string, 
     "GET /api/v1/staff/blocks": () => ({ status: 200, body: [] }),
     "GET /api/v1/staff/metrics": () => ({ status: 200, body: METRICS }),
     "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK] }),
+    "GET /api/v1/staff/calls": () => ({ status: 200, body: [] }),
     "GET /api/v1/staff/webhooks": () => ({ status: 200, body: WEBHOOKS }),
     "GET /api/v1/staff/emails": () => ({
       status: 200,
@@ -284,6 +285,60 @@ describe("StaffApp", () => {
     expect(byStaff).toHaveTextContent("Booking form");
     expect(byStaff).toHaveTextContent("By staff");
     expect(byStaff).not.toHaveTextContent("Changed by");
+  });
+
+  it("lists calls with what came of each", async () => {
+    const call = {
+      id: "c-1",
+      started_at: "2027-01-04T17:00:00Z",
+      local_start: "2027-01-04T09:00:00-08:00",
+      channel: "phone",
+      test_mode: false,
+      in_progress: false,
+      duration_seconds: 185,
+      ended_by: "Caller hung up",
+      booked_reference: "PC-BOOKED23",
+      changed_reference: null,
+      cancelled_reference: null,
+      callback_requested: false,
+      message_only: false,
+      tool_failures: 1,
+      cost_usd: 0.4213,
+    };
+    let refreshed = false;
+    mockApi(
+      dashboardRoutes({
+        "GET /api/v1/staff/calls": () => ({
+          status: 200,
+          body: refreshed
+            ? [{ ...call, id: "c-2", channel: "website", booked_reference: null, callback_requested: true, tool_failures: 0, cost_usd: null, duration_seconds: 42, ended_by: "Visitor left the page" }, call]
+            : [call],
+        }),
+      }),
+    );
+    render(<StaffApp />);
+    const user = await signIn();
+    const section = (await screen.findByRole("heading", { name: "Calls" })).closest("section")!;
+    const row = (await within(section).findByText("Booked PC-BOOKED23")).closest("tr")!;
+    expect(row).toHaveTextContent("Phone");
+    expect(row).toHaveTextContent("3 min 5 s");
+    expect(row).toHaveTextContent("1 assistant error");
+    expect(row).toHaveTextContent("Caller hung up");
+    expect(row).toHaveTextContent("Cost $0.42");
+
+    refreshed = true;
+    await user.click(within(section).getByRole("button", { name: "Refresh" }));
+    const web = (await within(section).findByText("Callback requested")).closest("tr")!;
+    expect(web).toHaveTextContent("Website voice");
+    expect(web).toHaveTextContent("42 s");
+    expect(web).not.toHaveTextContent("Cost");
+  });
+
+  it("says when there are no calls yet", async () => {
+    mockApi(dashboardRoutes());
+    render(<StaffApp />);
+    await signIn();
+    expect(await screen.findByText("No calls yet.")).toBeInTheDocument();
   });
 
   it("says where booking and callback emails go", async () => {
