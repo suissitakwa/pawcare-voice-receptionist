@@ -374,6 +374,9 @@ def test_drafting_asks_for_answers_tied_to_quotes(monkeypatch) -> None:
     assert [a.question for a in answers] == ["How much is a nail trim?"]
     assert dropped == 0
     assert sent["model"] == "test-model"
+    # Little reasoning, so a whole website doesn't take minutes, and room for it in the reply.
+    assert sent["reasoning"] == {"effort": "minimal"}
+    assert sent["max_output_tokens"] == 16000
     assert sent["store"] is False
     assert sent["input"] == [{"role": "user", "content": POLICY}]
     assert sent["text"]["format"]["strict"] is True
@@ -551,3 +554,18 @@ def test_approve_reminds_that_pages_themselves_are_not_used() -> None:
     step = next(s for s in follow_ups(details) if "shaggy.example" in s)
     assert "only their 1 answers" in step
     assert "Suggest answers" in step
+
+
+def test_a_model_without_reasoning_gets_no_reasoning_setting(monkeypatch) -> None:
+    sent = {}
+
+    def post(settings, body):
+        sent.update(body)
+        return {"output": [{"type": "message", "content": [{"type": "output_text", "text": "{}"}]}]}
+
+    monkeypatch.setattr(knowledge, "post", post)
+    settings = Settings(
+        openai_api_key="k", knowledge_model="gpt-4.1-mini", knowledge_reasoning_effort=""
+    )
+    knowledge.structured(settings, "Find facts.", "text", "x", {"type": "object"}, "a")
+    assert "reasoning" not in sent

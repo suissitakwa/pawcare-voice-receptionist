@@ -171,3 +171,23 @@ describe("WebsiteFindings", () => {
     });
   });
 });
+
+describe("useWebsiteFindings", () => {
+  it("stops waiting after the time limit and offers to try again", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const { useWebsiteFindings, READ_TIMEOUT_MS } = await import("./WebsiteFindings");
+    const { renderHook, act } = await import("@testing-library/react");
+    const { result } = renderHook(() => useWebsiteFindings("t", vi.fn()));
+    act(() => result.current.read("https://shaggy.example/"));
+    expect(result.current.state?.status).toBe("reading");
+    act(() => vi.advanceTimersByTime(READ_TIMEOUT_MS + 1));
+    expect(result.current.state).toEqual({
+      url: "https://shaggy.example/",
+      status: "failed",
+      message: "it took too long. Try again in a minute.",
+    });
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+});
