@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import SubscriberApp from "./SubscriberApp";
+import SubscriberApp, { navigation } from "./SubscriberApp";
 
 const OPTIONS = {
   business_types: [
@@ -324,6 +324,81 @@ describe("SubscriberApp", () => {
     await user.type(screen.getByLabelText("Calendar ID"), "sam@gmail.com");
     await user.click(screen.getByRole("button", { name: "Connect calendar" }));
     expect(await screen.findByText(/We can't see that calendar yet/)).toBeInTheDocument();
+  });
+
+  it("sends the owner to Google to pick their calendar, saving edits first", async () => {
+    const go = vi.spyOn(navigation, "go").mockImplementation(() => undefined);
+    const calls = mockApi(
+      routes({
+        "GET /api/v1/subscribers/options": () => ({ status: 200, body: { ...OPTIONS, calendar_share_email: "bot@x.iam", google_sign_in: true } }),
+        "PATCH /api/v1/subscribers/profile": () => ({ status: 200, body: PROFILE }),
+        "POST /api/v1/subscribers/profile/calendar/google/start": () => ({ status: 200, body: { url: "https://accounts.google.com/o/oauth2/v2/auth?x=1" } }),
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = await signUp();
+    await user.click(await screen.findByRole("button", { name: "Your calendar" }));
+    await user.selectOptions(screen.getByLabelText("Calendar you book appointments in"), "google");
+    // Sharing by hand is still there.
+    expect(screen.getByText("Or share it yourself")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Connect with Google" }));
+    await vi.waitFor(() => expect(go).toHaveBeenCalledWith("https://accounts.google.com/o/oauth2/v2/auth?x=1"));
+    const keys = calls.map((c) => c.key);
+    expect(keys.indexOf("PATCH /api/v1/subscribers/profile")).toBeLessThan(keys.indexOf("POST /api/v1/subscribers/profile/calendar/google/start"));
+    go.mockRestore();
+  });
+
+  it("back from Google, lists the owner's calendars and connects the chosen one", async () => {
+    sessionStorage.setItem("receptionist-subscriber-token", "s-1");
+    window.history.replaceState(null, "", "/get-started?state=st-1&code=co-1&scope=x");
+    let exchanged: unknown = null;
+    let connected: unknown = null;
+    const connectedProfile = {
+      ...PROFILE,
+      details: { ...EMPTY_DETAILS, calendar_provider: "google", google_calendar_id: "team@group.calendar.google.com", google_calendar_connected: true },
+    };
+    mockApi(
+      routes({
+        "GET /api/v1/subscribers/options": () => ({ status: 200, body: { ...OPTIONS, calendar_share_email: "bot@x.iam", google_sign_in: true } }),
+        "POST /api/v1/subscribers/profile/calendar/google/calendars": (init) => {
+          exchanged = JSON.parse(String(init?.body));
+          return {
+            status: 200,
+            body: {
+              ticket: "ticket-1",
+              calendars: [
+                { id: "sam@gmail.com", name: "Sam Rivera", primary: true },
+                { id: "team@group.calendar.google.com", name: "Team", primary: false },
+              ],
+            },
+          };
+        },
+        "POST /api/v1/subscribers/profile/calendar/google/connect": (init) => {
+          connected = JSON.parse(String(init?.body));
+          return { status: 200, body: connectedProfile };
+        },
+      }),
+    );
+    render(<SubscriberApp />);
+    const user = userEvent.setup({ delay: null });
+    // Google's answer is taken out of the address.
+    expect(window.location.search).toBe("");
+    expect(await screen.findByRole("radio", { name: /Sam Rivera \(your main calendar\)/ })).toBeChecked();
+    expect(exchanged).toEqual({ code: "co-1", state: "st-1" });
+    await user.click(screen.getByRole("radio", { name: /Team/ }));
+    await user.click(screen.getByRole("button", { name: "Connect this calendar" }));
+    expect(await screen.findByText("Your calendar is connected and shared with us.")).toBeInTheDocument();
+    expect(connected).toEqual({ ticket: "ticket-1", calendar_id: "team@group.calendar.google.com" });
+    expect(screen.getByText(/team@group\.calendar\.google\.com\. New bookings/)).toBeInTheDocument();
+  });
+
+  it("says so when the owner cancels Google's sign-in", async () => {
+    sessionStorage.setItem("receptionist-subscriber-token", "s-1");
+    window.history.replaceState(null, "", "/get-started?state=st-1&error=access_denied");
+    mockApi(routes({ "GET /api/v1/subscribers/options": () => ({ status: 200, body: { ...OPTIONS, google_sign_in: true } }) }));
+    render(<SubscriberApp />);
+    expect(await screen.findByText(/Google sign-in was cancelled/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your calendar" })).toBeInTheDocument();
   });
 
   it("checks a connected calendar and says what's wrong with its sharing", async () => {

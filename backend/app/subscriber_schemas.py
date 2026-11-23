@@ -317,9 +317,37 @@ class ProfileOptions(BaseModel):
     sizes: dict[str, list[Option]] = {}
     # The address a Google Calendar is shared with to connect it; None while not offered.
     calendar_share_email: str | None = None
+    # Owners can sign in with Google to pick their calendar and share it in one go.
+    google_sign_in: bool = False
 
 
 class CalendarConnectRequest(Strict):
+    calendar_id: str = Field(min_length=3, max_length=200)
+
+
+class GoogleStart(BaseModel):
+    url: str
+
+
+class GoogleReturn(Strict):
+    code: str = Field(min_length=1, max_length=2000)
+    state: str = Field(min_length=1, max_length=2000)
+
+
+class OwnedCalendarPublic(BaseModel):
+    id: str
+    name: str
+    primary: bool
+
+
+class GoogleCalendars(BaseModel):
+    # Sealed for 10 minutes; sent back with the chosen calendar.
+    ticket: str
+    calendars: list[OwnedCalendarPublic]
+
+
+class GoogleConnect(Strict):
+    ticket: str = Field(min_length=1, max_length=4000)
     calendar_id: str = Field(min_length=3, max_length=200)
 
 

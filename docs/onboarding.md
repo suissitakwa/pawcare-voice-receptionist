@@ -119,4 +119,3 @@ See [calendar.md](calendar.md#several-businesses) and [automations.md](automatio
 ## Not ready yet
 
 - Each groomer's own Google Calendar. One calendar per business, which blocks everyone.
-- Picking the calendar from a list. The owner pastes its Calendar ID.
