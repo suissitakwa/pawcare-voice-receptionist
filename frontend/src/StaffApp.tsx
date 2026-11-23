@@ -59,6 +59,13 @@ function errorText(error: unknown): string {
   return error instanceof ApiRequestError ? error.message : "Something went wrong.";
 }
 
+const CHANNELS = { form: "Booking form", phone: "Phone", website: "Website voice" } as const;
+
+function bookedVia(booking: StaffBooking): string {
+  if (booking.channel) return CHANNELS[booking.channel];
+  return booking.source === "voice" ? "Voice" : "Booking form";
+}
+
 function when(local: string, end?: string): string {
   const day = longDate(local.slice(0, 10));
   return end ? `${day}, ${wallClock(local)} to ${wallClock(end)}` : `${day}, ${wallClock(local)}`;
@@ -180,9 +187,15 @@ function BookingsTable({
                 {booking.service_address && <span className="size-note">At {booking.service_address}</span>}
               </td>
               <td>{booking.reference}</td>
-              <td>{booking.source === "voice" ? "Voice" : "Form"}</td>
+              <td>{bookedVia(booking)}</td>
               <td>
                 <span className={`status status-${booking.status}`}>{booking.status === "confirmed" ? "Confirmed" : "Cancelled"}</span>
+                {booking.status === "cancelled" && booking.cancelled_by && (
+                  <span className="size-note">By {booking.cancelled_by === "customer" ? "the customer" : "staff"}</span>
+                )}
+                {booking.changed_at && (
+                  <span className="size-note">Changed by the customer {new Date(booking.changed_at).toLocaleString()}</span>
+                )}
               </td>
               {onCancel && (
                 <td>

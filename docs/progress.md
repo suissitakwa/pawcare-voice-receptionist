@@ -1080,3 +1080,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 726 passed (local PostgreSQL 14), 8 new in `test_manage_on_website.py`: the website assistant can only show changes; a change shown, then applied only by the click and only once; a cancellation the same way; a wrong, replaced or other-session token changes nothing; a booking from another conversation can't be touched; the latest booking in the conversation is the one managed; an expired one isn't applied; nothing is left waiting after the click |
 | Frontend | Typecheck and build pass; 117 tests pass (Node 22), 2 new: a change shown and applied only on Confirm change, with the token kept from the model; a cancellation on Cancel booking, and an expired one explained |
 | Live | Not deployed; not tried in a real browser call |
+
+## The dashboard shows what customers did to their bookings (2026-11-23)
+
+**Outcome:** staff saw a booking's current time and status, but not that a customer had moved it, who cancelled it, or whether a voice booking came by phone or from the website. The bookings table now says where each booking came from (**Booking form**, **Phone** or **Website voice**), adds "Changed by the customer" with the time under a booking a customer changed, and "By the customer" or "By staff" under a cancelled one. The staff API adds `channel`, `changed_at` and `cancelled_by`; `source` is unchanged, so webhooks and older pages keep working. Cancellations from before `cancelled_via` existed still show as by staff.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 727 passed (local PostgreSQL 14). New checks: a website booking changed and another cancelled by the customer, a form booking, then a staff cancellation, as staff see them; a phone booking changed and one cancelled on the call show as phone and by the customer |
+| Frontend | Typecheck and build pass; 118 tests pass (Node 22), 1 new: the source, the customer's change and who cancelled, in the bookings table |
+| Live | Not deployed |

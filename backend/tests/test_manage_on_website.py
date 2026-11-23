@@ -17,7 +17,15 @@ from app.main import app, get_now
 from app.models import Booking, WebhookEvent
 from app.voice import browser_tools
 from tests.factories import make_booking
-from tests.test_voice_tools import LA, NINE, NOW, booking_args, call, session_record
+from tests.test_voice_tools import (  # noqa: F401 - staff_headers is a fixture
+    LA,
+    NINE,
+    NOW,
+    booking_args,
+    call,
+    session_record,
+    staff_headers,
+)
 
 TWO_PM = datetime(2027, 1, 5, 14, 0, tzinfo=LA)
 
@@ -162,3 +170,34 @@ def test_the_session_record_keeps_nothing_after_the_click(client, db, voice) -> 
     token = call(client, voice, "prepare_cancel").json()["manage"]["confirm_token"]
     press(client, voice, token)
     assert session_record(db).pending_change is None
+
+
+def test_staff_see_where_it_was_booked_and_what_the_customer_did(
+    client,
+    db,
+    voice,
+    staff_headers,  # noqa: F811 - the imported fixture
+) -> None:
+    changed = book(client, voice)
+    cancelled = book(client, voice, "voice-confirm-0002", starts_at=TWO_PM.isoformat())
+    form = make_booking(db, NINE + timedelta(days=1))
+    db.commit()
+    press(client, voice, call(client, voice, "prepare_cancel").json()["manage"]["confirm_token"])
+    token = call(
+        client, voice, "prepare_change", {"starts_at": (NINE + timedelta(hours=1)).isoformat()}
+    )
+    press(client, voice, token.json()["manage"]["confirm_token"])
+
+    rows = {
+        row["reference"]: row
+        for row in client.get("/api/v1/staff/bookings", headers=staff_headers).json()
+    }
+    assert rows[changed]["channel"] == "website" and rows[changed]["changed_at"] is not None
+    assert rows[changed]["cancelled_by"] is None
+    assert rows[cancelled]["status"] == "cancelled"
+    assert rows[cancelled]["cancelled_by"] == "customer"
+    assert rows[form.reference]["channel"] == "form" and rows[form.reference]["changed_at"] is None
+
+    client.post(f"/api/v1/staff/bookings/{changed}/cancel", headers=staff_headers)
+    rows = client.get("/api/v1/staff/bookings", headers=staff_headers).json()
+    assert next(r for r in rows if r["reference"] == changed)["cancelled_by"] == "staff"

@@ -26,6 +26,11 @@ export interface StaffBooking {
   created_at: string;
   cancelled_at: string | null;
   source: "form" | "voice";
+  /** Where it was booked. Missing from an older backend. */
+  channel?: "form" | "phone" | "website";
+  /** When the customer last changed it by phone or on the website. */
+  changed_at?: string | null;
+  cancelled_by?: "staff" | "customer" | null;
   staff: string;
   /** Where the appointment is, at a mobile business. */
   service_address?: string | null;

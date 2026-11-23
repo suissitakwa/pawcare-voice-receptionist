@@ -369,6 +369,11 @@ class StaffBooking(BaseModel):
     created_at: datetime
     cancelled_at: datetime | None
     source: Literal["form", "voice"]
+    # Where it was booked: the booking form, a phone call, or the website's voice assistant.
+    channel: Literal["form", "phone", "website"] = "form"
+    # When the customer last changed it by phone or on the website.
+    changed_at: datetime | None = None
+    cancelled_by: Literal["staff", "customer"] | None = None
     staff: str
     service_address: str | None = None
 

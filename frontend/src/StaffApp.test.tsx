@@ -259,6 +259,33 @@ describe("StaffApp", () => {
     expect(JSON.parse(String(sent?.init?.body)).staff).toBe("alex");
   });
 
+  it("shows where each booking came from, a customer's change, and who cancelled", async () => {
+    mockApi(
+      dashboardRoutes({
+        "GET /api/v1/staff/bookings": () => ({
+          status: 200,
+          body: [
+            { ...BOOKING, channel: "website", changed_at: "2027-01-04T18:30:00Z" },
+            { ...BOOKING, reference: "PC-PHONE234", channel: "phone", status: "cancelled", cancelled_by: "customer" },
+            { ...BOOKING, reference: "PC-FORM2345", source: "form", channel: "form", status: "cancelled", cancelled_by: "staff" },
+          ],
+        }),
+      }),
+    );
+    render(<StaffApp />);
+    await signIn();
+    const changed = (await screen.findByText("PC-ABCD2345")).closest("tr")!;
+    expect(changed).toHaveTextContent("Website voice");
+    expect(changed).toHaveTextContent("Changed by the customer");
+    const byCustomer = screen.getByText("PC-PHONE234").closest("tr")!;
+    expect(byCustomer).toHaveTextContent("Phone");
+    expect(byCustomer).toHaveTextContent("CancelledBy the customer");
+    const byStaff = screen.getByText("PC-FORM2345").closest("tr")!;
+    expect(byStaff).toHaveTextContent("Booking form");
+    expect(byStaff).toHaveTextContent("By staff");
+    expect(byStaff).not.toHaveTextContent("Changed by");
+  });
+
   it("says where booking and callback emails go", async () => {
     mockApi(dashboardRoutes());
     render(<StaffApp />);
