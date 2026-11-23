@@ -20,12 +20,13 @@ import json
 import re
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import go_live
+from app import go_live, plans
 from app.businesses import TEMPLATE_FILE, load_business, read_seed
 from app.config import get_settings
 from app.industries import STANDARD_SIZE
@@ -307,6 +308,8 @@ def create(session: Session, email: str, seed: BusinessSeed) -> tuple[uuid.UUID,
         raise ProvisionError("Set is_demo to false for a real business.")
     business_id = load_business(session, seed)
     profile.business_id = business_id
+    # A business from a sign-up starts its free trial when it goes live.
+    plans.start_trial(session.get(Business, business_id), datetime.now(UTC))
     details = ProfileDetails.from_stored(profile.details)
     if details.google_calendar_connected and details.google_calendar_id:
         # They connected it while signing up, so bookings go to it from the start.

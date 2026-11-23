@@ -3,6 +3,7 @@ import { ApiRequestError } from "./api";
 import { longDate, wallClock } from "./BookingForm";
 import { formatPrice } from "./format";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
+import { PlanPanel } from "./PlanPanel";
 import {
   forgotPassword,
   login,
@@ -447,6 +448,7 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
           </div>
         </dl>
       )}
+      <PlanPanel token={token} />
       <section aria-labelledby="staff-bookings">
         <div className="section-head">
           <h2 id="staff-bookings">Bookings</h2>

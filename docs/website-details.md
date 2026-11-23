@@ -5,9 +5,10 @@ When an owner gives their website on the first sign-up step (**Your business**),
 | Step | What's offered |
 |---|---|
 | Your business | The phone number, if they haven't typed one |
-| Where and when | Opening hours for each day, plus the address if theirs is empty and they aren't a mobile groomer |
+| Where and when | Opening hours for each day, plus whatever of these is still empty: the time zone (from the address's state), "we're mobile" and the area served (groomers only), and the address (not for a mobile groomer). One **Use these** fills them all |
 | Services and prices | Services they don't have yet, with prices and lengths where the website gives them |
 | Your team | People who take appointments, if not already listed |
+| What the receptionist should know | Questions the website answers (cancellations, deposits, payment, vaccinations, what to bring, parking, policies), each with its answer. **Add** one at a time, or **Add all** |
 
 Each offer shows the words it was taken from ("From your website: 'Tuesday to Saturday 9am to 5pm'"). It has a button to use it and **Not these** to dismiss it. Using it only changes the form. It's saved with the step, like anything typed, so the owner still sees and can change every value before going on.
 
@@ -32,6 +33,9 @@ One OpenAI call (`KNOWLEDGE_MODEL`, strict structured output, `store: false`) pi
 - **Hours:** the opening and closing hour must both appear in the quote, in 12- or 24-hour form ("9am", "17:00", "noon"). A valid time is also needed, closing after opening, with one entry per day.
 - **Services:** the name must be in the quote ("&" and "and" count as the same). A price is kept only if its dollar amount is in the quote, and a length only if its minutes are. Otherwise it's left blank for the owner. Price rows follow the business type: dog sizes for groomers, one price for salons and barbershops.
 - **Team:** each name must be in the quote.
+- **Mobile and area:** "mobile" needs a quote saying so, and is only kept for pet groomers. The area must be in its own quote word for word, and is only kept with "mobile".
+- **Time zone:** not asked of the model. It comes from the state at the end of the checked address ("…, San Jose, CA 95113" → Pacific). A state split between zones gets the one most of its people use, so the owner should check it. An address without a US state gives none.
+- **Answers:** checked like [suggested answers](knowledge.md#what-makes-a-suggestion-trustworthy): each needs a quote of at least 12 characters that is on the site. At most 12 are kept.
 
 Items that fail are dropped, and the reply says how many. Blank lengths and prices are shown blank in the form. A price row is saved only once it has both, as before.
 
@@ -54,6 +58,10 @@ Reading the website counts as one run against `KNOWLEDGE_RUNS_PER_HOUR` (40 per 
     { "name": "Nail Trim", "description": "", "prices": [{ "size": "small", "duration_minutes": null, "price_cents": 1500 }], "quote": "Nail Trim $15" }
   ],
   "team": [{ "name": "Sam", "quote": "Your groomers: Sam and Jo" }],
+  "mobile": null,
+  "service_area": null,
+  "timezone": null,
+  "faqs": [{ "question": "How much notice do I need to cancel?", "answer": "24 hours; late cancellations are $20.", "quote": "We ask for 24 hours' notice to cancel" }],
   "dropped": 0
 }
 ```

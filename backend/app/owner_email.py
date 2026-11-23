@@ -103,7 +103,12 @@ def owner_address(business: Business) -> str | None:
 
 def notice_address(event: WebhookEvent, settings: Settings) -> str | None:
     """Where a notice that belongs to no business goes."""
-    if event.event_type in ("profile.submitted", "profile.updated", "calendar.alert"):
+    if event.event_type in (
+        "profile.submitted",
+        "profile.updated",
+        "calendar.alert",
+        "plan.requested",
+    ):
         return settings.admin_email or None
     if event.event_type in TO_THE_ACCOUNT:
         data = event.payload.get("data", {})
@@ -138,6 +143,17 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
                 "",
                 f"Check: python -m app.integrations show {slug}",
             ]
+    elif event.event_type == "plan.requested":
+        slug = data.get("business_slug")
+        subject = f"Plan request: {business} wants to keep their receptionist"
+        lines = [
+            f"{data.get('requested_by')} asked to keep {business} ({slug}) on the "
+            f"{data.get('price')} a month plan. They're on: {data.get('plan')}.",
+            "",
+            f"1. Send an invoice to {data.get('contact_email')}.",
+            "2. Once it's paid, in Railway's backend Console:",
+            f"/opt/venv/bin/python -m app.plans set {slug} starter",
+        ]
     elif event.event_type == "profile.submitted":
         subject = f"New sign-up: {business} ({data.get('business_type')})"
         lines = [

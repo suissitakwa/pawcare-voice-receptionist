@@ -665,7 +665,12 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
 
 # The daily limit caps cost, but a caller on a busy day should still reach staff. These
 # limits answer with a short message-taking call; any other refusal declines the call.
-MESSAGE_ONLY_PROBLEMS = {"daily call limit reached"}
+MESSAGE_ONLY_PROBLEMS = {
+    "daily call limit reached",
+    # A trial that ended, or a month's calls used up (app/plans.py).
+    "trial ended",
+    "monthly call allowance used",
+}
 MESSAGE_TOOLS = {"create_callback_request"}
 
 
@@ -873,6 +878,14 @@ def start_voice_session(
         )
     )
     over_total = deployment_total(session, "web", now) >= settings.voice_daily_total_limit
+    from app.plans import plan_problem
+
+    if plan_problem(session, business, now) is not None:
+        raise ApiError(
+            503,
+            "voice_paused",
+            "The voice assistant is paused right now. Please use the booking form.",
+        )
     if over_total:
         logger.warning("Browser voice has reached the deployment-wide daily ceiling")
     if over_total or started_today >= daily_limit(

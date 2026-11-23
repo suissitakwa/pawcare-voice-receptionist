@@ -224,7 +224,8 @@ Business owners sign up and fill in the profile that will configure their recept
 | `POST /api/v1/subscribers/profile/submit` | Marks the profile submitted, or `422 profile_incomplete` listing the missing sections |
 | `POST /api/v1/subscribers/profile/documents?filename=…` | The body is the raw file, with its `Content-Type`: PDF, .docx, plain text, or Markdown, up to 5 MB, 10 per profile |
 | `DELETE /api/v1/subscribers/profile/documents/{id}` | Removes a document |
-| `POST /api/v1/subscribers/profile/website/read` | No body. Reads the saved website (home page and up to 4 of its own pages) and returns the phone, address, hours, services and team it states, each with its quote. Nothing is saved. See [website-details.md](website-details.md) |
+| `GET /api/v1/staff/plan`, `POST /api/v1/staff/plan/request` | The business's free trial or plan and this month's calls; asking to keep the receptionist emails you. See [pricing.md](pricing.md) |
+| `POST /api/v1/subscribers/profile/website/read` | No body. Reads the saved website (home page and up to 4 of its own pages) and returns the phone, address, hours, services, team, mobile area, time zone and answers to common questions it states, each with its quote. Nothing is saved. See [website-details.md](website-details.md) |
 | `POST /api/v1/subscribers/profile/knowledge/suggest` | `{"url": …}` (a saved page) or `{"document_id": …}`. Returns suggested answers drafted from that one source, each with the quote it rests on. Nothing is saved. See [knowledge.md](knowledge.md) |
 
 Every profile endpoint needs `Authorization: Bearer <token>` and only reaches the signed-in account's profile.

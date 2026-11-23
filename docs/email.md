@@ -62,6 +62,10 @@ Owners who signed up hear twice, so each email says only what's true when it's s
 
 Links use `PUBLIC_SITE_URL`; set it, or the emails show only the `/b/<slug>` path. Businesses loaded from a file (no sign-up) and the demo get neither email.
 
+## Plan requests
+
+When an owner presses **Keep my receptionist** on their dashboard, `ADMIN_EMAIL` gets **"Plan request: <business> wants to keep their receptionist"** (once). It gives who asked, where to send the invoice, and the `app.plans set <slug> starter` command for once it's paid. The "set up" email tells new owners about the trial and the price. See [pricing.md](pricing.md).
+
 ## Calendar problems
 
 When a business's connected Google Calendar stops working, the owner gets **"Action needed: <business> can't use your Google Calendar"**, with Google's reason, what it means for booking, and the dashboard link. `ADMIN_EMAIL` gets **"Calendar failing: <business> (<code>)"** with the `integrations show` command. Both get one more email when it works again. See [calendar.md](calendar.md#when-it-stops-working).

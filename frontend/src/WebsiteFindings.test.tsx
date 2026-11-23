@@ -102,4 +102,72 @@ describe("WebsiteFindings", () => {
     await user.click(screen.getByRole("button", { name: "Try reading it again" }));
     expect(onRetry).toHaveBeenCalled();
   });
+  it("offers the time zone, mobile area and hours together on Where and when", async () => {
+    const found: WebsiteDetails = {
+      ...FOUND,
+      address: { value: "12 Market St, San Jose, CA 95113", quote: "Visit 12 Market St, San Jose, CA 95113" },
+      timezone: { value: "America/Los_Angeles", quote: "Visit 12 Market St, San Jose, CA 95113" },
+      mobile: { value: "yes", quote: "We come to you" },
+      service_area: { value: "San Jose and Campbell", quote: "We come to you in San Jose and Campbell" },
+      hours: [{ weekday: 1, opens_at: "09:00", closes_at: "17:30", quote: "Tuesdays 9 to 5:30" }],
+    };
+    const { onChange, user } = show("hours", { ...done, found });
+    const box = screen.getByRole("region", { name: "Where and when on your website" });
+    expect(box).toHaveTextContent("Time zone: Pacific (from your address)");
+    expect(box).toHaveTextContent("You're a mobile groomer");
+    expect(box).toHaveTextContent("Area you serve: San Jose and Campbell");
+    // A mobile groomer gives no address.
+    expect(box).not.toHaveTextContent("Address:");
+    expect(box).toHaveTextContent("Tuesday: 9 AM to 5:30 PM");
+    await user.click(within(box).getByRole("button", { name: "Use these" }));
+    expect(onChange).toHaveBeenCalledWith({
+      hours: [{ weekday: 1, opens_at: "09:00", closes_at: "17:30" }],
+      timezone: "America/Los_Angeles",
+      is_mobile: true,
+      service_area: "San Jose and Campbell",
+    });
+  });
+
+  it("leaves what the owner already filled in on Where and when", () => {
+    const found: WebsiteDetails = {
+      ...FOUND,
+      timezone: { value: "America/Los_Angeles", quote: "CA 95113" },
+      address: { value: "12 Market St", quote: "12 Market St" },
+    };
+    show("hours", { ...done, found }, { ...DETAILS, timezone: "America/Chicago", address: "1 Elm St" });
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("adds the website's answers one at a time or all at once", async () => {
+    const found: WebsiteDetails = {
+      ...FOUND,
+      faqs: [
+        { question: "How much notice to cancel?", answer: "24 hours.", quote: "24 hours' notice to cancel" },
+        { question: "Do dogs need vaccinations?", answer: "Yes, rabies.", quote: "current rabies vaccination" },
+        { question: "Do you groom cats?", answer: "No.", quote: "Dogs only" },
+      ],
+    };
+    const { onChange, user } = show("knowledge", { ...done, found }, {
+      ...DETAILS,
+      faqs: [{ question: "do you groom cats?", answer: "Dogs only." }],
+    });
+    const box = screen.getByRole("region", { name: "Answers on your website" });
+    expect(box).not.toHaveTextContent("Do you groom cats?");
+    expect(box).toHaveTextContent("From your website: “current rabies vaccination”");
+    await user.click(within(box).getByRole("button", { name: "Add “Do dogs need vaccinations?”" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      faqs: [
+        { question: "do you groom cats?", answer: "Dogs only." },
+        { question: "Do dogs need vaccinations?", answer: "Yes, rabies." },
+      ],
+    });
+    await user.click(within(box).getByRole("button", { name: "Add all 2" }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      faqs: [
+        { question: "do you groom cats?", answer: "Dogs only." },
+        { question: "How much notice to cancel?", answer: "24 hours." },
+        { question: "Do dogs need vaccinations?", answer: "Yes, rabies." },
+      ],
+    });
+  });
 });

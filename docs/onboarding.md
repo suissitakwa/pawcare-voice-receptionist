@@ -30,6 +30,10 @@ Hours, services, prices and team in a profile may have come from the owner's web
 
 Pet groomers, hair salons and barbershops can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner".
 
+## Plans and the free trial
+
+Every business made from a sign-up starts a **14-day free trial** when it goes live, then costs **$49 a month for up to 100 calls**. Owners ask to keep it from their dashboard; you invoice them and run `python -m app.plans set <slug> starter`. Businesses loaded from a file, the demo and pilots are `unlimited`. See [pricing.md](pricing.md).
+
 ## Trying onboarding end to end (automatic approval)
 
 While you're testing, set `AUTO_APPROVE_SIGNUPS=true` on Railway. Every profile then goes live the moment it's submitted, exactly as `provision approve --yes` would:
