@@ -550,12 +550,20 @@ def submit_profile(context: Account, db: DbSession, now: Now, settings: Config) 
         profile.submitted_at = now
         # Only the first submission: you hear about the sign-up, and they get a receipt.
         data = signup_data(context[0], profile, details, count_documents(db, profile))
-        auto = settings.auto_approve_signups
-        enqueue_notice(db, "profile.submitted", {**data, "auto_approved": auto}, now)
-        enqueue_notice(db, "profile.received", data, now)
-        if auto:
+        outcome: dict = {}
+        if settings.auto_approve_signups:
             db.flush()
-            approve_signup(db, context[0])
+            slug, number, problem = approve_signup(db, context[0])
+            outcome = {
+                "auto_approval": "approved" if slug else "failed",
+                "business_slug": slug,
+                "number": number,
+                "problem": problem,
+            }
+        enqueue_notice(db, "profile.submitted", {**data, **outcome}, now)
+        if outcome.get("auto_approval") != "approved":
+            # Approved at once, the go-live emails replace the "we'll be in touch" receipt.
+            enqueue_notice(db, "profile.received", data, now)
     db.commit()
     return to_public(db, profile)
 

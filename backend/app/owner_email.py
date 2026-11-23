@@ -168,17 +168,7 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             f"Answers to common questions: {data.get('faqs', 0)}, documents: "
             f"{data.get('documents', 0)}",
             "",
-            *(
-                [
-                    "AUTO_APPROVE_SIGNUPS is on: it was approved automatically, with the "
-                    "phone number above ringing it. Check: python -m app.provision list"
-                ]
-                if data.get("auto_approved")
-                else [
-                    "Next: check it with them, then in Railway's backend Console:",
-                    f"/opt/venv/bin/python -m app.provision approve {data.get('owner_email')}",
-                ]
-            ),
+            *signup_next_steps(data),
         ]
     elif event.event_type == "profile.updated":
         subject = f"Profile updated: {business}"
@@ -227,7 +217,7 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
     else:
         subject = f"We received your profile for {business}"
         lines = [
-            f"Hi {data.get('owner_name')},",
+            f"Hi {first_name(data.get('owner_name'))},",
             "",
             f"Thanks for setting up {business} with {settings.service_name}. We've received your "
             "profile.",
@@ -241,6 +231,35 @@ def compose_notice(event: WebhookEvent, settings: Settings) -> tuple[str, str]:
             settings.service_name,
         ]
     return subject, "\n".join(lines)
+
+
+def first_name(full_name: str | None) -> str:
+    """The greeting's name, as in the go-live emails."""
+    return (str(full_name or "").split() or ["there"])[0]
+
+
+def signup_next_steps(data: dict) -> list[str]:
+    """What happened to the sign-up, and what's left for you."""
+    approve = f"/opt/venv/bin/python -m app.provision approve {data.get('owner_email')}"
+    if data.get("auto_approval") == "approved":
+        slug = data.get("business_slug")
+        number = data.get("number")
+        return [
+            f"AUTO_APPROVE_SIGNUPS is on: it's live at /b/{slug}, and they were sent the "
+            "go-live emails instead of the usual receipt.",
+            f"{number} rings it."
+            if number
+            else "No number rings it: the one above was missing, had no area code, or is "
+            "registered to a business. To add one: "
+            f"/opt/venv/bin/python -m app.phone_numbers add {slug} <number>",
+        ]
+    if data.get("auto_approval") == "failed":
+        return [
+            f"AUTO_APPROVE_SIGNUPS is on, but it couldn't be approved: {data.get('problem')}",
+            "They were sent the usual receipt. Once it's fixed, in Railway's backend Console:",
+            approve,
+        ]
+    return ["Next: check it with them, then in Railway's backend Console:", approve]
 
 
 def when(local_iso: str) -> str:

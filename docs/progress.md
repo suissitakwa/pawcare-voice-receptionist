@@ -1030,3 +1030,17 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Frontend | Typecheck and build pass; 114 tests pass (Node 22), 5 new: the trial with days left, calls and the request; the ended trial; the used-up month; nothing shown for unlimited; the price on the sign-up page |
 | Live | Not deployed. Invoices are by hand; Stripe and reminder emails before the trial ends come next |
 
+## The receipt matches what happened to the sign-up (2026-11-22)
+
+**Outcome:** with automatic approval on, the owner still got "we'll contact you within one business day … goes live after that" right before "you're set up", and the "New sign-up" email said it was approved automatically even when approval failed. Now:
+
+- **The receipt:** a sign-up approved at once gets only the go-live emails. One that can't be approved gets the usual receipt.
+- **The "New sign-up" email to you:** it says what really happened. Either it's live at `/b/<slug>` and which number rings it (or that none does, with the command to add one), or why approval failed, with the approve command.
+- **The greeting:** the receipt greets by first name, like the go-live emails.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 691 passed (local PostgreSQL 14). In `test_auto_approve.py`: no receipt for an approved sign-up and the number named; no number explained with the add command; a failed approval gets the receipt and the reason with the approve command; the receipt greets by first name |
+| Frontend | Unchanged |
+| Live | Not deployed |
