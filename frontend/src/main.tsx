@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import AdminApp from "./AdminApp";
 import App from "./App";
 import StaffApp from "./StaffApp";
 import SubscriberApp from "./SubscriberApp";
@@ -12,7 +13,9 @@ const atRoot = businessSlug() === null;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {page.startsWith("/staff") ? (
+    {atRoot && page.startsWith("/admin") ? (
+      <AdminApp />
+    ) : page.startsWith("/staff") ? (
       <StaffApp />
     ) : atRoot && page.startsWith("/get-started") ? (
       <SubscriberApp />

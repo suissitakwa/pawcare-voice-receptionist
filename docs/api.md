@@ -231,6 +231,24 @@ Business owners sign up and fill in the profile that will configure their recept
 
 Every profile endpoint needs `Authorization: Bearer <token>` and only reaches the signed-in account's profile.
 
+## Admin
+
+For the people who run the service, across every business. The page is `/admin`. Admin accounts are only made from a shell (`python -m app.admin create`, see [deployment.md](deployment.md#admin-accounts)). Every endpoint except sign-in needs an admin's `Authorization: Bearer <token>`; a staff or subscriber token gets `401 not_authenticated`. Every change is logged with who made it, in the same transaction.
+
+| Method and path | Purpose |
+| --- | --- |
+| `POST /api/v1/admin/login` | `{email, password}` returns `token`, `expires_at` (2 hours) and `admin`. Five failures lock the admin out for 15 minutes |
+| `POST /api/v1/admin/logout` | Revokes the token. `204` |
+| `GET /api/v1/admin/me` | The signed-in admin: `email`, `display_name` |
+| `GET /api/v1/admin/accounts?q=` | Up to 500 sign-ups, newest first: email, name, sign-up and last sign-in times, `locked`, `profile_status`, business name, and `business_slug` and `plan` once live. `q` matches email, name, business name or address |
+| `GET /api/v1/admin/accounts/{id}` | One sign-up, plus business type, when it was submitted, the trial's end, staff logins, phone numbers, and booking and call counts. `business_is_protected` is true for the demo |
+| `PATCH /api/v1/admin/accounts/{id}` | `{full_name?, email?}`. The owner signs in with the new email. Staff dashboard logins keep theirs. `409 email_taken` |
+| `POST /api/v1/admin/accounts/{id}/unlock` | Clears a lockout from failed sign-ins |
+| `POST /api/v1/admin/accounts/{id}/sign-out` | Ends every open session of the account |
+| `DELETE /api/v1/admin/accounts/{id}` | `{confirm_email, delete_business}`. `confirm_email` must be the account's email (`422 confirmation_mismatch`). Deletes the account, its sessions, profile, documents and reset links. With `delete_business` (the default), the live business made from it goes too: staff logins, bookings, calls, callbacks, phone numbers and queued notices. Returns what was deleted. The demo or the deployment's own business is refused with `409 business_protected`. Nothing is removed from Google Calendar, Twilio or Vapi |
+| `PATCH /api/v1/admin/businesses/{slug}/plan` | `{plan, trial_days?}`, as `python -m app.plans set` does: `trial` restarts the trial for `trial_days` (default 14) from now. Returns the owner's account, or `null` for a business without one |
+| `GET /api/v1/admin/actions` | The last 50 admin changes, newest first |
+
 ## Voice
 
 ### `POST /api/v1/voice/sessions`

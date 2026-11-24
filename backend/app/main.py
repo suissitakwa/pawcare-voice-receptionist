@@ -20,6 +20,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.admin_api import router as admin_router
 from app.availability import (
     active_staff,
     check_booking_window,
@@ -460,3 +461,4 @@ app.include_router(subscriber_router)
 app.include_router(knowledge_router)
 app.include_router(phone_router)
 app.include_router(vapi_router)
+app.include_router(admin_router)
