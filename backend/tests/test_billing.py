@@ -159,6 +159,24 @@ def test_the_dashboard_offers_card_payment_and_starts_checkout(client, db, strip
     assert client.post(f"{STAFF}/plan/checkout").status_code == 401
 
 
+def test_other_businesses_return_to_their_own_dashboard(client, db, stripe_calls) -> None:
+    # Staff sessions are kept per business: a business that isn't the deployment's own must
+    # come back from Stripe to /b/<slug>/staff, or the owner lands on a sign-in form.
+    headers = staff_headers(client, db)
+    elsewhere = STRIPE.model_copy(update={"business_slug": "another-business"})
+    app.dependency_overrides[get_settings] = lambda: elsewhere
+    assert client.post(f"{STAFF}/plan/checkout", headers=headers).status_code == 200
+    params = stripe_calls[-1][1]
+    assert params["success_url"] == "https://app.example.com/b/pawcare-demo/staff?billing=paid"
+    assert params["cancel_url"] == (
+        "https://app.example.com/b/pawcare-demo/staff?billing=cancelled"
+    )
+    demo(db).stripe_customer_id = "cus_1"
+    db.commit()
+    client.post(f"{STAFF}/plan/portal", headers=headers)
+    assert stripe_calls[-1][1]["return_url"] == "https://app.example.com/b/pawcare-demo/staff"
+
+
 def test_without_stripe_owners_ask_for_an_invoice(client, db, stripe_calls) -> None:
     app.dependency_overrides[get_settings] = lambda: Settings()
     headers = staff_headers(client, db)

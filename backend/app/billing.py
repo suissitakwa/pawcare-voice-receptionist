@@ -97,8 +97,13 @@ def stripe_post(settings: Settings, path: str, params: dict) -> dict:
         raise StripeError(f"Stripe can't be reached: {error.reason}") from None
 
 
-def dashboard_url(settings: Settings, billing: str | None = None) -> str:
-    url = f"{settings.public_site_url.rstrip('/')}/staff"
+def dashboard_url(settings: Settings, business: Business, billing: str | None = None) -> str:
+    """The business's own staff dashboard: /staff for the deployment's own business (the demo),
+    /b/<slug>/staff for every other. Staff sessions are kept per business, so returning anywhere
+    else from Stripe would show a sign-in form."""
+    root = settings.public_site_url.rstrip("/")
+    page = "/staff" if business.slug == settings.business_slug else f"/b/{business.slug}/staff"
+    url = f"{root}{page}"
     return f"{url}?billing={billing}" if billing else url
 
 
@@ -111,8 +116,8 @@ def checkout_url(settings: Settings, business: Business, email: str) -> str:
         "client_reference_id": business_id,
         "metadata": {"business_id": business_id},
         "subscription_data": {"metadata": {"business_id": business_id}},
-        "success_url": dashboard_url(settings, "paid"),
-        "cancel_url": dashboard_url(settings, "cancelled"),
+        "success_url": dashboard_url(settings, business, "paid"),
+        "cancel_url": dashboard_url(settings, business, "cancelled"),
     }
     if business.stripe_customer_id:
         params["customer"] = business.stripe_customer_id
@@ -123,7 +128,10 @@ def checkout_url(settings: Settings, business: Business, email: str) -> str:
 
 def portal_url(settings: Settings, business: Business) -> str:
     """Stripe's customer portal: the card, invoices, and cancelling."""
-    params = {"customer": business.stripe_customer_id, "return_url": dashboard_url(settings)}
+    params = {
+        "customer": business.stripe_customer_id,
+        "return_url": dashboard_url(settings, business),
+    }
     return stripe_post(settings, "/billing_portal/sessions", params)["url"]
 
 
