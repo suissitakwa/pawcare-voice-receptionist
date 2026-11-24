@@ -64,7 +64,7 @@ Links use `PUBLIC_SITE_URL`; set it, or the emails show only the `/b/<slug>` pat
 
 ## Plan requests
 
-When an owner presses **Keep my receptionist** on their dashboard, `ADMIN_EMAIL` gets **"Plan request: <business> wants to keep their receptionist"** (once). It gives who asked, where to send the invoice, and the `app.plans set <slug> starter` command for once it's paid. The "set up" email tells new owners about the trial and the price. See [pricing.md](pricing.md).
+When an owner presses **Keep my receptionist** on their dashboard, `ADMIN_EMAIL` gets **"Plan request: <business> wants to keep their receptionist"** (once). It gives who asked, where to send the invoice, and the `app.plans set <slug> starter` command for once it's paid. The "set up" email tells new owners about the trial and the three plans (Starter, Growth, Pro), which they choose on their dashboard. See [pricing.md](pricing.md).
 
 ## Calendar problems
 

@@ -133,7 +133,9 @@ describe("SubscriberApp", () => {
   it("links the terms and privacy policy from the sign-up checkbox", () => {
     mockApi(routes());
     render(<SubscriberApp />);
-    expect(screen.getByText(/then \$49 a month for up to 100 calls\. No card/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Starter \$49 a month for 100 calls, Growth \$99 a month for 300 calls, Pro \$149 a month for 500 calls\. No card/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "terms of service" })).toHaveAttribute("href", "https://helloeverai.com/terms/");
     expect(screen.getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "https://helloeverai.com/privacy/");
   });

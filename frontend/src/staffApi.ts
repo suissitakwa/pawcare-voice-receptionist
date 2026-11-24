@@ -151,9 +151,23 @@ export interface WebhookStatus {
   last_error: string | null;
 }
 
+export type PaidPlan = "starter" | "growth" | "pro";
+
+/** A paid plan the owner can choose. */
+export interface PlanOption {
+  plan: PaidPlan;
+  label: string;
+  price: string;
+  calls: number;
+  /** It can be bought by card here. */
+  card_payment: boolean;
+}
+
 /** The free trial or plan, and this month's calls against its allowance. */
 export interface PlanStatus {
-  plan: "trial" | "starter" | "unlimited";
+  plan: "trial" | PaidPlan | "unlimited";
+  /** Starter, Growth or Pro; "Free trial" or "Unlimited" otherwise. */
+  label: string;
   state: "trial" | "trial_ended" | "active" | "payment_stopped" | "allowance_used" | "unlimited";
   price: string;
   calls_included: number | null;
@@ -168,6 +182,8 @@ export interface PlanStatus {
   card_payment: boolean;
   /** The business pays through Stripe, so its billing portal can open. */
   manage_billing: boolean;
+  /** Every paid plan, cheapest first. */
+  plan_options: PlanOption[];
 }
 
 export interface CalendarStatus {
@@ -218,7 +234,8 @@ export const staffApi = {
   plan: (token: string) => authed<PlanStatus>(token, "/plan"),
   requestPlan: (token: string) => authed<PlanStatus>(token, "/plan/request", { method: "POST" }),
   /** A Stripe Checkout page for the paid plan. */
-  startCheckout: (token: string) => authed<{ url: string }>(token, "/plan/checkout", { method: "POST" }),
+  startCheckout: (token: string, plan: PaidPlan = "starter") =>
+    authed<{ url: string }>(token, "/plan/checkout", json({ plan })),
   /** Stripe's customer portal: the card, invoices, cancelling. */
   billingPortal: (token: string) => authed<{ url: string }>(token, "/plan/portal", { method: "POST" }),
   sendTestEvent: (token: string) => authed<{ event_id: string }>(token, "/webhooks/test", { method: "POST" }),

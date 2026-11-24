@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { ApiRequestError } from "./api";
-import { staffApi, type PlanStatus } from "./staffApi";
+import { staffApi, type PaidPlan, type PlanStatus } from "./staffApi";
 
-// The same as backend/app/plans.py: shown on the sign-up page before any plan exists.
-export const PLAN_PRICE = "$49";
-export const MONTHLY_CALLS = 100;
+// The same as backend/app/plans.py (PAID): shown on the sign-up page before any plan exists.
+export const PLANS: { plan: PaidPlan; label: string; price: string; calls: number }[] = [
+  { plan: "starter", label: "Starter", price: "$49", calls: 100 },
+  { plan: "growth", label: "Growth", price: "$99", calls: 300 },
+  { plan: "pro", label: "Pro", price: "$149", calls: 500 },
+];
 export const TRIAL_DAYS = 14;
 
 function day(iso: string): string {
@@ -32,9 +35,10 @@ function leave(url: string) {
 }
 
 /**
- * The free trial or plan on the staff dashboard. With Stripe set up, owners pay by card on
- * Stripe's Checkout page and manage it in Stripe's portal. Without it, asking to keep the
- * receptionist emails HelloEver, who send an invoice and then mark the plan paid.
+ * The free trial or plan on the staff dashboard. With Stripe set up, owners choose Starter,
+ * Growth or Pro and pay by card on Stripe's Checkout page, then change plan, card or cancel in
+ * Stripe's portal. Without it, asking to keep the receptionist emails HelloEver, who send an
+ * invoice and then set the plan.
  */
 export function PlanPanel({ token, navigate = leave }: { token: string; navigate?: (url: string) => void }) {
   const [status, setStatus] = useState<PlanStatus | null>(null);
@@ -73,42 +77,50 @@ export function PlanPanel({ token, navigate = leave }: { token: string; navigate
   const paying = ["active", "trialing", "past_due"].includes(status.billing_status ?? "");
   const canPayByCard = status.card_payment && !paying && (status.plan === "trial" || status.state === "payment_stopped");
   const calls = `${status.calls_this_month} of ${status.calls_included} calls this month`;
+  const cheapest = status.plan_options[0]?.price ?? status.price;
+  const choices = status.plan_options.filter((option) => option.card_payment);
   return (
     <section aria-labelledby="staff-plan">
       <h2 id="staff-plan">Your plan</h2>
       {returned === "paid" && (
         <p className="form-info" role="status">
-          Thanks for paying. Your receptionist is on the {status.price} a month plan
-          {status.plan === "trial" ? " as soon as Stripe confirms the payment (usually within a minute)" : ""}.
+          {status.plan === "trial"
+            ? "Thanks for paying. Your plan starts as soon as Stripe confirms the payment (usually within a minute)."
+            : `Thanks for paying. Your receptionist is on ${status.label}.`}
         </p>
       )}
       {returned === "cancelled" && <p className="muted">Payment cancelled. Nothing was charged.</p>}
       {status.state === "trial" && status.trial_ends_at && (
         <p>
-          <strong>Free trial: {daysLeft(status.trial_ends_at)} days left</strong> (until {day(status.trial_ends_at)}). Then{" "}
-          {status.price} a month for up to {status.calls_included} calls. Nothing is charged automatically.
+          <strong>Free trial: {daysLeft(status.trial_ends_at)} days left</strong> (until {day(status.trial_ends_at)}). Then choose a
+          plan, from {cheapest} a month. Nothing is charged automatically.
         </p>
       )}
       {status.state === "trial_ended" && (
         <p className="form-alert" role="alert">
           Your free trial ended{status.trial_ends_at ? ` on ${day(status.trial_ends_at)}` : ""}. Your receptionist only takes
-          messages now: it can't book or answer questions until you keep it on the {status.price} a month plan.
+          messages now: it can't book or answer questions until you choose a plan.
         </p>
       )}
       {status.state === "payment_stopped" && (
         <p className="form-alert" role="alert">
           Your card payments have stopped. Your receptionist only takes messages now: it can't book or answer questions until
-          you pay for the {status.price} a month plan again.
+          you choose a plan again.
         </p>
       )}
       {status.state === "allowance_used" && (
         <p className="form-alert" role="alert">
           You've used this month's {status.calls_included} calls. Until the 1st, your receptionist only takes messages.
+          {status.manage_billing && " For more calls, choose a bigger plan in Manage billing."}
         </p>
       )}
       {status.state === "active" && (
         <p>
-          <strong>{status.price} a month</strong> for up to {status.calls_included} calls.
+          <strong>
+            {status.label}: {status.price} a month
+          </strong>{" "}
+          for up to {status.calls_included} calls.
+          {status.manage_billing && " To change plan, choose Manage billing."}
         </p>
       )}
       {status.billing_ends_at && status.state !== "payment_stopped" && (
@@ -124,12 +136,23 @@ export function PlanPanel({ token, navigate = leave }: { token: string; navigate
         </p>
       )}
       <p className="muted">{calls}.</p>
+      {canPayByCard && choices.length > 0 && (
+        <ul className="plan-options" aria-label="Plans">
+          {choices.map((option) => (
+            <li key={option.plan}>
+              <button
+                type="button"
+                className={option.plan === "growth" ? "button button-primary" : "button"}
+                disabled={busy}
+                onClick={goToStripe((t) => staffApi.startCheckout(t, option.plan))}
+              >
+                {option.label}: {option.price} a month for {option.calls} calls
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="actions">
-        {canPayByCard && (
-          <button type="button" className="button button-primary" disabled={busy} onClick={goToStripe(staffApi.startCheckout)}>
-            Pay by card ({status.price} a month)
-          </button>
-        )}
         {!status.card_payment && status.plan === "trial" && !status.upgrade_requested_at && (
           <button type="button" className="button button-primary" disabled={busy} onClick={ask}>
             Keep my receptionist ({status.price} a month)

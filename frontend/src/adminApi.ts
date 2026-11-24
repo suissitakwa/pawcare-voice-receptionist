@@ -5,7 +5,7 @@ export interface AdminUser {
   display_name: string;
 }
 
-export type Plan = "trial" | "starter" | "unlimited";
+export type Plan = "trial" | "starter" | "growth" | "pro" | "unlimited";
 
 /** One sign-up, as the admin list shows it. */
 export interface AdminAccount {

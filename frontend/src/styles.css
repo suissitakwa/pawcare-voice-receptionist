@@ -144,6 +144,9 @@ main:focus { outline: none; }
 .hero-art .paw { width: 58%; color: var(--paper); }
 
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.plan-options { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
+.plan-options li { flex: 1 1 220px; }
+.plan-options .button { width: 100%; }
 .button {
   display: inline-flex;
   align-items: center;

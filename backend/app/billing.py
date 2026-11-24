@@ -1,14 +1,15 @@
 """Card payment for the paid plan through Stripe.
 
 - **Checkout:** the owner presses "Pay by card" on their dashboard and is sent to a Stripe
-  Checkout page for the monthly subscription (STRIPE_PRICE_ID). Nothing is stored or charged
-  here; card details never reach this backend.
+  Checkout page for the plan they pick (Starter, Growth or Pro, each its own Stripe price).
+  Nothing is stored or charged here; card details never reach this backend.
 - **Webhook:** Stripe tells this backend what happened, signed with STRIPE_WEBHOOK_SECRET. A
-  finished checkout puts the business on `starter`; subscription changes keep
-  `billing_status` in step. Once a subscription is cancelled, or unpaid after Stripe's
-  retries, the receptionist only takes messages (app/plans.py) until it's paid again.
-- **Customer portal:** "Manage billing" opens Stripe's portal for the card, invoices and
-  cancelling.
+  finished checkout puts the business on the plan its price stands for; subscription changes
+  (including switching plan in the portal) keep the plan and `billing_status` in step. Once
+  a subscription is cancelled, or unpaid after Stripe's retries, the receptionist only takes
+  messages (app/plans.py) until it's paid again.
+- **Customer portal:** "Manage billing" opens Stripe's portal for the card, invoices,
+  switching plan and cancelling.
 
 Stripe's API is called over HTTPS with the standard library, as the email sender is.
 """
@@ -29,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Business
+from app.plans import PAID
 
 logger = logging.getLogger("pawcare.billing")
 
@@ -58,6 +60,25 @@ def billing_problem(settings: Settings) -> str | None:
         if not value
     ]
     return f"{', '.join(missing)} not set" if missing else None
+
+
+def plan_prices(settings: Settings) -> dict[str, str]:
+    """The Stripe price of each paid plan that can be bought by card."""
+    prices = {
+        "starter": settings.stripe_price_id,
+        "growth": settings.stripe_growth_price_id,
+        "pro": settings.stripe_pro_price_id,
+    }
+    return {plan: price for plan, price in prices.items() if price}
+
+
+def plan_for(settings: Settings, subscription: dict) -> str | None:
+    """Which plan a subscription pays for, from its price; None for a price this deployment
+    doesn't sell."""
+    items = (subscription.get("items") or {}).get("data") or []
+    price = ((items[0].get("price") or {}).get("id")) if items else None
+    by_price = {price_id: plan for plan, price_id in plan_prices(settings).items()}
+    return by_price.get(price)
 
 
 def form_fields(params: dict, prefix: str = "") -> list[tuple[str, str]]:
@@ -117,14 +138,14 @@ def dashboard_url(settings: Settings, business: Business, billing: str | None = 
     return f"{url}?billing={billing}" if billing else url
 
 
-def checkout_url(settings: Settings, business: Business, email: str) -> str:
-    """A Stripe Checkout page for the monthly plan, for this business."""
+def checkout_url(settings: Settings, business: Business, email: str, plan: str) -> str:
+    """A Stripe Checkout page for one of the paid plans, for this business."""
     business_id = str(business.id)
     params: dict = {
         "mode": "subscription",
-        "line_items": [{"price": settings.stripe_price_id, "quantity": 1}],
+        "line_items": [{"price": plan_prices(settings)[plan], "quantity": 1}],
         "client_reference_id": business_id,
-        "metadata": {"business_id": business_id},
+        "metadata": {"business_id": business_id, "plan": plan},
         "subscription_data": {"metadata": {"business_id": business_id}},
         "success_url": dashboard_url(settings, business, "paid"),
         "cancel_url": dashboard_url(settings, business, "cancelled"),
@@ -174,12 +195,14 @@ def business_by_id(session: Session, value: str | None) -> Business | None:
     return session.get(Business, business_id)
 
 
-def put_on_paid_plan(business: Business, status: str) -> None:
+def put_on_paid_plan(business: Business, status: str, plan: str | None) -> None:
+    """plan None: a price this deployment doesn't sell; a paid plan stays as it is, anything
+    else becomes Starter."""
     business.billing_status = status
     business.billing_ends_at = None
     # The demo and pilots stay unlimited even if someone pays.
     if business.plan != "unlimited":
-        business.plan = "starter"
+        business.plan = plan or (business.plan if business.plan in PAID else "starter")
         business.trial_ends_at = None
     business.upgrade_requested_at = None
 
@@ -199,11 +222,12 @@ def checkout_completed(session: Session, settings: Settings, checkout: dict) -> 
     )
     if checkout.get("payment_status") not in ("paid", "no_payment_required"):
         return f"{business.slug}: checkout finished, payment pending"
-    put_on_paid_plan(business, "active")
+    chosen = (checkout.get("metadata") or {}).get("plan")
+    put_on_paid_plan(business, "active", chosen if chosen in PAID else None)
     if business.stripe_subscription_id:
         # A checkout event can arrive after later changes to its subscription.
         return subscription_changed(
-            session, current_subscription(settings, business.stripe_subscription_id)
+            session, settings, current_subscription(settings, business.stripe_subscription_id)
         )
     return f"{business.slug}: paid"
 
@@ -230,7 +254,7 @@ def current_subscription(settings: Settings, subscription_id: str) -> dict:
     return stripe_get(settings, f"/subscriptions/{subscription_id}")
 
 
-def subscription_changed(session: Session, subscription: dict) -> str:
+def subscription_changed(session: Session, settings: Settings, subscription: dict) -> str:
     subscription_id = subscription.get("id")
     status = str(subscription.get("status") or "")
     business = session.scalar(
@@ -247,14 +271,17 @@ def subscription_changed(session: Session, subscription: dict) -> str:
         business.stripe_subscription_id = subscription_id
     business.stripe_customer_id = subscription.get("customer") or business.stripe_customer_id
     if status in WORKING_BILLING:
-        put_on_paid_plan(business, status)
+        plan = plan_for(settings, subscription)
+        if plan is None:
+            logger.warning("%s: subscription %s has a price no plan uses", business.slug, status)
+        put_on_paid_plan(business, status, plan)
         business.billing_ends_at = scheduled_end(subscription)
     else:
         business.billing_ends_at = None
         # canceled, unpaid, incomplete, incomplete_expired, paused: app/plans.py decides what
         # still works.
         business.billing_status = status
-    return f"{business.slug}: subscription {status}"
+    return f"{business.slug}: {business.plan}, subscription {status}"
 
 
 SUBSCRIPTION_EVENTS = (
@@ -276,5 +303,7 @@ def handle_event(session: Session, settings: Settings, event: dict) -> str:
         # A bank debit that cleared after the checkout finished.
         return checkout_completed(session, settings, {**data, "payment_status": "paid"})
     if kind in SUBSCRIPTION_EVENTS:
-        return subscription_changed(session, current_subscription(settings, data.get("id")))
+        return subscription_changed(
+            session, settings, current_subscription(settings, data.get("id"))
+        )
     return f"ignored: {kind}"

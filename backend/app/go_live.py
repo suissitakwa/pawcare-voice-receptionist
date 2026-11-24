@@ -108,15 +108,15 @@ def trial_lines(trial_ends_at: str | None) -> list[str]:
     """The free trial, for a business that has one."""
     if not trial_ends_at:
         return []
-    from app.plans import MONTHLY_CALLS, PRICE, TRIAL_DAYS
+    from app.plans import PAID, TRIAL_DAYS
 
     ends = datetime.fromisoformat(trial_ends_at)
+    choices = "; ".join(f"{t.label} {t.price} for {t.calls} calls" for t in PAID.values())
     return [
-        f"Your free trial: {TRIAL_DAYS} days, until {ends:%B} {ends.day}. After that it's "
-        f"{PRICE} a month for up to {MONTHLY_CALLS} calls. No card is needed and nothing is "
-        'charged automatically: to keep your receptionist, press "Keep my receptionist" on '
-        "your dashboard and we'll send you an invoice. If you don't, it only takes messages "
-        "after the trial.",
+        f"Your free trial: {TRIAL_DAYS} days, until {ends:%B} {ends.day}. After that, choose a "
+        f"monthly plan on your dashboard ({choices}). No card is needed for the trial and "
+        "nothing is charged automatically. If you don't choose a plan, your receptionist only "
+        "takes messages after the trial.",
         "",
     ]
 

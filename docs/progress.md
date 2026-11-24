@@ -1182,3 +1182,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 785 passed (local PostgreSQL 14), 4 new in `test_billing.py`: an old "renewing" event arriving after the cancellation keeps the end date; a checkout arriving after its subscription ended stays stopped; with Stripe unreachable, checkout and subscription events fail with 503 and change nothing; only subscription IDs are looked up |
 | Live | Not deployed |
+
+## Growth and Pro plans (2026-11-24)
+
+**Outcome:** owners now choose between three plans after the free trial: **Starter $49 for 100 calls, Growth $99 for 300, Pro $149 for 500 a month**. The dashboard shows a button per plan that opens Stripe Checkout for it, names the current plan, and points to Manage billing to change plan. Switching plan in Stripe's portal moves the business to the plan its price stands for, with its allowance. The sign-up page, the "set up" email and the admin page list the three plans. Migration `0034` allows `growth` and `pro`; each needs its own Stripe price (`STRIPE_GROWTH_PRICE_ID`, `STRIPE_PRO_PRICE_ID`), and a plan without one isn't offered. The cost per call in dollars is still unmeasured, so the margins are unchecked.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 791 passed (local PostgreSQL 14), 6 new in `test_billing.py`: every plan listed with which can be paid by card; choosing Growth checks out its price and puts the business on Growth; a plan without its price, or an unknown one, is refused; switching plan in the portal follows the price, and an unknown price keeps the plan; each plan runs out at its own calls; a stopped Growth subscription only takes messages. Migration `0034` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 132 tests pass (Node 22): the three plans offered and the chosen one checked out; only plans that can be bought by card offered; back from Stripe on Growth, with how to change plan; the sign-up page lists the plans |
+| Live | Not deployed. The Growth and Pro prices aren't in Stripe yet |

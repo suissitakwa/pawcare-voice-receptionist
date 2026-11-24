@@ -168,4 +168,4 @@ Other businesses get their own calendar and webhook from the command line, store
 
 To answer the number with Vapi instead, set `VAPI_SECRET` and `VAPI_ENABLED=true`, import the Twilio number into Vapi, and point it at `/api/v1/vapi/events` with a bearer credential holding the secret. Full guide: [vapi.md](vapi.md).
 
-To let owners pay for the plan by card, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` and `PUBLIC_SITE_URL`, and point a Stripe webhook at `/api/v1/stripe/webhook`. Migration `0032` adds the billing columns. Full steps: [pricing.md](pricing.md#setting-it-up).
+To let owners pay for a plan by card, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` (Starter), `STRIPE_GROWTH_PRICE_ID`, `STRIPE_PRO_PRICE_ID` and `PUBLIC_SITE_URL`, and point a Stripe webhook at `/api/v1/stripe/webhook`. Migration `0032` adds the billing columns and `0034` the Growth and Pro plans. Full steps: [pricing.md](pricing.md#setting-it-up).

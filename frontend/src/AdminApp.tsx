@@ -46,7 +46,13 @@ function moment(iso: string): string {
 }
 
 const PROFILE_STATUS: Record<string, string> = { draft: "Filling in", submitted: "Awaiting review" };
-const PLANS: Record<Plan, string> = { trial: "Free trial", starter: "Starter", unlimited: "Unlimited" };
+const PLANS: Record<Plan, string> = {
+  trial: "Free trial",
+  starter: "Starter",
+  growth: "Growth",
+  pro: "Pro",
+  unlimited: "Unlimited",
+};
 const ACTIONS: Record<string, string> = {
   "account.updated": "Edited account",
   "account.unlocked": "Unlocked account",

@@ -122,7 +122,7 @@ class DeletionResult(BaseModel):
 class PlanUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    plan: Literal["trial", "starter", "unlimited"]
+    plan: Literal["trial", "starter", "growth", "pro", "unlimited"]
     trial_days: int | None = Field(default=None, ge=1, le=365)
 
 
