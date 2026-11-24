@@ -1151,3 +1151,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 777 passed (local PostgreSQL 14), 17 new in `test_billing.py`: Stripe's nested form encoding; only fresh signatures with the secret; checkout sends the price, owner email, business ID and return pages; no Stripe means an invoice; unlimited has nothing to pay; a Stripe failure is a clear 502; a paid checkout sets `starter` (twice is harmless) and opens the portal; unsigned and stale events change nothing; the webhook is off without a secret; a delayed payment waits; the subscription can arrive first; past due keeps working; cancelled and unpaid only take messages until paid again, as the same customer, and a late old-subscription event is ignored; marking paid by hand wins; unlimited stays unlimited; unknown events are ignored. Migration `0032` upgrades and downgrades cleanly |
 | Frontend | Typecheck and build pass; 130 tests pass (Node 22), 3 new: pay by card goes to Stripe; back from Stripe, thanks and Manage billing; past-due and stopped-payment warnings |
 | Live | Not deployed. Not tried against Stripe's test mode yet: needs a Stripe account, the price, the webhook and the four Railway variables |
+
+## Back from Stripe to the right dashboard (2026-11-24)
+
+**Outcome:** after paying by card, an owner came back to the demo's `/staff` page and saw a sign-in form, because staff sessions are kept per business. Checkout, its cancel page, and the customer portal now return to the business's own dashboard, `/b/<slug>/staff` (the deployment's own business keeps `/staff`). The payment itself was already recorded: Stripe test mode delivered `checkout.session.completed` and `customer.subscription.created` to production with 200.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 778 passed (local PostgreSQL 14), 1 new in `test_billing.py`: a business other than the deployment's own returns to `/b/<slug>/staff` from checkout, cancel and the portal |
+| Live | Not deployed yet |

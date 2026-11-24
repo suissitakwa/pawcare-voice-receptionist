@@ -39,7 +39,7 @@ A card subscription that Stripe has **cancelled** (by the owner in the portal, o
 
 The code is in `backend/app/billing.py`. Card details only ever go to Stripe.
 
-1. **Checkout:** `POST /api/v1/staff/plan/checkout` creates a Checkout Session in subscription mode for `STRIPE_PRICE_ID`, tagged with the business's ID, and the dashboard goes there. Stripe sends the owner back to `PUBLIC_SITE_URL/staff?billing=paid` (or `?billing=cancelled`).
+1. **Checkout:** `POST /api/v1/staff/plan/checkout` creates a Checkout Session in subscription mode for `STRIPE_PRICE_ID`, tagged with the business's ID, and the dashboard goes there. Stripe sends the owner back to their own dashboard, `PUBLIC_SITE_URL/b/<slug>/staff?billing=paid` (or `?billing=cancelled`); the deployment's own business uses `/staff`. The customer portal returns there too.
 2. **Webhook:** Stripe calls `POST /api/v1/stripe/webhook`, signed with `STRIPE_WEBHOOK_SECRET`; unsigned events, and ones signed more than 5 minutes ago, get 400. Handled events:
 
    | Event | Effect |
