@@ -111,6 +111,12 @@ export function PlanPanel({ token, navigate = leave }: { token: string; navigate
           <strong>{status.price} a month</strong> for up to {status.calls_included} calls.
         </p>
       )}
+      {status.billing_ends_at && status.state !== "payment_stopped" && (
+        <p className="form-info" role="status">
+          <strong>Cancels on {day(status.billing_ends_at)}.</strong> Your receptionist works in full until then, and only
+          takes messages after. To keep it, choose Manage billing, then Don't cancel subscription.
+        </p>
+      )}
       {status.billing_status === "past_due" && (
         <p className="form-alert" role="alert">
           Your last card payment didn't go through. Stripe will try again; update your card in Manage billing to keep your

@@ -1161,3 +1161,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 778 passed (local PostgreSQL 14), 1 new in `test_billing.py`: a business other than the deployment's own returns to `/b/<slug>/staff` from checkout, cancel and the portal |
 | Live | Not deployed yet |
+
+## The dashboard says when a cancelled plan ends (2026-11-24)
+
+**Outcome:** cancelling in Stripe's portal keeps the plan until the end of the period already paid for, but the dashboard still read "$49 a month" with no sign it was ending. Now **Your plan** says **"Cancels on <date>"**, that the receptionist works in full until then, and how to keep it (Manage billing, then "Don't cancel subscription"). Undoing the cancellation removes the notice; when the subscription ends, the date goes and the plan only takes messages, as before. Migration `0033` adds the date; `python -m app.plans show` prints it.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 781 passed (local PostgreSQL 14), 3 new in `test_billing.py`: `cancel_at` gives the end date and the plan keeps working, and undoing it clears it; older API versions' `cancel_at_period_end` with the period end on the subscription or its items; once deleted, the date goes and payment has stopped. Migration `0033` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 131 tests pass (Node 22), 1 new: the "Cancels on" notice with Manage billing and no Pay by card |
+| Live | Not deployed. Stacked on the return-to-dashboard fix |

@@ -68,6 +68,9 @@ class Business(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(64), unique=True)
     # The subscription's status in Stripe: active, past_due, canceled, unpaid, ...
     billing_status: Mapped[str | None] = mapped_column(String(32))
+    # When the owner has cancelled in Stripe's portal: the end of the period already paid for.
+    # The plan works until then. Empty while the subscription renews.
+    billing_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

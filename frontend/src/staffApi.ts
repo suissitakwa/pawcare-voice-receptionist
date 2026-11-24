@@ -162,6 +162,8 @@ export interface PlanStatus {
   upgrade_requested_at: string | null;
   /** The card subscription's status in Stripe (active, past_due, canceled, ...), or null. */
   billing_status: string | null;
+  /** When a card subscription the owner cancelled stops; null while it renews. */
+  billing_ends_at: string | null;
   /** Card payment through Stripe is set up; otherwise owners ask for an invoice. */
   card_payment: boolean;
   /** The business pays through Stripe, so its billing portal can open. */

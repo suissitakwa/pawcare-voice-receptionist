@@ -54,6 +54,8 @@ class PlanStatus:
     upgrade_requested_at: datetime | None
     # The card subscription's status in Stripe; None when invoiced by hand or never paid.
     billing_status: str | None
+    # When a card subscription the owner cancelled stops; None while it renews.
+    billing_ends_at: datetime | None
 
 
 def month_start(now: datetime, timezone: ZoneInfo) -> datetime:
@@ -109,6 +111,7 @@ def status(session: Session, business: Business, now: datetime) -> PlanStatus:
         trial_ends_at=business.trial_ends_at if business.plan == "trial" else None,
         upgrade_requested_at=business.upgrade_requested_at,
         billing_status=business.billing_status,
+        billing_ends_at=business.billing_ends_at if business.plan == "starter" else None,
     )
 
 
@@ -132,6 +135,7 @@ def set_plan(session: Session, slug: str, plan: str, now: datetime, days: int | 
         # holds the plan back. Stripe's IDs stay, so the owner can still reach their invoices.
         business.upgrade_requested_at = None
         business.billing_status = None
+        business.billing_ends_at = None
     return business
 
 
@@ -144,6 +148,8 @@ def describe(session: Session, business: Business, now: datetime) -> str:
         lines.append(f"Calls this month: {s.calls_this_month} of {s.calls_included}")
     if s.billing_status:
         lines.append(f"Card subscription: {s.billing_status}")
+    if s.billing_ends_at:
+        lines.append(f"Cancelled: ends {s.billing_ends_at:%Y-%m-%d}")
     if s.upgrade_requested_at:
         lines.append(f"Asked to keep it on {s.upgrade_requested_at:%Y-%m-%d}")
     return "\n".join(lines)
