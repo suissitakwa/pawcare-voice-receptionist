@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -75,16 +76,25 @@ def form_fields(params: dict, prefix: str = "") -> list[tuple[str, str]]:
 
 
 def stripe_post(settings: Settings, path: str, params: dict) -> dict:
+    return stripe_request(settings, "POST", path, params)
+
+
+def stripe_get(settings: Settings, path: str) -> dict:
+    return stripe_request(settings, "GET", path)
+
+
+def stripe_request(settings: Settings, method: str, path: str, params: dict | None = None):
+    headers = {
+        "Authorization": f"Bearer {settings.stripe_secret_key}",
+        "User-Agent": "receptionist-billing/1",
+    }
+    data = None
+    if params is not None:
+        data = urllib.parse.urlencode(form_fields(params)).encode()
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
     # Stripe's fixed https address and one of this module's paths, never one from input.
     request = urllib.request.Request(  # noqa: S310
-        f"{STRIPE_API}{path}",
-        data=urllib.parse.urlencode(form_fields(params)).encode(),
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {settings.stripe_secret_key}",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "receptionist-billing/1",
-        },
+        f"{STRIPE_API}{path}", data=data, method=method, headers=headers
     )
     try:
         # A fixed https address, never one from input.
@@ -174,7 +184,7 @@ def put_on_paid_plan(business: Business, status: str) -> None:
     business.upgrade_requested_at = None
 
 
-def checkout_completed(session: Session, checkout: dict) -> str:
+def checkout_completed(session: Session, settings: Settings, checkout: dict) -> str:
     if checkout.get("mode") != "subscription":
         return "ignored: not a subscription"
     business = business_by_id(
@@ -187,10 +197,15 @@ def checkout_completed(session: Session, checkout: dict) -> str:
     business.stripe_subscription_id = (
         checkout.get("subscription") or business.stripe_subscription_id
     )
-    if checkout.get("payment_status") in ("paid", "no_payment_required"):
-        put_on_paid_plan(business, "active")
-        return f"{business.slug}: paid"
-    return f"{business.slug}: checkout finished, payment pending"
+    if checkout.get("payment_status") not in ("paid", "no_payment_required"):
+        return f"{business.slug}: checkout finished, payment pending"
+    put_on_paid_plan(business, "active")
+    if business.stripe_subscription_id:
+        # A checkout event can arrive after later changes to its subscription.
+        return subscription_changed(
+            session, current_subscription(settings, business.stripe_subscription_id)
+        )
+    return f"{business.slug}: paid"
 
 
 def scheduled_end(subscription: dict) -> datetime | None:
@@ -204,9 +219,20 @@ def scheduled_end(subscription: dict) -> datetime | None:
     return datetime.fromtimestamp(int(when), UTC) if when else None
 
 
-def subscription_changed(session: Session, subscription: dict, deleted: bool) -> str:
+SUBSCRIPTION_ID = re.compile(r"sub_[A-Za-z0-9]{1,250}")
+
+
+def current_subscription(settings: Settings, subscription_id: str) -> dict:
+    """The subscription as it is now. Stripe doesn't deliver events in order, so each event is
+    only a sign that something changed: an older event applied late would undo a newer one."""
+    if not SUBSCRIPTION_ID.fullmatch(str(subscription_id)):
+        raise StripeError(f"Not a subscription ID: {subscription_id!r}")
+    return stripe_get(settings, f"/subscriptions/{subscription_id}")
+
+
+def subscription_changed(session: Session, subscription: dict) -> str:
     subscription_id = subscription.get("id")
-    status = "canceled" if deleted else str(subscription.get("status") or "")
+    status = str(subscription.get("status") or "")
     business = session.scalar(
         select(Business).where(Business.stripe_subscription_id == subscription_id)
     )
@@ -231,17 +257,24 @@ def subscription_changed(session: Session, subscription: dict, deleted: bool) ->
     return f"{business.slug}: subscription {status}"
 
 
-def handle_event(session: Session, event: dict) -> str:
-    """Applies one Stripe event. Safe to receive twice: it sets state rather than adding."""
+SUBSCRIPTION_EVENTS = (
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+)
+
+
+def handle_event(session: Session, settings: Settings, event: dict) -> str:
+    """Applies one Stripe event. Subscription changes are read back from Stripe, so receiving an
+    event twice, late, or out of order leaves the same result. Raises StripeError when Stripe
+    can't be asked; the webhook then fails and Stripe retries it."""
     kind = event.get("type", "")
     data = (event.get("data") or {}).get("object") or {}
     if kind == "checkout.session.completed":
-        return checkout_completed(session, data)
+        return checkout_completed(session, settings, data)
     if kind == "checkout.session.async_payment_succeeded":
         # A bank debit that cleared after the checkout finished.
-        return checkout_completed(session, {**data, "payment_status": "paid"})
-    if kind in ("customer.subscription.created", "customer.subscription.updated"):
-        return subscription_changed(session, data, deleted=False)
-    if kind == "customer.subscription.deleted":
-        return subscription_changed(session, data, deleted=True)
+        return checkout_completed(session, settings, {**data, "payment_status": "paid"})
+    if kind in SUBSCRIPTION_EVENTS:
+        return subscription_changed(session, current_subscription(settings, data.get("id")))
     return f"ignored: {kind}"

@@ -63,6 +63,26 @@ def stripe_calls(monkeypatch) -> list[tuple[str, dict]]:
     return calls
 
 
+# What Stripe says each subscription is now, as GET /v1/subscriptions/<id> answers. send()
+# records the subscription it delivers, as Stripe's state would be after that change.
+STRIPE_NOW: dict[str, dict] = {}
+
+
+@pytest.fixture(autouse=True)
+def stripe_answers(monkeypatch) -> Iterator[list[str]]:
+    asked: list[str] = []
+
+    def fake_get(settings: Settings, path: str) -> dict:
+        asked.append(path)
+        sub_id = path.removeprefix("/subscriptions/")
+        return STRIPE_NOW.get(sub_id) or {"id": sub_id, "customer": "cus_1", "status": "active"}
+
+    STRIPE_NOW.clear()
+    monkeypatch.setattr(billing, "stripe_get", fake_get)
+    yield asked
+    STRIPE_NOW.clear()
+
+
 def demo(db: Session) -> Business:
     db.expire_all()
     return db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
@@ -87,7 +107,11 @@ def signed(payload: bytes, secret: str = SECRET, at: datetime = NOW) -> dict:
     return {"Stripe-Signature": f"t={timestamp},v1={signature}"}
 
 
-def send(client, kind: str, data: dict, **sign) -> int:
+def send(client, kind: str, data: dict, current: bool = True, **sign) -> int:
+    """Delivers a signed event. With current=False it's an old event: Stripe has moved on."""
+    if current and kind.startswith("customer.subscription."):
+        deleted = kind.endswith(".deleted")
+        STRIPE_NOW[data["id"]] = {**data, "status": "canceled"} if deleted else data
     payload = json.dumps({"id": "evt_1", "type": kind, "data": {"object": data}}).encode()
     return client.post(WEBHOOK, content=payload, headers=signed(payload, **sign)).status_code
 
@@ -375,3 +399,43 @@ def test_once_it_ends_the_date_goes_and_payment_has_stopped(client, db) -> None:
     business = demo(db)
     assert (business.billing_status, business.billing_ends_at) == ("canceled", None)
     assert plans.plan_problem(db, business, NOW) == plans.PAYMENT_STOPPED
+
+
+# Events out of order: what Stripe says now wins
+
+
+def test_an_old_event_arriving_late_cannot_undo_a_newer_change(client, db, stripe_answers):
+    send(client, "checkout.session.completed", checkout(db))
+    cancelling = {**subscription(db, "active"), "cancel_at": int(PAID_UNTIL.timestamp())}
+    send(client, "customer.subscription.updated", cancelling)
+    # The earlier "renewing" event arrives last; Stripe still says it's cancelled.
+    send(client, "customer.subscription.updated", subscription(db, "active"), current=False)
+    assert demo(db).billing_ends_at == PAID_UNTIL
+    assert stripe_answers[-1] == "/subscriptions/sub_1"
+
+
+def test_a_late_checkout_after_the_subscription_ended_stays_stopped(client, db) -> None:
+    STRIPE_NOW["sub_1"] = {**subscription(db, "canceled")}
+    send(client, "checkout.session.completed", checkout(db))
+    business = demo(db)
+    assert (business.plan, business.billing_status) == ("starter", "canceled")
+    assert plans.plan_problem(db, business, NOW) == plans.PAYMENT_STOPPED
+
+
+def test_when_stripe_cant_be_asked_the_event_fails_and_changes_nothing(
+    client, db, monkeypatch
+) -> None:
+    def unreachable(settings, path):
+        raise billing.StripeError("Stripe can't be reached")
+
+    monkeypatch.setattr(billing, "stripe_get", unreachable)
+    # 503: Stripe retries the delivery later.
+    assert send(client, "checkout.session.completed", checkout(db)) == 503
+    assert send(client, "customer.subscription.updated", subscription(db, "active")) == 503
+    business = demo(db)
+    assert (business.plan, business.stripe_subscription_id) == ("trial", None)
+
+
+def test_only_subscription_ids_are_looked_up() -> None:
+    with pytest.raises(billing.StripeError, match="Not a subscription ID"):
+        billing.current_subscription(STRIPE, "../customers/cus_1")
