@@ -1102,3 +1102,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 730 passed (local PostgreSQL 14), 3 new in `test_staff_calls.py`: newest first with each outcome, length, how it ended and Vapi's cost; a change made after the call isn't credited to it and a session that never ended isn't shown as live; only the business's own calls, sign-in needed, the limit checked |
 | Frontend | Typecheck and build pass; 120 tests pass (Node 22), 2 new: a call's outcome, length, errors, ending and cost, then Refresh; no calls yet |
 | Live | Not deployed |
+
+## Simulated phone calls through Vapi (2026-11-23)
+
+**Outcome:** the only tests of real speech were manual calls. `evals/voice_sim.py` now phones the receptionist's real number with a scripted caller: a second Vapi assistant, calling from a second Twilio number. It then grades the receptionist's side of each call from Vapi's record of the backend's tool calls and results. It checks bookings, the read-back before booking, early "you're booked" claims, callbacks, and what was or wasn't said, with an optional model rubric. Test bookings are cancelled through the staff API. There are 10 scenarios in `evals/voice_scenarios.json`: hours, price, three bookings (a spelled name, a corrected dog's name), a declined read-back, a cat, a medical question, a callback and a prompt injection. Nothing is called without `--yes`. Reports are labelled as simulated calls and kept out of git. See [voice-simulations.md](voice-simulations.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean, including `evals/` |
+| Backend tests | 743 passed (local PostgreSQL 14), 13 new in `test_voice_sims.py`: a read-back booking passes; no read-back, an early "you're booked", a wrong name, or a failed confirmation are caught; text patterns and end reasons; a declined call; reply gaps from transcript times; matching the receptionist's call; the caller assistant; the report's labels and totals |
+| Runner without keys | Exits with the variables to set, places no call |
+| Live | Not run: needs a second Twilio number imported into Vapi and a Vapi API key. No simulated call has been placed yet |

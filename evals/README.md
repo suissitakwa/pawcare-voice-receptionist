@@ -6,6 +6,7 @@ Three kinds of evidence are kept apart and are never reported as one another:
 |---|---|---|
 | Automated tests | `backend/tests/`, `frontend/src/*.test.tsx` | Booking rules, concurrency, tools, and the voice interface, with no model involved |
 | Scripted evaluations | `evals/` | The assistant's decisions in text conversations, using the real model, instructions, and tools |
+| Simulated calls | `evals/voice_sim.py`, [voice-simulations.md](../docs/voice-simulations.md) | Real phone calls from a synthetic Vapi caller: speech recognition, voice, turn-taking and tools, but not real callers |
 | Manual calls | `docs/progress.md` | Real spoken calls, logged as individual observations |
 
 **Scripted evaluation results are not voice measurements.** They run in text mode. They show what the model decides, such as which tool it calls, what it claims, and whether it offers real times. They do not measure speech recognition, audio quality, interruption mid-sentence, or spoken latency.
