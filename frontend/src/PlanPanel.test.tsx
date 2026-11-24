@@ -13,6 +13,7 @@ const TRIAL: PlanStatus = {
   trial_ends_at: new Date(Date.now() + 9.5 * 86_400_000).toISOString(),
   upgrade_requested_at: null,
   billing_status: null,
+  billing_ends_at: null,
   card_payment: false,
   manage_billing: false,
 };
@@ -106,5 +107,24 @@ describe("PlanPanel", () => {
     render(<PlanPanel token="t" />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Your card payments have stopped");
     expect(screen.getByRole("button", { name: "Pay by card ($49 a month)" })).toBeInTheDocument();
+  });
+
+  it("says when a cancelled subscription ends, and that it works until then", async () => {
+    mockPlan({
+      ...TRIAL,
+      plan: "starter",
+      state: "active",
+      trial_ends_at: null,
+      billing_status: "active",
+      billing_ends_at: "2027-12-24T18:00:00Z",
+      card_payment: true,
+      manage_billing: true,
+    });
+    render(<PlanPanel token="t" />);
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent("Cancels on December 24.");
+    expect(notice).toHaveTextContent("works in full until then");
+    expect(screen.getByRole("button", { name: "Manage billing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pay by card/ })).not.toBeInTheDocument();
   });
 });

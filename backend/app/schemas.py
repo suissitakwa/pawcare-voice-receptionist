@@ -564,6 +564,8 @@ class PlanStatus(BaseModel):
     upgrade_requested_at: datetime | None
     # The card subscription's status in Stripe (active, past_due, canceled, ...), or None.
     billing_status: str | None = None
+    # When a card subscription the owner cancelled stops; None while it renews.
+    billing_ends_at: datetime | None = None
     # Whether the owner can pay by card here (Stripe is set up), or asks for an invoice.
     card_payment: bool = False
     # Whether the owner has a Stripe customer, so the billing portal can open.

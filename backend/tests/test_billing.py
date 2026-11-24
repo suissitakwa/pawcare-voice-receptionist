@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -45,7 +45,7 @@ def demo_on_a_trial(db: Session) -> Iterator[None]:
     business = demo(db)
     business.plan, business.trial_ends_at, business.upgrade_requested_at = "unlimited", None, None
     business.stripe_customer_id = business.stripe_subscription_id = None
-    business.billing_status = None
+    business.billing_status = business.billing_ends_at = None
     db.commit()
     app.dependency_overrides.pop(get_now, None)
     app.dependency_overrides.pop(get_settings, None)
@@ -325,3 +325,53 @@ def test_events_for_unknown_businesses_are_ignored(client, db) -> None:
     assert send(client, "checkout.session.completed", data) == 200
     assert send(client, "invoice.paid", {"id": "in_1"}) == 200
     assert demo(db).plan == "trial"
+
+
+# Cancelling in the portal: it works until the paid period ends
+
+
+PAID_UNTIL = datetime(2027, 2, 20, 18, 0, tzinfo=UTC)
+
+
+def test_a_scheduled_cancellation_shows_its_end_date_and_keeps_working(client, db) -> None:
+    headers = staff_headers(client, db)
+    send(client, "checkout.session.completed", checkout(db))
+    # Newer API versions set cancel_at.
+    cancelling = {**subscription(db, "active"), "cancel_at": int(PAID_UNTIL.timestamp())}
+    assert send(client, "customer.subscription.updated", cancelling) == 200
+    body = client.get(f"{STAFF}/plan", headers=headers).json()
+    assert (body["state"], body["billing_status"]) == ("active", "active")
+    assert datetime.fromisoformat(body["billing_ends_at"]) == PAID_UNTIL
+    assert plans.plan_problem(db, demo(db), NOW) is None
+    assert "Cancelled: ends 2027-02-20" in plans.describe(db, demo(db), NOW)
+    # "Don't cancel subscription" in the portal clears it.
+    send(client, "customer.subscription.updated", subscription(db, "active"))
+    assert client.get(f"{STAFF}/plan", headers=headers).json()["billing_ends_at"] is None
+
+
+def test_older_api_versions_give_the_period_end_instead(client, db) -> None:
+    send(client, "checkout.session.completed", checkout(db))
+    on_items = {
+        **subscription(db, "active"),
+        "cancel_at_period_end": True,
+        "items": {"data": [{"current_period_end": int(PAID_UNTIL.timestamp())}]},
+    }
+    send(client, "customer.subscription.updated", on_items)
+    assert demo(db).billing_ends_at == PAID_UNTIL
+    on_subscription = {
+        **subscription(db, "active"),
+        "cancel_at_period_end": True,
+        "current_period_end": int((PAID_UNTIL + timedelta(days=1)).timestamp()),
+    }
+    send(client, "customer.subscription.updated", on_subscription)
+    assert demo(db).billing_ends_at == PAID_UNTIL + timedelta(days=1)
+
+
+def test_once_it_ends_the_date_goes_and_payment_has_stopped(client, db) -> None:
+    send(client, "checkout.session.completed", checkout(db))
+    cancelling = {**subscription(db, "active"), "cancel_at": int(PAID_UNTIL.timestamp())}
+    send(client, "customer.subscription.updated", cancelling)
+    send(client, "customer.subscription.deleted", cancelling)
+    business = demo(db)
+    assert (business.billing_status, business.billing_ends_at) == ("canceled", None)
+    assert plans.plan_problem(db, business, NOW) == plans.PAYMENT_STOPPED

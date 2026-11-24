@@ -20,7 +20,7 @@ The receptionist still answers, but **only takes messages**: no times, prices or
 
 On the 1st, calls come back for `trial` (while it lasts) and `starter`. A trial that has ended stays message-only until the owner pays or you set a plan.
 
-A card subscription that Stripe has **cancelled** (by the owner in the portal, or after its failed-payment retries) or marks **unpaid** also turns the receptionist message-only, until the owner pays again or you set a plan. While a payment is **past due** and Stripe is still retrying, everything keeps working and the dashboard asks the owner to update their card.
+When an owner cancels in Stripe's portal, the plan keeps working until the end of the period already paid for, and the dashboard says **"Cancels on <date>"** until then; choosing "Don't cancel subscription" in the portal removes it. A card subscription that Stripe has **cancelled** (by the owner in the portal, or after its failed-payment retries) or marks **unpaid** also turns the receptionist message-only, until the owner pays again or you set a plan. While a payment is **past due** and Stripe is still retrying, everything keeps working and the dashboard asks the owner to update their card.
 
 ## What the owner sees
 
@@ -47,7 +47,8 @@ The code is in `backend/app/billing.py`. Card details only ever go to Stripe.
    | `checkout.session.completed` (paid) | Plan `starter`, trial and request cleared, Stripe customer and subscription saved |
    | `checkout.session.async_payment_succeeded` | The same, for a payment that cleared later |
    | `customer.subscription.created` / `updated` | `active`, `trialing`, `past_due`: stays on `starter`. `canceled`, `unpaid`, `incomplete_expired`: message-only |
-   | `customer.subscription.deleted` | Message-only |
+   | `customer.subscription.updated` with `cancel_at` (or `cancel_at_period_end`) | Still works; records when it ends |
+| `customer.subscription.deleted` | Message-only |
 
    Events about an older subscription than the one the business pays with are ignored, so a late cancellation doesn't stop a new subscription. Receiving an event twice is harmless. A business on `unlimited` stays unlimited even if it pays.
 3. **Portal:** `POST /api/v1/staff/plan/portal` opens Stripe's customer portal for the business's customer.
@@ -84,7 +85,7 @@ Setting `starter` or `unlimited` ends the trial, clears the request, and overrid
 
 ## API
 
-- `GET /api/v1/staff/plan`: `plan`, `state` (`trial`, `trial_ended`, `active`, `payment_stopped`, `allowance_used` or `unlimited`), `price`, `calls_included`, `calls_this_month`, `trial_ends_at`, `upgrade_requested_at`, `billing_status` (Stripe's subscription status, or null), `card_payment` (Stripe is set up), `manage_billing` (the portal can open).
+- `GET /api/v1/staff/plan`: `plan`, `state` (`trial`, `trial_ended`, `active`, `payment_stopped`, `allowance_used` or `unlimited`), `price`, `calls_included`, `calls_this_month`, `trial_ends_at`, `upgrade_requested_at`, `billing_status` (Stripe's subscription status, or null), `billing_ends_at` (when a cancelled subscription stops, or null), `card_payment` (Stripe is set up), `manage_billing` (the portal can open).
 - `POST /api/v1/staff/plan/request`: records the request once and emails `ADMIN_EMAIL`. Returns the same status. A business on `unlimited` gets 409 `no_plan_needed`.
 - `POST /api/v1/staff/plan/checkout`: `{"url": <Stripe Checkout>}`. 409 `card_payment_off` without Stripe, `no_plan_needed` for `unlimited`, `already_paying` with a working subscription; 502 `billing_unavailable` when Stripe fails.
 - `POST /api/v1/staff/plan/portal`: `{"url": <Stripe customer portal>}`. 409 `no_billing_account` before the first card payment.

@@ -21,7 +21,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -166,6 +166,7 @@ def business_by_id(session: Session, value: str | None) -> Business | None:
 
 def put_on_paid_plan(business: Business, status: str) -> None:
     business.billing_status = status
+    business.billing_ends_at = None
     # The demo and pilots stay unlimited even if someone pays.
     if business.plan != "unlimited":
         business.plan = "starter"
@@ -192,6 +193,17 @@ def checkout_completed(session: Session, checkout: dict) -> str:
     return f"{business.slug}: checkout finished, payment pending"
 
 
+def scheduled_end(subscription: dict) -> datetime | None:
+    """When a subscription the owner cancelled stops, or None while it renews. Newer Stripe API
+    versions set cancel_at; older ones only flag cancel_at_period_end, with the period's end on
+    the subscription or, since 2025, on its items."""
+    when = subscription.get("cancel_at")
+    if not when and subscription.get("cancel_at_period_end"):
+        items = (subscription.get("items") or {}).get("data") or [{}]
+        when = subscription.get("current_period_end") or items[0].get("current_period_end")
+    return datetime.fromtimestamp(int(when), UTC) if when else None
+
+
 def subscription_changed(session: Session, subscription: dict, deleted: bool) -> str:
     subscription_id = subscription.get("id")
     status = "canceled" if deleted else str(subscription.get("status") or "")
@@ -210,7 +222,9 @@ def subscription_changed(session: Session, subscription: dict, deleted: bool) ->
     business.stripe_customer_id = subscription.get("customer") or business.stripe_customer_id
     if status in WORKING_BILLING:
         put_on_paid_plan(business, status)
+        business.billing_ends_at = scheduled_end(subscription)
     else:
+        business.billing_ends_at = None
         # canceled, unpaid, incomplete, incomplete_expired, paused: app/plans.py decides what
         # still works.
         business.billing_status = status
