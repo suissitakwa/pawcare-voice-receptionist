@@ -692,8 +692,10 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
 # limits answer with a short message-taking call; any other refusal declines the call.
 MESSAGE_ONLY_PROBLEMS = {
     "daily call limit reached",
-    # A trial that ended, or a month's calls used up (app/plans.py).
+    # A trial that ended, a card subscription that stopped, or a month's calls used up
+    # (app/plans.py).
     "trial ended",
+    "plan payment stopped",
     "monthly call allowance used",
 }
 MESSAGE_TOOLS = {"create_callback_request"}

@@ -12,7 +12,7 @@ from fastapi import Path as PathParam
 from sqlalchemy import func, select, true, update
 from sqlalchemy.orm import Session
 
-from app import google_calendar, plans
+from app import billing, google_calendar, plans
 from app.availability import active_staff
 from app.clock import get_now
 from app.config import Settings, get_settings
@@ -41,6 +41,7 @@ from app.password_reset import (
 from app.password_reset import client_hash as reset_client
 from app.schemas import (
     SLUG_PATTERN,
+    BillingRedirect,
     BlockCreated,
     BlockRequest,
     CalendarStatus,
@@ -65,6 +66,7 @@ router = APIRouter(prefix="/api/v1/staff", tags=["staff"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 Now = Annotated[datetime, Depends(get_now)]
+AppSettings = Annotated[Settings, Depends(get_settings)]
 MAX_BLOCK = timedelta(days=31)
 
 
@@ -591,16 +593,24 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
     return callback
 
 
+def plan_response(db: Session, business: Business, settings: Settings, now: datetime):
+    return PlanStatus(
+        **dataclasses.asdict(plans.status(db, business, now)),
+        card_payment=billing.billing_problem(settings) is None,
+        manage_billing=bool(business.stripe_customer_id and settings.stripe_secret_key),
+    )
+
+
 @router.get("/plan", response_model=PlanStatus)
-def plan_status(context: Staff, db: DbSession, now: Now) -> PlanStatus:
+def plan_status(context: Staff, db: DbSession, now: Now, settings: AppSettings) -> PlanStatus:
     """The free trial or plan, and this month's calls against its allowance."""
     business = db.get(Business, context.staff.business_id)
-    return PlanStatus(**dataclasses.asdict(plans.status(db, business, now)))
+    return plan_response(db, business, settings, now)
 
 
 @router.post("/plan/request", response_model=PlanStatus)
-def request_plan(context: Staff, db: DbSession, now: Now) -> PlanStatus:
-    """The owner asks to keep their receptionist on the paid plan. Nothing is charged: you're
+def request_plan(context: Staff, db: DbSession, now: Now, settings: AppSettings) -> PlanStatus:
+    """The owner asks to keep their receptionist on the paid plan without a card: you're
     emailed to send an invoice, then mark it paid with python -m app.plans set."""
     business = db.get(Business, context.staff.business_id)
     if business.plan == "unlimited":
@@ -621,7 +631,46 @@ def request_plan(context: Staff, db: DbSession, now: Now) -> PlanStatus:
             now,
         )
         db.commit()
-    return PlanStatus(**dataclasses.asdict(plans.status(db, business, now)))
+    return plan_response(db, business, settings, now)
+
+
+def stripe_unavailable(error: billing.StripeError) -> ApiError:
+    billing.logger.warning("Stripe request failed: %s", error)
+    return ApiError(
+        502, "billing_unavailable", "Card payment isn't available right now. Please try again."
+    )
+
+
+@router.post("/plan/checkout", response_model=BillingRedirect)
+def start_checkout(
+    context: Staff, db: DbSession, now: Now, settings: AppSettings
+) -> BillingRedirect:
+    """A Stripe Checkout page where the owner pays for the plan by card."""
+    if billing.billing_problem(settings) is not None:
+        raise ApiError(409, "card_payment_off", "Card payment isn't set up. Ask for an invoice.")
+    business = db.get(Business, context.staff.business_id)
+    if business.plan == "unlimited":
+        raise ApiError(409, "no_plan_needed", "Your receptionist doesn't need a plan.")
+    if business.billing_status in billing.WORKING_BILLING:
+        raise ApiError(409, "already_paying", "You already pay by card. Use Manage billing.")
+    try:
+        url = billing.checkout_url(settings, business, context.staff.email)
+    except billing.StripeError as error:
+        raise stripe_unavailable(error) from None
+    return BillingRedirect(url=url)
+
+
+@router.post("/plan/portal", response_model=BillingRedirect)
+def open_billing_portal(context: Staff, db: DbSession, settings: AppSettings) -> BillingRedirect:
+    """Stripe's customer portal, for the card, invoices and cancelling."""
+    business = db.get(Business, context.staff.business_id)
+    if not settings.stripe_secret_key or not business.stripe_customer_id:
+        raise ApiError(409, "no_billing_account", "You don't pay by card here yet.")
+    try:
+        url = billing.portal_url(settings, business)
+    except billing.StripeError as error:
+        raise stripe_unavailable(error) from None
+    return BillingRedirect(url=url)
 
 
 @router.get("/calendar", response_model=CalendarStatus)

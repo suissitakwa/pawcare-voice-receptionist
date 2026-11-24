@@ -554,7 +554,7 @@ class PlanStatus(BaseModel):
     """The business's plan: a free trial, the paid plan, or unlimited (app/plans.py)."""
 
     plan: str
-    # trial, trial_ended, active, allowance_used, or unlimited.
+    # trial, trial_ended, active, payment_stopped, allowance_used, or unlimited.
     state: str
     price: str
     # None for unlimited.
@@ -562,6 +562,18 @@ class PlanStatus(BaseModel):
     calls_this_month: int
     trial_ends_at: datetime | None
     upgrade_requested_at: datetime | None
+    # The card subscription's status in Stripe (active, past_due, canceled, ...), or None.
+    billing_status: str | None = None
+    # Whether the owner can pay by card here (Stripe is set up), or asks for an invoice.
+    card_payment: bool = False
+    # Whether the owner has a Stripe customer, so the billing portal can open.
+    manage_billing: bool = False
+
+
+class BillingRedirect(BaseModel):
+    """A Stripe page to send the owner to: Checkout or the customer portal."""
+
+    url: str
 
 
 class CalendarStatus(BaseModel):

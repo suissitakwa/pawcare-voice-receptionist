@@ -12,6 +12,9 @@ const TRIAL: PlanStatus = {
   calls_this_month: 12,
   trial_ends_at: new Date(Date.now() + 9.5 * 86_400_000).toISOString(),
   upgrade_requested_at: null,
+  billing_status: null,
+  card_payment: false,
+  manage_billing: false,
 };
 
 function mockPlan(get: PlanStatus, post?: PlanStatus) {
@@ -19,15 +22,20 @@ function mockPlan(get: PlanStatus, post?: PlanStatus) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? "GET"} ${new URL(url).pathname}`);
-      const body = init?.method === "POST" ? post : get;
+      const path = new URL(url).pathname;
+      calls.push(`${init?.method ?? "GET"} ${path}`);
+      const redirect = { url: `https://stripe.example${path}` };
+      const body = init?.method !== "POST" ? get : path.endsWith("/request") ? post : redirect;
       return { ok: true, status: 200, json: () => Promise.resolve(body) };
     }),
   );
   return calls;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
+});
 
 describe("PlanPanel", () => {
   it("shows the trial, its calls, and asks to keep the receptionist", async () => {
@@ -62,5 +70,41 @@ describe("PlanPanel", () => {
     const { container } = render(<PlanPanel token="t" />);
     await vi.waitFor(() => expect(calls).toHaveLength(1));
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("sends the owner to Stripe to pay by card when it's set up", async () => {
+    const calls = mockPlan({ ...TRIAL, card_payment: true });
+    const navigate = vi.fn();
+    render(<PlanPanel token="t" navigate={navigate} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Pay by card ($49 a month)" }));
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith("https://stripe.example/api/v1/staff/plan/checkout"));
+    expect(calls).toContain("POST /api/v1/staff/plan/checkout");
+    expect(screen.queryByRole("button", { name: /Keep my receptionist/ })).not.toBeInTheDocument();
+  });
+
+  it("thanks the owner back from Stripe and offers the billing portal", async () => {
+    window.history.replaceState(null, "", "/staff?billing=paid");
+    const paid = { ...TRIAL, plan: "starter" as const, state: "active" as const, trial_ends_at: null };
+    const calls = mockPlan({ ...paid, billing_status: "active", card_payment: true, manage_billing: true });
+    const navigate = vi.fn();
+    render(<PlanPanel token="t" navigate={navigate} />);
+    expect(await screen.findByRole("status")).toHaveTextContent("Thanks for paying");
+    expect(window.location.search).toBe("");
+    expect(screen.queryByRole("button", { name: /Pay by card/ })).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Manage billing" }));
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith("https://stripe.example/api/v1/staff/plan/portal"));
+    expect(calls).toContain("POST /api/v1/staff/plan/portal");
+  });
+
+  it("warns about a failed card and a stopped subscription", async () => {
+    const paid = { ...TRIAL, plan: "starter" as const, trial_ends_at: null, card_payment: true, manage_billing: true };
+    mockPlan({ ...paid, state: "active", billing_status: "past_due" });
+    const { unmount } = render(<PlanPanel token="t" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your last card payment didn't go through");
+    unmount();
+    mockPlan({ ...paid, state: "payment_stopped", billing_status: "canceled" });
+    render(<PlanPanel token="t" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your card payments have stopped");
+    expect(screen.getByRole("button", { name: "Pay by card ($49 a month)" })).toBeInTheDocument();
   });
 });

@@ -63,6 +63,11 @@ class Business(Base):
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the owner asked to keep their receptionist on the paid plan; cleared once set.
     upgrade_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Card payment through Stripe (app/billing.py). Empty for businesses invoiced by hand.
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # The subscription's status in Stripe: active, past_due, canceled, unpaid, ...
+    billing_status: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
