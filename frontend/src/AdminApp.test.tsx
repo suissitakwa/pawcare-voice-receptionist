@@ -137,3 +137,69 @@ describe("AdminApp", () => {
     expect(JSON.parse(String(sent?.init?.body))).toEqual({ plan: "starter" });
   });
 });
+
+const WAITING = { ...DETAIL, locked: false, business_slug: null, plan: null, trial_ends_at: null, staff_logins: [], phone_numbers: [], bookings: 0, calls: 0 };
+const REVIEW = {
+  business_name: "Shaggy Chic",
+  business_slug: "shaggy-chic",
+  timezone: "America/Los_Angeles",
+  hours: ["Tue 09:00-17:00"],
+  services: [{ name: "Full Groom", options: ["small 90 min $65.00"] }],
+  team: ["Sam"],
+  faqs: 1,
+  notes: [],
+  blocking: [],
+};
+
+describe("AdminApp review", () => {
+  it("shows only sign-ups awaiting review when asked", async () => {
+    const calls = mockApi(routes({ "GET /api/v1/admin/accounts": () => ({ status: 200, body: [{ ...ACCOUNT, business_slug: null, plan: null }] }) }));
+    render(<AdminApp />);
+    const user = await signIn();
+    await user.click(await screen.findByRole("button", { name: "Awaiting review" }));
+    expect(await screen.findByRole("heading", { name: /Awaiting review \(1\)/ })).toBeInTheDocument();
+    expect(calls.some((c) => c.key === "GET /api/v1/admin/accounts")).toBe(true);
+    const fetched = (vi.mocked(fetch).mock.calls as [string][]).map(([url]) => url);
+    expect(fetched.some((url) => url.endsWith("/api/v1/admin/accounts?stage=awaiting_review"))).toBe(true);
+  });
+
+  it("previews the business and approves it, then lists what's left", async () => {
+    const calls = mockApi(
+      routes({
+        "GET /api/v1/admin/accounts/a1": () => ({ status: 200, body: WAITING }),
+        "GET /api/v1/admin/accounts/a1/review": () => ({ status: 200, body: REVIEW }),
+        "POST /api/v1/admin/accounts/a1/approve": () => ({
+          status: 200,
+          body: { business_slug: "shaggy-chic", next_steps: ["Buy their Twilio number and register it."], account: DETAIL },
+        }),
+      }),
+    );
+    render(<AdminApp />);
+    const user = await signIn();
+    await user.click(await screen.findByRole("button", { name: "Manage sam@example.com" }));
+    expect(await screen.findByText("Full Groom")).toBeInTheDocument();
+    expect(screen.getByText("Tue 09:00-17:00")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Approve and go live" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Shaggy Chic is live at /b/shaggy-chic");
+    expect(screen.getByText("Buy their Twilio number and register it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and go live" })).not.toBeInTheDocument();
+    expect(calls.filter((c) => c.key === "POST /api/v1/admin/accounts/a1/approve")).toHaveLength(1);
+  });
+
+  it("won't approve a profile with something missing", async () => {
+    mockApi(
+      routes({
+        "GET /api/v1/admin/accounts/a1": () => ({ status: 200, body: WAITING }),
+        "GET /api/v1/admin/accounts/a1/review": () => ({
+          status: 200,
+          body: { ...REVIEW, blocking: ["No services and prices in the profile."] },
+        }),
+      }),
+    );
+    render(<AdminApp />);
+    const user = await signIn();
+    await user.click(await screen.findByRole("button", { name: "Manage sam@example.com" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No services and prices");
+    expect(screen.getByRole("button", { name: "Approve and go live" })).toBeDisabled();
+  });
+});

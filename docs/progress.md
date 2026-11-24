@@ -1125,3 +1125,14 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Migration | Up, down and up again from base in the test run |
 | Frontend | Typecheck and build pass; 124 tests pass (Node 22), 4 new in `AdminApp.test.tsx`: a wrong password; listing and unlocking; delete enabled only once the email is typed, sending the business with it; a plan change |
 | Live | Not deployed; no admin account created in production; page not tried in a browser |
+
+## Approving sign-ups from the admin page (2026-11-24)
+
+**Outcome:** a submitted profile only went live after someone ran `python -m app.provision approve` in the Railway Console. The admin page now has an **Awaiting review** list of submitted profiles that aren't live, longest waiting first. Opening one shows a preview of the business approving would create: address, time zone, hours, every service and price, the team and the number of answers. The preview is built by the same code as `approve` and creates nothing. **Approve and go live** then does what `approve --yes` does: it creates the business, starts the free trial, gives the owner a staff login with their sign-up password and emails them their links. The page then lists what's left (calendar, phone number, knowledge). A profile with no hours or services can't be approved and says what's missing. An account that is already live is refused, and two approvals at once can't create two businesses because the account row is locked. Each approval is logged. New endpoints: `GET /api/v1/admin/accounts/{id}/review` and `POST /api/v1/admin/accounts/{id}/approve`, plus `stage=awaiting_review` on the account list. See [api.md](api.md#admin) and [onboarding.md](onboarding.md).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 760 passed (local PostgreSQL 14), 5 new in `test_admin.py`: the awaiting-review list, and empty once approved; the preview matches the profile and creates nothing; a draft can't be reviewed or approved; approving makes the business live on a trial, the owner's password opens its dashboard, the approval is logged, and a second approval is refused without a second business; a profile without services is shown as blocked and not approved |
+| Frontend | Typecheck and build pass; 127 tests pass (Node 22), 3 new: the Awaiting review filter; preview, approve and the steps left; approve disabled with what's missing |
+| Live | Not deployed; not tried in a browser |

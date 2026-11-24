@@ -15,7 +15,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import plans
+from app import plans, provision
 from app.admin import AdminContext, authenticate, delete_account, is_protected, log_action, sign_in
 from app.clock import get_now
 from app.config import Settings, get_settings
@@ -77,6 +77,7 @@ class AccountSummary(BaseModel):
     business_name: str | None
     business_slug: str | None
     plan: str | None
+    submitted_at: datetime | None
 
 
 class StaffLoginPublic(BaseModel):
@@ -86,7 +87,6 @@ class StaffLoginPublic(BaseModel):
 
 class AccountDetail(AccountSummary):
     business_type: str | None
-    submitted_at: datetime | None
     business_is_protected: bool
     trial_ends_at: datetime | None
     staff_logins: list[StaffLoginPublic]
@@ -164,6 +164,7 @@ def to_summary(account, profile, business, last_sign_in, now: datetime) -> dict:
         or (profile.business_name if profile else None),
         "business_slug": business.slug if business else None,
         "plan": business.plan if business else None,
+        "submitted_at": profile.submitted_at if profile else None,
     }
 
 
@@ -207,7 +208,6 @@ def detail(db: Session, account_id: uuid.UUID, settings: Settings, now: datetime
     return AccountDetail(
         **to_summary(account, profile, business, last_sign_in, now),
         business_type=profile.business_type if profile else None,
-        submitted_at=profile.submitted_at if profile else None,
         business_is_protected=business is not None and is_protected(business, settings),
         trial_ends_at=business.trial_ends_at if business and business.plan == "trial" else None,
         staff_logins=staff,
@@ -242,13 +242,20 @@ def list_accounts(
     db: DbSession,
     now: Now,
     q: Annotated[str, Query(max_length=120)] = "",
+    stage: Literal["all", "awaiting_review"] = "all",
 ) -> list[AccountSummary]:
-    """Every sign-up, newest first. `q` matches email, name or business name."""
-    query = (
-        summary_query()
-        .order_by(SubscriberAccount.created_at.desc(), SubscriberAccount.email)
-        .limit(MAX_ACCOUNTS)
-    )
+    """Every sign-up, newest first. `q` matches email, name or business name.
+    `stage=awaiting_review`: submitted profiles not live yet, longest waiting first."""
+    if stage == "awaiting_review":
+        query = summary_query().where(
+            BusinessProfile.status == "submitted", BusinessProfile.business_id.is_(None)
+        )
+        query = query.order_by(BusinessProfile.submitted_at, SubscriberAccount.email)
+    else:
+        query = summary_query().order_by(
+            SubscriberAccount.created_at.desc(), SubscriberAccount.email
+        )
+    query = query.limit(MAX_ACCOUNTS)
     if q.strip():
         like = f"%{q.strip().replace('%', '').replace('_', '')}%"
         query = query.where(
@@ -395,6 +402,103 @@ def change_plan(
         select(BusinessProfile.account_id).where(BusinessProfile.business_id == business.id)
     )
     return detail(db, owner, settings, now) if owner else None
+
+
+class ServicePreview(BaseModel):
+    name: str
+    # "small 90 min $65.00", one per size or one for a salon.
+    options: list[str]
+
+
+class Review(BaseModel):
+    """What approving would create, built exactly as approving builds it."""
+
+    business_name: str
+    business_slug: str
+    timezone: str
+    hours: list[str]
+    services: list[ServicePreview]
+    team: list[str]
+    faqs: int
+    # Filled from defaults; worth checking with the owner, but approval can go ahead.
+    notes: list[str]
+    # Why it can't be approved yet, or empty.
+    blocking: list[str]
+
+
+class Approval(BaseModel):
+    business_slug: str
+    # What still needs a person: calendar, phone number, knowledge.
+    next_steps: list[str]
+    account: AccountDetail
+
+
+DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def awaiting_profile(db: Session, account: SubscriberAccount):
+    try:
+        return provision.submitted_profile(db, account.email)
+    except provision.ProvisionError as error:
+        raise ApiError(409, "not_ready_for_review", str(error)) from None
+
+
+@router.get("/accounts/{account_id}/review", response_model=Review)
+def review(account_id: uuid.UUID, _: Admin, db: DbSession) -> Review:
+    """Nothing is created. 409 not_ready_for_review for a draft, an unsupported business type
+    or an account that is already live."""
+    account = db.get(SubscriberAccount, account_id)
+    if account is None:
+        raise ApiError(404, "account_not_found", "No account with that id.")
+    account, profile = awaiting_profile(db, account)
+    if profile.business_id is not None:
+        raise ApiError(409, "not_ready_for_review", f"{account.email} is already live.")
+    data, gaps = provision.build(db, account, profile)
+    return Review(
+        business_name=data["name"],
+        business_slug=data["slug"],
+        timezone=data["timezone"],
+        hours=[
+            f"{DAYS[h['weekday']]} {h['opens_at'][:5]}-{h['closes_at'][:5]}" for h in data["hours"]
+        ],
+        services=[
+            ServicePreview(
+                name=s["name"],
+                options=[
+                    f"{o['size']} {o['duration_minutes']} min ${o['price_cents'] / 100:.2f}"
+                    for o in s["options"]
+                ],
+            )
+            for s in data["services"]
+        ],
+        team=[g["display_name"] for g in data["groomers"]],
+        faqs=len(data["faqs"]),
+        notes=[f"No {gap} in the profile." for gap in gaps if gap.startswith("time zone")],
+        blocking=[f"No {gap} in the profile." for gap in gaps if not gap.startswith("time zone")],
+    )
+
+
+@router.post("/accounts/{account_id}/approve", response_model=Approval)
+def approve_account(
+    account_id: uuid.UUID, context: Admin, db: DbSession, now: Now, settings: Config
+) -> Approval:
+    """Makes the submitted profile a live business, as `python -m app.provision approve`
+    does: trial started, owner's staff login added, owner emailed."""
+    # The account row lock makes a second, simultaneous approval wait and then see it's live.
+    account = find_account(db, account_id)
+    try:
+        seed, _, steps = provision.approve(db, account.email)
+    except ValueError as error:
+        # ProvisionError, or a profile that doesn't make a valid business file.
+        db.rollback()
+        raise ApiError(409, "not_ready_for_review", str(error)[:500]) from None
+    log_action(db, context.admin, "account.approved", account.email, now, business=seed.slug)
+    db.commit()
+    return Approval(
+        business_slug=seed.slug,
+        next_steps=steps,
+        account=detail(db, account_id, settings, now),
+    )
 
 
 @router.get("/actions", response_model=list[ActionPublic])
