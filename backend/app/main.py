@@ -31,6 +31,7 @@ from app.availability import (
     staff_for,
     staff_services,
 )
+from app.billing_api import router as billing_router
 from app.booking import confirm_booking, prepare_booking
 from app.clock import get_now
 from app.config import Settings, get_settings
@@ -462,3 +463,4 @@ app.include_router(knowledge_router)
 app.include_router(phone_router)
 app.include_router(vapi_router)
 app.include_router(admin_router)
+app.include_router(billing_router)

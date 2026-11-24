@@ -1136,3 +1136,18 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 760 passed (local PostgreSQL 14), 5 new in `test_admin.py`: the awaiting-review list, and empty once approved; the preview matches the profile and creates nothing; a draft can't be reviewed or approved; approving makes the business live on a trial, the owner's password opens its dashboard, the approval is logged, and a second approval is refused without a second business; a profile without services is shown as blocked and not approved |
 | Frontend | Typecheck and build pass; 127 tests pass (Node 22), 3 new: the Awaiting review filter; preview, approve and the steps left; approve disabled with what's missing |
 | Live | Not deployed; not tried in a browser |
+
+## Paying for the plan by card through Stripe (2026-11-24)
+
+**Outcome:** owners can now pay the $49 a month plan by card instead of asking for an invoice. **Pay by card** on the dashboard opens Stripe Checkout; a signed Stripe webhook then puts the business on `starter`, and **Manage billing** opens Stripe's customer portal for the card, invoices and cancelling.
+
+- **Subscription changes follow Stripe:** while a payment is past due, everything keeps working and the dashboard asks for a new card. Once Stripe cancels the subscription or marks it unpaid, the receptionist only takes messages, as after an unpaid trial, until the owner pays again.
+- **Safe by design:** card details only go to Stripe; webhook events must carry a valid signature less than 5 minutes old; repeated events are harmless; a late event about an old subscription can't stop a new one; `unlimited` businesses stay unlimited.
+- **Without Stripe keys** nothing changes: the dashboard asks for an invoice as before. Setting a plan by hand still wins. Migration `0032` adds the Stripe customer, subscription and status. See [pricing.md](pricing.md#card-payment-through-stripe).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 777 passed (local PostgreSQL 14), 17 new in `test_billing.py`: Stripe's nested form encoding; only fresh signatures with the secret; checkout sends the price, owner email, business ID and return pages; no Stripe means an invoice; unlimited has nothing to pay; a Stripe failure is a clear 502; a paid checkout sets `starter` (twice is harmless) and opens the portal; unsigned and stale events change nothing; the webhook is off without a secret; a delayed payment waits; the subscription can arrive first; past due keeps working; cancelled and unpaid only take messages until paid again, as the same customer, and a late old-subscription event is ignored; marking paid by hand wins; unlimited stays unlimited; unknown events are ignored. Migration `0032` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 130 tests pass (Node 22), 3 new: pay by card goes to Stripe; back from Stripe, thanks and Manage billing; past-due and stopped-payment warnings |
+| Live | Not deployed. Not tried against Stripe's test mode yet: needs a Stripe account, the price, the webhook and the four Railway variables |

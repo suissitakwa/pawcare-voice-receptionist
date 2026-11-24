@@ -2,12 +2,14 @@
 
 - **trial**: free for TRIAL_DAYS from going live (`provision approve`), up to MONTHLY_CALLS
   phone calls a month. No card; nothing is charged automatically.
-- **starter**: PRICE a month, up to MONTHLY_CALLS phone calls a month. Invoiced by hand for
-  now: the owner asks from their dashboard, and you mark them paid here.
+- **starter**: PRICE a month, up to MONTHLY_CALLS phone calls a month. Paid by card through
+  Stripe (app/billing.py), or invoiced by hand: the owner asks from their dashboard, and you
+  mark them paid here.
 - **unlimited**: no trial and no allowance, as before: the demo, pilots and every business
   that existed before plans.
 
-When a trial has ended, or this month's calls are used up, the receptionist still answers
+When a trial has ended, a card subscription has stopped (cancelled, or unpaid after Stripe's
+retries), or this month's calls are used up, the receptionist still answers
 but only takes a message (no times, prices or bookings), and the website's voice assistant
 is paused. The booking form keeps working: it costs nothing to run.
 
@@ -34,18 +36,24 @@ PLANS = ("trial", "starter", "unlimited")
 
 TRIAL_ENDED = "trial ended"
 ALLOWANCE_USED = "monthly call allowance used"
+PAYMENT_STOPPED = "plan payment stopped"
+# Stripe subscription statuses after which a paid plan no longer works. past_due still works
+# while Stripe retries the card.
+STOPPED_BILLING = ("canceled", "unpaid", "incomplete_expired")
 
 
 @dataclass(frozen=True)
 class PlanStatus:
     plan: str
-    # trial, trial_ended, active, allowance_used, or unlimited.
+    # trial, trial_ended, active, payment_stopped, allowance_used, or unlimited.
     state: str
     price: str
     calls_included: int | None
     calls_this_month: int
     trial_ends_at: datetime | None
     upgrade_requested_at: datetime | None
+    # The card subscription's status in Stripe; None when invoiced by hand or never paid.
+    billing_status: str | None
 
 
 def month_start(now: datetime, timezone: ZoneInfo) -> datetime:
@@ -72,6 +80,8 @@ def plan_problem(session: Session, business: Business, now: datetime) -> str | N
         return None
     if business.plan == "trial" and business.trial_ends_at and now >= business.trial_ends_at:
         return TRIAL_ENDED
+    if business.plan == "starter" and business.billing_status in STOPPED_BILLING:
+        return PAYMENT_STOPPED
     if calls_this_month(session, business, now) >= MONTHLY_CALLS:
         return ALLOWANCE_USED
     return None
@@ -84,6 +94,8 @@ def status(session: Session, business: Business, now: datetime) -> PlanStatus:
         state = "unlimited"
     elif problem == TRIAL_ENDED:
         state = "trial_ended"
+    elif problem == PAYMENT_STOPPED:
+        state = "payment_stopped"
     elif problem == ALLOWANCE_USED:
         state = "allowance_used"
     else:
@@ -96,6 +108,7 @@ def status(session: Session, business: Business, now: datetime) -> PlanStatus:
         calls_this_month=calls_this_month(session, business, now),
         trial_ends_at=business.trial_ends_at if business.plan == "trial" else None,
         upgrade_requested_at=business.upgrade_requested_at,
+        billing_status=business.billing_status,
     )
 
 
@@ -115,8 +128,10 @@ def set_plan(session: Session, slug: str, plan: str, now: datetime, days: int | 
     else:
         business.plan = plan
         business.trial_ends_at = None
-        # Paid or exempt: the request is answered.
+        # Paid or exempt: the request is answered, and a stopped card subscription no longer
+        # holds the plan back. Stripe's IDs stay, so the owner can still reach their invoices.
         business.upgrade_requested_at = None
+        business.billing_status = None
     return business
 
 
@@ -127,6 +142,8 @@ def describe(session: Session, business: Business, now: datetime) -> str:
         lines.append(f"Trial ends {s.trial_ends_at:%Y-%m-%d %H:%M %Z}")
     if s.calls_included is not None:
         lines.append(f"Calls this month: {s.calls_this_month} of {s.calls_included}")
+    if s.billing_status:
+        lines.append(f"Card subscription: {s.billing_status}")
     if s.upgrade_requested_at:
         lines.append(f"Asked to keep it on {s.upgrade_requested_at:%Y-%m-%d}")
     return "\n".join(lines)
