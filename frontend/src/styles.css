@@ -306,6 +306,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .block-list { display: grid; gap: 10px; margin: 16px 0 0; padding: 0; list-style: none; }
 .block-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
 .block-form { margin-top: 20px; padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+.admin-account form { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.admin-account h3 { margin: 0 0 12px; font-size: 1.125rem; }
+.admin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 16px 0 0; }
+.admin-facts dt { color: var(--ink-soft); font-size: 0.875rem; }
+.admin-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.admin-check { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
 .footer-links { margin-top: 8px !important; }
 .footer-links a { color: var(--paper); }
 

@@ -1113,3 +1113,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 743 passed (local PostgreSQL 14), 13 new in `test_voice_sims.py`: a read-back booking passes; no read-back, an early "you're booked", a wrong name, or a failed confirmation are caught; text patterns and end reasons; a declined call; reply gaps from transcript times; matching the receptionist's call; the caller assistant; the report's labels and totals |
 | Runner without keys | Exits with the variables to set, places no call |
 | Live | Not run: needs a second Twilio number imported into Vapi and a Vapi API key. No simulated call has been placed yet |
+
+## Admin accounts and the admin page (2026-11-24)
+
+**Outcome:** removing a sign-up or fixing an account meant writing SQL against production. Admins now sign in at `/admin` to see every sign-up and search it by email, name or business. For each account they can see where it stands (filling in, submitted, live), its business, plan, staff logins, phone numbers, bookings and calls. They can correct the name or sign-in email, clear a lockout, sign it out everywhere, change its business's plan or restart a trial, and delete it. A deletion needs the account's email typed. By default it also deletes the live business with its staff logins, bookings, calls and phone numbers. The demo is refused. Every change is logged with the admin who made it and shown under **Recent admin changes**. Admin accounts are only made from a shell (`python -m app.admin create`). Their sessions last 2 hours, and five failed sign-ins lock an admin out for 15 minutes. Migration `0031` adds `admin_users`, `admin_sessions` and `admin_actions`. See [api.md](api.md#admin) and [deployment.md](deployment.md#admin-accounts).
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 755 passed (local PostgreSQL 14), 12 new in `test_admin.py`: every route needs an admin token (a subscriber's is refused); lockout after five wrong passwords; list and search; editing name and email (a taken email refused, the new email signs in, the change logged); unlock and sign out everywhere; deletion refused without the typed email; a draft deleted and the email free to sign up again; a live account deleted with its business, booking, staff login and phone number, the demo untouched; the business kept when asked; the demo never deleted; plan changes; admin logout |
+| Migration | Up, down and up again from base in the test run |
+| Frontend | Typecheck and build pass; 124 tests pass (Node 22), 4 new in `AdminApp.test.tsx`: a wrong password; listing and unlocking; delete enabled only once the email is typed, sending the business with it; a plan change |
+| Live | Not deployed; no admin account created in production; page not tried in a browser |
