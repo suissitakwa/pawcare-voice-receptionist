@@ -4,6 +4,9 @@
 !.env.example
 secrets.yaml
 
+# Simulated call results hold test phone numbers and transcripts
+evals/results/voice/
+
 # Python
 .venv/
 __pycache__/

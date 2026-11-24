@@ -104,6 +104,7 @@ The frontend deploys to Netlify, and the backend and PostgreSQL deploy to Railwa
 - [API](docs/api.md)
 - [Deployment](docs/deployment.md)
 - [Manual voice testing](docs/voice-testing.md)
+- [Simulated phone calls](docs/voice-simulations.md)
 - [Automations with n8n](docs/automations.md)
 - [Phone line](docs/phone.md)
 - [Phone calls through Vapi](docs/vapi.md)
