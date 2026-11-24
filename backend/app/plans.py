@@ -1,21 +1,21 @@
-"""What a business pays for: a free trial, then one plan.
+"""What a business pays for: a free trial, then one of three paid plans.
 
-- **trial**: free for TRIAL_DAYS from going live (`provision approve`), up to MONTHLY_CALLS
-  phone calls a month. No card; nothing is charged automatically.
-- **starter**: PRICE a month, up to MONTHLY_CALLS phone calls a month. Paid by card through
-  Stripe (app/billing.py), or invoiced by hand: the owner asks from their dashboard, and you
-  mark them paid here.
+- **trial**: free for TRIAL_DAYS from going live (`provision approve`), up to TRIAL_CALLS phone
+  calls a month. No card; nothing is charged automatically.
+- **starter**, **growth**, **pro**: a monthly price for a monthly number of calls (PAID). Paid by
+  card through Stripe (app/billing.py), or invoiced by hand: the owner asks from their
+  dashboard, and you set the plan here.
 - **unlimited**: no trial and no allowance, as before: the demo, pilots and every business
   that existed before plans.
 
 When a trial has ended, a card subscription has stopped (cancelled, or unpaid after Stripe's
-retries), or this month's calls are used up, the receptionist still answers
-but only takes a message (no times, prices or bookings), and the website's voice assistant
-is paused. The booking form keeps working: it costs nothing to run.
+retries), or this month's calls are used up, the receptionist still answers but only takes a
+message (no times, prices or bookings), and the website's voice assistant is paused. The
+booking form keeps working: it costs nothing to run.
 
 Usage:
   python -m app.plans show <slug>
-  python -m app.plans set <slug> starter|unlimited
+  python -m app.plans set <slug> starter|growth|pro|unlimited
   python -m app.plans set <slug> trial [<days>]     restart or extend a trial
 """
 
@@ -29,10 +29,27 @@ from sqlalchemy.orm import Session
 
 from app.models import Business, VoiceSession
 
-PRICE = "$49"
-MONTHLY_CALLS = 100
+
+@dataclass(frozen=True)
+class Tier:
+    plan: str
+    label: str
+    price: str
+    calls: int
+
+
+# The paid plans, cheapest first. frontend/src/PlanPanel.tsx shows the same on the sign-up page.
+PAID = {
+    "starter": Tier("starter", "Starter", "$49", 100),
+    "growth": Tier("growth", "Growth", "$99", 300),
+    "pro": Tier("pro", "Pro", "$149", 500),
+}
 TRIAL_DAYS = 14
-PLANS = ("trial", "starter", "unlimited")
+TRIAL_CALLS = 100
+# The cheapest plan: what a trial becomes, and what an invoice request is for.
+PRICE = PAID["starter"].price
+MONTHLY_CALLS = PAID["starter"].calls
+PLANS = ("trial", *PAID, "unlimited")
 
 TRIAL_ENDED = "trial ended"
 ALLOWANCE_USED = "monthly call allowance used"
@@ -42,9 +59,18 @@ PAYMENT_STOPPED = "plan payment stopped"
 STOPPED_BILLING = ("canceled", "unpaid", "incomplete_expired")
 
 
+def calls_included(plan: str) -> int | None:
+    """The plan's calls a month; None for unlimited."""
+    if plan == "unlimited":
+        return None
+    return PAID[plan].calls if plan in PAID else TRIAL_CALLS
+
+
 @dataclass(frozen=True)
 class PlanStatus:
     plan: str
+    # Starter, Growth or Pro; "Free trial" or "Unlimited" otherwise.
+    label: str
     # trial, trial_ended, active, payment_stopped, allowance_used, or unlimited.
     state: str
     price: str
@@ -82,9 +108,9 @@ def plan_problem(session: Session, business: Business, now: datetime) -> str | N
         return None
     if business.plan == "trial" and business.trial_ends_at and now >= business.trial_ends_at:
         return TRIAL_ENDED
-    if business.plan == "starter" and business.billing_status in STOPPED_BILLING:
+    if business.plan in PAID and business.billing_status in STOPPED_BILLING:
         return PAYMENT_STOPPED
-    if calls_this_month(session, business, now) >= MONTHLY_CALLS:
+    if calls_this_month(session, business, now) >= calls_included(business.plan):
         return ALLOWANCE_USED
     return None
 
@@ -102,16 +128,18 @@ def status(session: Session, business: Business, now: datetime) -> PlanStatus:
         state = "allowance_used"
     else:
         state = "trial" if business.plan == "trial" else "active"
+    tier = PAID.get(business.plan)
     return PlanStatus(
         plan=business.plan,
+        label=tier.label if tier else ("Unlimited" if unlimited else "Free trial"),
         state=state,
-        price=PRICE,
-        calls_included=None if unlimited else MONTHLY_CALLS,
+        price=tier.price if tier else PRICE,
+        calls_included=calls_included(business.plan),
         calls_this_month=calls_this_month(session, business, now),
         trial_ends_at=business.trial_ends_at if business.plan == "trial" else None,
         upgrade_requested_at=business.upgrade_requested_at,
         billing_status=business.billing_status,
-        billing_ends_at=business.billing_ends_at if business.plan == "starter" else None,
+        billing_ends_at=business.billing_ends_at if business.plan in PAID else None,
     )
 
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiRequestError } from "./api";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
-import { MONTHLY_CALLS, PLAN_PRICE, TRIAL_DAYS } from "./PlanPanel";
+import { PLANS, TRIAL_DAYS } from "./PlanPanel";
 import { KnowledgeSuggestions } from "./KnowledgeSuggestions";
 import { WebsiteFindings, useWebsiteFindings } from "./WebsiteFindings";
 import { HoursEditor, ServicesEditor, TeamEditor, cleanSections } from "./ProfileSections";
@@ -139,8 +139,9 @@ function AuthForm({
       </p>
       {mode === "signup" && (
         <p className="form-info">
-          <strong>Free for {TRIAL_DAYS} days</strong>, then {PLAN_PRICE} a month for up to {MONTHLY_CALLS} calls. No card
-          needed, and nothing is charged automatically.
+          <strong>Free for {TRIAL_DAYS} days</strong>, then choose a plan:{" "}
+          {PLANS.map((p) => `${p.label} ${p.price} a month for ${p.calls} calls`).join(", ")}. No card needed, and nothing is
+          charged automatically.
         </p>
       )}
       {mode === "signup" && (

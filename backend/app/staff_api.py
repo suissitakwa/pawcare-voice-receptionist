@@ -46,6 +46,8 @@ from app.schemas import (
     BlockRequest,
     CalendarStatus,
     EmailStatus,
+    PlanChoice,
+    PlanOption,
     PlanStatus,
     StaffBlock,
     StaffBooking,
@@ -594,10 +596,22 @@ def complete_callback(callback_id: uuid.UUID, context: Staff, db: DbSession, now
 
 
 def plan_response(db: Session, business: Business, settings: Settings, now: datetime):
+    card = billing.billing_problem(settings) is None
+    prices = billing.plan_prices(settings)
     return PlanStatus(
         **dataclasses.asdict(plans.status(db, business, now)),
-        card_payment=billing.billing_problem(settings) is None,
+        card_payment=card,
         manage_billing=bool(business.stripe_customer_id and settings.stripe_secret_key),
+        plan_options=[
+            PlanOption(
+                plan=tier.plan,
+                label=tier.label,
+                price=tier.price,
+                calls=tier.calls,
+                card_payment=card and tier.plan in prices,
+            )
+            for tier in plans.PAID.values()
+        ],
     )
 
 
@@ -643,9 +657,10 @@ def stripe_unavailable(error: billing.StripeError) -> ApiError:
 
 @router.post("/plan/checkout", response_model=BillingRedirect)
 def start_checkout(
-    context: Staff, db: DbSession, now: Now, settings: AppSettings
+    context: Staff, db: DbSession, settings: AppSettings, choice: PlanChoice | None = None
 ) -> BillingRedirect:
-    """A Stripe Checkout page where the owner pays for the plan by card."""
+    """A Stripe Checkout page where the owner pays for a plan by card (Starter by default)."""
+    plan = (choice or PlanChoice()).plan
     if billing.billing_problem(settings) is not None:
         raise ApiError(409, "card_payment_off", "Card payment isn't set up. Ask for an invoice.")
     business = db.get(Business, context.staff.business_id)
@@ -653,8 +668,10 @@ def start_checkout(
         raise ApiError(409, "no_plan_needed", "Your receptionist doesn't need a plan.")
     if business.billing_status in billing.WORKING_BILLING:
         raise ApiError(409, "already_paying", "You already pay by card. Use Manage billing.")
+    if plan not in billing.plan_prices(settings):
+        raise ApiError(409, "plan_unavailable", "That plan can't be bought by card yet.")
     try:
-        url = billing.checkout_url(settings, business, context.staff.email)
+        url = billing.checkout_url(settings, business, context.staff.email, plan)
     except billing.StripeError as error:
         raise stripe_unavailable(error) from None
     return BillingRedirect(url=url)
@@ -662,7 +679,7 @@ def start_checkout(
 
 @router.post("/plan/portal", response_model=BillingRedirect)
 def open_billing_portal(context: Staff, db: DbSession, settings: AppSettings) -> BillingRedirect:
-    """Stripe's customer portal, for the card, invoices and cancelling."""
+    """Stripe's customer portal, for the card, invoices, switching plan and cancelling."""
     business = db.get(Business, context.staff.business_id)
     if not settings.stripe_secret_key or not business.stripe_customer_id:
         raise ApiError(409, "no_billing_account", "You don't pay by card here yet.")

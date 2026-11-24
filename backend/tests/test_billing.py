@@ -30,6 +30,8 @@ STRIPE = Settings(
     stripe_secret_key="sk_test_key",
     stripe_webhook_secret=SECRET,
     stripe_price_id="price_monthly",
+    stripe_growth_price_id="price_growth",
+    stripe_pro_price_id="price_pro",
     public_site_url="https://app.example.com/",
 )
 
@@ -176,7 +178,7 @@ def test_the_dashboard_offers_card_payment_and_starts_checkout(client, db, strip
     assert params["mode"] == "subscription"
     assert params["line_items"] == [{"price": "price_monthly", "quantity": 1}]
     assert params["customer_email"] == "maya@pawcare.example"
-    assert params["metadata"] == {"business_id": business_id}
+    assert params["metadata"] == {"business_id": business_id, "plan": "starter"}
     assert params["subscription_data"] == {"metadata": {"business_id": business_id}}
     assert params["success_url"] == "https://app.example.com/staff?billing=paid"
     assert params["cancel_url"] == "https://app.example.com/staff?billing=cancelled"
@@ -439,3 +441,89 @@ def test_when_stripe_cant_be_asked_the_event_fails_and_changes_nothing(
 def test_only_subscription_ids_are_looked_up() -> None:
     with pytest.raises(billing.StripeError, match="Not a subscription ID"):
         billing.current_subscription(STRIPE, "../customers/cus_1")
+
+
+# Three paid plans: Starter, Growth and Pro
+
+
+def priced(db: Session, status: str, price: str, sub_id: str = "sub_1") -> dict:
+    """A subscription as Stripe returns it, with the price it bills."""
+    return {**subscription(db, status, sub_id), "items": {"data": [{"price": {"id": price}}]}}
+
+
+def test_the_dashboard_lists_every_plan_and_which_can_be_paid_by_card(client, db) -> None:
+    app.dependency_overrides[get_settings] = lambda: STRIPE.model_copy(
+        update={"stripe_pro_price_id": ""}
+    )
+    body = client.get(f"{STAFF}/plan", headers=staff_headers(client, db)).json()
+    assert body["label"] == "Free trial"
+    assert [
+        (o["plan"], o["price"], o["calls"], o["card_payment"]) for o in body["plan_options"]
+    ] == [
+        ("starter", "$49", 100, True),
+        ("growth", "$99", 300, True),
+        ("pro", "$149", 500, False),
+    ]
+
+
+def test_choosing_growth_checks_out_its_price_and_puts_it_on_growth(
+    client, db, stripe_calls
+) -> None:
+    headers = staff_headers(client, db)
+    response = client.post(f"{STAFF}/plan/checkout", headers=headers, json={"plan": "growth"})
+    assert response.status_code == 200
+    params = stripe_calls[-1][1]
+    assert params["line_items"] == [{"price": "price_growth", "quantity": 1}]
+    assert params["metadata"]["plan"] == "growth"
+    STRIPE_NOW["sub_1"] = priced(db, "active", "price_growth")
+    send(client, "checkout.session.completed", {**checkout(db), "metadata": params["metadata"]})
+    body = client.get(f"{STAFF}/plan", headers=headers).json()
+    assert (body["plan"], body["label"], body["price"], body["calls_included"]) == (
+        "growth",
+        "Growth",
+        "$99",
+        300,
+    )
+
+
+def test_a_plan_without_its_price_or_an_unknown_plan_is_refused(client, db, stripe_calls) -> None:
+    app.dependency_overrides[get_settings] = lambda: STRIPE.model_copy(
+        update={"stripe_pro_price_id": ""}
+    )
+    headers = staff_headers(client, db)
+    response = client.post(f"{STAFF}/plan/checkout", headers=headers, json={"plan": "pro"})
+    assert (response.status_code, response.json()["error"]["code"]) == (409, "plan_unavailable")
+    bad = client.post(f"{STAFF}/plan/checkout", headers=headers, json={"plan": "gold"})
+    assert bad.status_code == 422
+    assert stripe_calls == []
+
+
+def test_switching_plan_in_the_portal_follows_the_price(client, db) -> None:
+    send(client, "checkout.session.completed", checkout(db))
+    send(client, "customer.subscription.updated", priced(db, "active", "price_pro"))
+    assert demo(db).plan == "pro"
+    send(client, "customer.subscription.updated", priced(db, "active", "price_monthly"))
+    assert demo(db).plan == "starter"
+    # A price this deployment doesn't sell keeps the plan it has.
+    send(client, "customer.subscription.updated", priced(db, "active", "price_other"))
+    assert demo(db).plan == "starter"
+
+
+def test_each_plan_runs_out_at_its_own_calls(db) -> None:
+    for plan, calls in (("growth", 300), ("pro", 500)):
+        plans.set_plan(db, "pawcare-demo", plan, NOW)
+        db.commit()
+        business = demo(db)
+        assert plans.calls_included(business.plan) == calls
+        assert plans.status(db, business, NOW).calls_included == calls
+    assert plans.calls_included("trial") == 100
+    assert plans.calls_included("unlimited") is None
+
+
+def test_a_stopped_growth_subscription_only_takes_messages(client, db) -> None:
+    send(client, "checkout.session.completed", checkout(db))
+    send(client, "customer.subscription.updated", priced(db, "active", "price_growth"))
+    send(client, "customer.subscription.deleted", priced(db, "active", "price_growth"))
+    business = demo(db)
+    assert (business.plan, business.billing_status) == ("growth", "canceled")
+    assert plans.plan_problem(db, business, NOW) == plans.PAYMENT_STOPPED

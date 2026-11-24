@@ -180,5 +180,5 @@ def test_approve_starts_a_free_trial_and_says_so(db, live) -> None:
     [event] = notices(db, go_live.LIVE)
     body = message_for(event, None, get_settings(), "sam@example.com").get_content()
     assert "Your free trial: 14 days, until" in body
-    assert "$49 a month for up to 100 calls. No card is needed" in body
-    assert '"Keep my receptionist"' in body
+    assert "choose a monthly plan on your dashboard (Starter $49 for 100 calls; Growth $99 " in body
+    assert "Pro $149 for 500 calls). No card is needed for the trial" in body

@@ -118,12 +118,16 @@ class Settings(BaseSettings):
     auto_approve_signups: bool = False
     admin_email: str = ""
 
-    # Card payment for the paid plan through Stripe Checkout, with Stripe's customer portal
-    # for cards, invoices and cancelling. The price is the $49 monthly recurring price's ID
-    # (price_...). Any of the three empty: owners ask for an invoice instead (docs/pricing.md).
+    # Card payment for the paid plans through Stripe Checkout, with Stripe's customer portal
+    # for cards, invoices, changing plan and cancelling. Each price is a monthly recurring
+    # price's ID (price_...): STRIPE_PRICE_ID is Starter ($49), the others Growth ($99) and Pro
+    # ($149). Without the key, the secret or the Starter price, owners ask for an invoice
+    # instead; a plan without its price isn't offered (docs/pricing.md).
     stripe_secret_key: str = Field(default="", repr=False)
     stripe_webhook_secret: str = Field(default="", repr=False)
     stripe_price_id: str = ""
+    stripe_growth_price_id: str = ""
+    stripe_pro_price_id: str = ""
 
     # Suggested answers drafted from an owner's web pages and documents, for them to review.
     # Uses OPENAI_API_KEY; without one, suggestions are off. Each run reads one source.

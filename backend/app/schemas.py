@@ -550,10 +550,29 @@ class WebhookStatus(BaseModel):
     last_error: str | None
 
 
-class PlanStatus(BaseModel):
-    """The business's plan: a free trial, the paid plan, or unlimited (app/plans.py)."""
+class PlanOption(BaseModel):
+    """A paid plan the owner can choose."""
 
     plan: str
+    label: str
+    price: str
+    calls: int
+    # Whether it can be bought by card here: Stripe is set up and the plan has its price.
+    card_payment: bool
+
+
+class PlanChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan: Literal["starter", "growth", "pro"] = "starter"
+
+
+class PlanStatus(BaseModel):
+    """The business's plan: a free trial, a paid plan, or unlimited (app/plans.py)."""
+
+    plan: str
+    # Starter, Growth or Pro; "Free trial" or "Unlimited" otherwise.
+    label: str
     # trial, trial_ended, active, payment_stopped, allowance_used, or unlimited.
     state: str
     price: str
@@ -570,6 +589,8 @@ class PlanStatus(BaseModel):
     card_payment: bool = False
     # Whether the owner has a Stripe customer, so the billing portal can open.
     manage_billing: bool = False
+    # Every paid plan, cheapest first.
+    plan_options: list[PlanOption] = []
 
 
 class BillingRedirect(BaseModel):
