@@ -331,3 +331,100 @@ def test_logout_ends_the_admin_session(client: TestClient, admin: dict) -> None:
     assert client.get(f"{ADMIN}/me", headers=admin).json()["email"] == ADMIN_EMAIL
     assert client.post(f"{ADMIN}/logout", headers=admin).status_code == 204
     assert client.get(f"{ADMIN}/me", headers=admin).status_code == 401
+
+
+def submit(client: TestClient, **kwargs) -> dict:
+    headers = auth(client, **kwargs)
+    complete(client, headers)
+    assert client.post(f"{API}/profile/submit", headers=headers).status_code == 200
+    return headers
+
+
+def test_lists_profiles_awaiting_review(client: TestClient, db: Session, admin: dict) -> None:
+    submit(client)
+    auth(client, email="jo@example.com", ip="203.0.113.9")
+    waiting = client.get(
+        f"{ADMIN}/accounts", params={"stage": "awaiting_review"}, headers=admin
+    ).json()
+    assert [a["email"] for a in waiting] == ["sam@example.com"]
+    assert waiting[0]["submitted_at"] is not None
+    approve(db, "sam@example.com")
+    db.commit()
+    assert (
+        client.get(f"{ADMIN}/accounts", params={"stage": "awaiting_review"}, headers=admin).json()
+        == []
+    )
+
+
+def test_review_shows_what_approving_creates(client: TestClient, db: Session, admin: dict) -> None:
+    submit(client)
+    shown = client.get(f"{ADMIN}/accounts/{account_id(db)}/review", headers=admin).json()
+    assert shown["business_name"] == "Shaggy Chic"
+    assert shown["business_slug"] == "shaggy-chic"
+    assert shown["hours"] == ["Tue 09:00-17:00", "Wed 09:00-17:00"]
+    assert shown["services"][0] == {
+        "name": "Full Groom",
+        "options": ["small 90 min $65.00", "large 150 min $105.00"],
+    }
+    assert shown["team"] == ["Sam", "Jo"]
+    assert shown["blocking"] == []
+    # Reviewing creates nothing.
+    assert db.scalar(select(Business).where(Business.slug == "shaggy-chic")) is None
+
+
+def test_a_draft_cannot_be_reviewed_or_approved(
+    client: TestClient, db: Session, admin: dict
+) -> None:
+    auth(client)
+    target = account_id(db)
+    for method, path in [("GET", "review"), ("POST", "approve")]:
+        refused = client.request(method, f"{ADMIN}/accounts/{target}/{path}", headers=admin)
+        assert refused.status_code == 409
+        assert refused.json()["error"]["code"] == "not_ready_for_review"
+
+
+def test_approving_makes_the_business_live(client: TestClient, db: Session, admin: dict) -> None:
+    submit(client)
+    target = account_id(db)
+    approved = client.post(f"{ADMIN}/accounts/{target}/approve", headers=admin)
+    assert approved.status_code == 200
+    body = approved.json()
+    assert body["business_slug"] == "shaggy-chic"
+    assert body["account"]["plan"] == "trial"
+    assert body["account"]["trial_ends_at"] is not None
+    assert any("phone_numbers add" in step for step in body["next_steps"])
+    assert client.get("/api/v1/b/shaggy-chic/business").json()["name"] == "Shaggy Chic"
+    login = client.post(
+        "/api/v1/b/shaggy-chic/staff/login",
+        json={"email": "sam@example.com", "password": PASSWORD},
+    )
+    assert login.status_code == 200
+    log = client.get(f"{ADMIN}/actions", headers=admin).json()
+    assert log[0]["action"] == "account.approved"
+    assert log[0]["details"] == {"business": "shaggy-chic"}
+    # Approving again is refused and creates nothing more.
+    again = client.post(f"{ADMIN}/accounts/{target}/approve", headers=admin)
+    assert again.status_code == 409
+    assert "already live" in again.json()["error"]["message"]
+    assert (
+        db.scalar(
+            select(func.count()).select_from(Business).where(Business.slug.like("shaggy-chic%"))
+        )
+        == 1
+    )
+
+
+def test_a_profile_without_services_is_not_approved(
+    client: TestClient, db: Session, admin: dict
+) -> None:
+    submit(client)
+    profile = db.scalar(select(BusinessProfile))
+    profile.details = {**profile.details, "services": []}
+    db.commit()
+    target = account_id(db)
+    shown = client.get(f"{ADMIN}/accounts/{target}/review", headers=admin).json()
+    assert shown["blocking"] == ["No services and prices in the profile."]
+    refused = client.post(f"{ADMIN}/accounts/{target}/approve", headers=admin)
+    assert refused.status_code == 409
+    db.expire_all()
+    assert db.scalar(select(Business).where(Business.slug == "shaggy-chic")) is None

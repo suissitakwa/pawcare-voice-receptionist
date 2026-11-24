@@ -8,7 +8,9 @@ This suits a **pet groomer, hair salon or barbershop** with one or more staff. S
 
 When an owner signs up and submits their profile, you get a "New sign-up" email. The profile now has everything a business needs: name, phone, time zone, address, opening hours, services with length and price for each dog size, the team and who does which service, calendar, voice, and answers to common questions.
 
-Check it with them (a short call), then in Railway's backend **Console**:
+Check it with them (a short call), then approve it on the admin page: sign in at `/admin`, choose **Awaiting review**, open the account with **Manage**, check the preview (address, hours, every service and price, the team), and press **Approve and go live**. The page then lists what's left to do. It does exactly what `approve` below does, and the approval is logged under **Recent admin changes**. See [deployment.md](deployment.md#admin-accounts) for creating an admin account.
+
+Or, in Railway's backend **Console**:
 
 ```bash
 /opt/venv/bin/python -m app.provision list

@@ -311,6 +311,10 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .admin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 16px 0 0; }
 .admin-facts dt { color: var(--ink-soft); font-size: 0.875rem; }
 .admin-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.admin-review { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.admin-services { margin: 12px 0 0; padding-left: 20px; }
+.admin-stages { margin-top: 12px; }
+.admin-stages .button[aria-pressed="true"] { background: var(--brand); color: #fff; }
 .admin-check { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
 .footer-links { margin-top: 8px !important; }
 .footer-links a { color: var(--paper); }

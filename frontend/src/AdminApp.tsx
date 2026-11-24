@@ -7,7 +7,10 @@ import {
   type AdminAccountDetail,
   type AdminAction,
   type AdminUser,
+  type Approval,
   type Plan,
+  type Review,
+  type Stage,
 } from "./adminApi";
 
 const TOKEN_KEY = "helloever-admin-token";
@@ -42,17 +45,18 @@ function moment(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-const PROFILE_STATUS: Record<string, string> = { draft: "Filling in", submitted: "Submitted" };
+const PROFILE_STATUS: Record<string, string> = { draft: "Filling in", submitted: "Awaiting review" };
 const PLANS: Record<Plan, string> = { trial: "Free trial", starter: "Starter", unlimited: "Unlimited" };
 const ACTIONS: Record<string, string> = {
   "account.updated": "Edited account",
   "account.unlocked": "Unlocked account",
   "account.signed_out": "Signed account out",
   "account.deleted": "Deleted account",
+  "account.approved": "Approved sign-up",
   "business.plan_changed": "Changed plan",
 };
 
-function stage(account: AdminAccount): string {
+function stageLabel(account: AdminAccount): string {
   if (account.business_slug) return "Live";
   return PROFILE_STATUS[account.profile_status ?? ""] ?? "No profile";
 }
@@ -111,16 +115,89 @@ function LoginForm({ onSignedIn, notice }: { onSignedIn: (token: string, admin: 
   );
 }
 
+function ReviewPanel({ token, accountId, onApproved }: { token: string; accountId: string; onApproved: (approval: Approval) => void }) {
+  const [review, setReview] = useState<Review | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    adminApi
+      .review(token, accountId)
+      .then(setReview)
+      .catch((err) => setError(errorText(err)));
+  }, [token, accountId]);
+
+  async function approve() {
+    setBusy(true);
+    setError("");
+    try {
+      onApproved(await adminApi.approve(token, accountId));
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="admin-review">
+      <h3>Review and approve</h3>
+      {error && (
+        <p className="form-alert" role="alert">
+          {error}
+        </p>
+      )}
+      {!review ? (
+        !error && <p className="muted">Building the preview…</p>
+      ) : (
+        <>
+          <p className="muted">Approving creates this business now, starts its free trial, gives the owner a staff login with their password, and emails them their links.</p>
+          <dl className="admin-facts">
+            <div><dt>Name</dt><dd>{review.business_name}</dd></div>
+            <div><dt>Address</dt><dd>/b/{review.business_slug}</dd></div>
+            <div><dt>Time zone</dt><dd>{review.timezone}</dd></div>
+            <div><dt>Hours</dt><dd>{review.hours.join(", ")}</dd></div>
+            <div><dt>Team</dt><dd>{review.team.join(", ")}</dd></div>
+            <div><dt>Answers to questions</dt><dd>{review.faqs}</dd></div>
+          </dl>
+          <ul className="admin-services">
+            {review.services.map((service) => (
+              <li key={service.name}>
+                <strong>{service.name}</strong>: {service.options.join("; ")}
+              </li>
+            ))}
+          </ul>
+          {review.notes.map((note) => (
+            <p key={note} className="muted">Note: {note}</p>
+          ))}
+          {review.blocking.length > 0 && (
+            <p className="form-alert" role="alert">
+              Can't approve yet. {review.blocking.join(" ")} Ask the owner to add it in their profile.
+            </p>
+          )}
+          <div className="actions">
+            <button type="button" className="button button-primary" disabled={busy || review.blocking.length > 0} onClick={approve}>
+              {busy ? "Approving…" : "Approve and go live"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AccountPanel({
   token,
   account,
   onChanged,
+  onApproved,
   onDeleted,
   onClose,
 }: {
   token: string;
   account: AdminAccountDetail;
   onChanged: (next: AdminAccountDetail, note: string) => void;
+  onApproved: (approval: Approval) => void;
   onDeleted: (note: string) => void;
   onClose: () => void;
 }) {
@@ -199,7 +276,7 @@ function AccountPanel({
         <div><dt>Email</dt><dd>{account.email}</dd></div>
         <div><dt>Signed up</dt><dd>{day(account.created_at)}</dd></div>
         <div><dt>Last sign-in</dt><dd>{day(account.last_sign_in_at)}</dd></div>
-        <div><dt>Stage</dt><dd>{stage(account)}{account.locked ? " · locked" : ""}</dd></div>
+        <div><dt>Stage</dt><dd>{stageLabel(account)}{account.locked ? " · locked" : ""}</dd></div>
         <div><dt>Business</dt><dd>{account.business_name ?? "Not named yet"}{account.business_type ? ` (${INDUSTRY_LABELS[account.business_type] ?? account.business_type})` : ""}</dd></div>
         {account.business_slug && (
           <>
@@ -216,6 +293,10 @@ function AccountPanel({
         <p className="form-alert" role="alert">
           {error}
         </p>
+      )}
+
+      {account.profile_status === "submitted" && !account.business_slug && (
+        <ReviewPanel token={token} accountId={account.id} onApproved={onApproved} />
       )}
 
       <form onSubmit={save}>
@@ -304,6 +385,8 @@ function AccountPanel({
 function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUser; onSignedOut: (notice?: string) => void }) {
   const searchId = useId();
   const [query, setQuery] = useState("");
+  const [stage, setStage] = useState<Stage>("all");
+  const [nextSteps, setNextSteps] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<AdminAccount[] | null>(null);
   const [actions, setActions] = useState<AdminAction[]>([]);
   const [selected, setSelected] = useState<AdminAccountDetail | null>(null);
@@ -318,17 +401,24 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
   );
 
   const load = useCallback(
-    (q: string) => {
-      adminApi.accounts(token, q).then(setAccounts).catch(failed);
+    (q: string, which: Stage) => {
+      adminApi.accounts(token, q, which).then(setAccounts).catch(failed);
       adminApi.actions(token).then(setActions).catch(failed);
     },
     [token, failed],
   );
 
-  useEffect(() => load(""), [load]);
+  useEffect(() => load("", "all"), [load]);
+
+  function show(which: Stage) {
+    setStage(which);
+    setAccounts(null);
+    load(query, which);
+  }
 
   function open(id: string) {
     setMessage(null);
+    setNextSteps([]);
     adminApi.account(token, id).then(setSelected).catch(failed);
   }
 
@@ -353,6 +443,16 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
           {message.text}
         </p>
       )}
+      {nextSteps.length > 0 && (
+        <div className="notice">
+          <p>Still to do:</p>
+          <ul>
+            {nextSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {selected && (
         <AccountPanel
@@ -363,12 +463,18 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
           onChanged={(next, note) => {
             setSelected(next);
             setMessage({ tone: "info", text: note });
-            load(query);
+            load(query, stage);
+          }}
+          onApproved={(approval) => {
+            setSelected(approval.account);
+            setMessage({ tone: "info", text: `Approved. ${approval.account.business_name} is live at /b/${approval.business_slug}.` });
+            setNextSteps(approval.next_steps);
+            load(query, stage);
           }}
           onDeleted={(note) => {
             setSelected(null);
             setMessage({ tone: "info", text: note });
-            load(query);
+            load(query, stage);
           }}
         />
       )}
@@ -379,10 +485,13 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            load(query);
+            load(query, stage);
           }}
         >
-          <h2>Sign-ups{accounts ? ` (${accounts.length})` : ""}</h2>
+          <h2>
+            {stage === "awaiting_review" ? "Awaiting review" : "Sign-ups"}
+            {accounts ? ` (${accounts.length})` : ""}
+          </h2>
           <div className="inline-actions">
             <label htmlFor={searchId} className="visually-hidden">
               Search accounts
@@ -393,10 +502,18 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
             </button>
           </div>
         </form>
+        <div className="inline-actions admin-stages" role="group" aria-label="Show">
+          <button type="button" className="button" aria-pressed={stage === "all"} onClick={() => show("all")}>
+            All sign-ups
+          </button>
+          <button type="button" className="button" aria-pressed={stage === "awaiting_review"} onClick={() => show("awaiting_review")}>
+            Awaiting review
+          </button>
+        </div>
         {accounts === null ? (
           <p className="muted">Loading…</p>
         ) : accounts.length === 0 ? (
-          <p className="muted">No accounts match.</p>
+          <p className="muted">{stage === "awaiting_review" ? "Nothing is waiting for review." : "No accounts match."}</p>
         ) : (
           <div className="table-scroll">
             <table className="staff-table">
@@ -423,7 +540,7 @@ function Console({ token, admin, onSignedOut }: { token: string; admin: AdminUse
                     </td>
                     <td>{account.business_name ?? "—"}</td>
                     <td>
-                      {stage(account)}
+                      {stageLabel(account)}
                       {account.locked && <span className="status status-cancelled"> Locked</span>}
                     </td>
                     <td>{account.plan ? PLANS[account.plan] : "—"}</td>

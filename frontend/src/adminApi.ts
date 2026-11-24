@@ -20,11 +20,34 @@ export interface AdminAccount {
   /** Set once the profile has become a live business. */
   business_slug: string | null;
   plan: Plan | null;
+  submitted_at: string | null;
+}
+
+export type Stage = "all" | "awaiting_review";
+
+/** What approving a submitted profile would create. Nothing is created by reading it. */
+export interface Review {
+  business_name: string;
+  business_slug: string;
+  timezone: string;
+  hours: string[];
+  services: { name: string; options: string[] }[];
+  team: string[];
+  faqs: number;
+  /** Filled from defaults: worth checking, but approval can go ahead. */
+  notes: string[];
+  /** Why it can't be approved yet. */
+  blocking: string[];
+}
+
+export interface Approval {
+  business_slug: string;
+  next_steps: string[];
+  account: AdminAccountDetail;
 }
 
 export interface AdminAccountDetail extends AdminAccount {
   business_type: string | null;
-  submitted_at: string | null;
   /** The demo: deleting the account can't take it down. */
   business_is_protected: boolean;
   trial_ends_at: string | null;
@@ -74,8 +97,13 @@ export function adminLogin(email: string, password: string) {
 export const adminApi = {
   logout: (token: string) => authed<void>(token, "/logout", { method: "POST" }),
   me: (token: string) => authed<AdminUser>(token, "/me"),
-  accounts: (token: string, q = "") =>
-    authed<AdminAccount[]>(token, `/accounts${q ? `?${new URLSearchParams({ q })}` : ""}`),
+  accounts: (token: string, q = "", stage: Stage = "all") => {
+    const query = new URLSearchParams({ ...(q ? { q } : {}), ...(stage !== "all" ? { stage } : {}) }).toString();
+    return authed<AdminAccount[]>(token, `/accounts${query ? `?${query}` : ""}`);
+  },
+  review: (token: string, id: string) => authed<Review>(token, `${account(id)}/review`),
+  approve: (token: string, id: string) =>
+    authed<Approval>(token, `${account(id)}/approve`, { method: "POST" }),
   account: (token: string, id: string) => authed<AdminAccountDetail>(token, account(id)),
   update: (token: string, id: string, changes: { full_name?: string; email?: string }) =>
     authed<AdminAccountDetail>(token, account(id), json("PATCH", changes)),
