@@ -1172,3 +1172,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 781 passed (local PostgreSQL 14), 3 new in `test_billing.py`: `cancel_at` gives the end date and the plan keeps working, and undoing it clears it; older API versions' `cancel_at_period_end` with the period end on the subscription or its items; once deleted, the date goes and payment has stopped. Migration `0033` upgrades and downgrades cleanly |
 | Frontend | Typecheck and build pass; 131 tests pass (Node 22), 1 new: the "Cancels on" notice with Manage billing and no Pay by card |
 | Live | Not deployed. Stacked on the return-to-dashboard fix |
+
+## Stripe events out of order can't undo newer changes (2026-11-24)
+
+**Outcome:** Stripe doesn't promise to deliver events in order. Clicking "cancel" and then "Don't cancel subscription" within seconds could leave the dashboard showing whichever event arrived last. Each subscription event, and each paid checkout, now reads the subscription back from Stripe and applies it as it is now, so late or swapped events give the same result. If Stripe can't be reached, the webhook answers 503, changes nothing, and Stripe retries. Only `sub_...` IDs are looked up.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 785 passed (local PostgreSQL 14), 4 new in `test_billing.py`: an old "renewing" event arriving after the cancellation keeps the end date; a checkout arriving after its subscription ended stays stopped; with Stripe unreachable, checkout and subscription events fail with 503 and change nothing; only subscription IDs are looked up |
+| Live | Not deployed |

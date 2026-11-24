@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
-from app.billing import handle_event, logger, signature_valid
+from app.billing import StripeError, handle_event, logger, signature_valid
 from app.clock import get_now
 from app.config import Settings, get_settings
 from app.db import get_db
@@ -17,8 +17,14 @@ from app.errors import ApiError
 router = APIRouter(prefix="/api/v1/stripe", tags=["billing"])
 
 
-def apply_event(db: Session, event: dict) -> str:
-    outcome = handle_event(db, event)
+def apply_event(db: Session, settings: Settings, event: dict) -> str:
+    try:
+        outcome = handle_event(db, settings, event)
+    except StripeError as error:
+        db.rollback()
+        logger.warning("Stripe %s %s not applied: %s", event.get("type"), event.get("id"), error)
+        # Stripe retries a failed delivery, so nothing is lost.
+        raise ApiError(503, "billing_unavailable", "Stripe couldn't be reached.") from None
     db.commit()
     return outcome
 
@@ -42,6 +48,6 @@ async def stripe_webhook(
         event = json.loads(payload)
     except ValueError:
         raise ApiError(400, "bad_event", "The event isn't JSON.") from None
-    outcome = await run_in_threadpool(apply_event, db, event)
+    outcome = await run_in_threadpool(apply_event, db, settings, event)
     logger.info("Stripe %s %s: %s", event.get("type"), event.get("id"), outcome)
     return {"received": True}

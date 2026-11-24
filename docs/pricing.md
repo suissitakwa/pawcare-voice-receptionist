@@ -50,7 +50,7 @@ The code is in `backend/app/billing.py`. Card details only ever go to Stripe.
    | `customer.subscription.updated` with `cancel_at` (or `cancel_at_period_end`) | Still works; records when it ends |
 | `customer.subscription.deleted` | Message-only |
 
-   Events about an older subscription than the one the business pays with are ignored, so a late cancellation doesn't stop a new subscription. Receiving an event twice is harmless. A business on `unlimited` stays unlimited even if it pays.
+   Stripe doesn't deliver events in order, so a subscription event is only a sign that something changed: the backend asks Stripe for the subscription as it is now (`GET /v1/subscriptions/<id>`) and applies that. A paid checkout does the same. An event that arrives twice, late or out of order leaves the same result. If Stripe can't be asked, the webhook answers 503 and Stripe retries it. Events about an older subscription than the one the business pays with are ignored, so a late cancellation doesn't stop a new subscription. A business on `unlimited` stays unlimited even if it pays.
 3. **Portal:** `POST /api/v1/staff/plan/portal` opens Stripe's customer portal for the business's customer.
 
 ### Setting it up
