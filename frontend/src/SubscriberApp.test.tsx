@@ -1,13 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import SubscriberApp, { navigation } from "./SubscriberApp";
+import SubscriberApp, { navigation, travels } from "./SubscriberApp";
 
 const OPTIONS = {
   business_types: [
     { value: "pet_grooming", label: "Pet grooming" },
     { value: "hair_salon", label: "Hair salon" },
     { value: "barbershop", label: "Barbershop" },
+    { value: "home_services", label: "Home services" },
   ],
   voices: [
     { value: "marin", label: "Female voice", sounds: "female" },
@@ -564,5 +565,15 @@ describe("SubscriberApp", () => {
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
     const saved = JSON.parse(String(calls.filter((c) => c.key === "PATCH /api/v1/subscribers/profile").at(-1)?.init?.body));
     expect(saved.details.hours).toEqual([{ weekday: 1, opens_at: "09:00", closes_at: "17:00" }]);
+  });
+});
+
+describe("who travels to the customer", () => {
+  it("is every home services business, and a groomer only when they say so", () => {
+    expect(travels("home_services", { is_mobile: false })).toBe(true);
+    expect(travels("pet_grooming", { is_mobile: true })).toBe(true);
+    expect(travels("pet_grooming", { is_mobile: false })).toBe(false);
+    expect(travels("", { is_mobile: true })).toBe(true);
+    expect(travels("hair_salon", { is_mobile: true })).toBe(false);
   });
 });

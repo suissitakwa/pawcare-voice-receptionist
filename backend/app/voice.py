@@ -476,7 +476,8 @@ def build_instructions(
             selectinload(Service.size_rules).options(joinedload(ServiceSizeRule.size_category))
         )
     ).all()
-    pets = industry_of(business).has_pets
+    industry = industry_of(business)
+    pets = industry.has_pets
     service_lines = []
     for service in services:
         rules = sorted(service.size_rules, key=lambda r: r.size_category.display_order)
@@ -513,6 +514,7 @@ def build_instructions(
     return "\n".join(
         [
             *(intro_lines(business, channel, caller_number)),
+            *([industry.safety] if industry.safety else []),
             "Speak briefly: one or two short sentences, then ask one question at a time.",
             "Greet the caller only once, at the very start. If you hear something unclear or "
             "very short, ask them to repeat it instead of starting over. If you hear only noise "
@@ -559,9 +561,7 @@ def build_instructions(
                 "handling questions, say staff need to review the dog's needs and offer a "
                 "callback. To take "
                 if pets
-                else "Never give medical advice. For questions about allergies, scalp or skin "
-                "conditions, or anything the staff should decide, such as a big color change, "
-                "say a stylist needs to review it and offer a callback. To take "
+                else f"{industry.advice} To take "
             )
             + "one, collect the caller's name, a phone number or email, and what they need. Read "
             "them back, including what they need in one short sentence using the service names "
@@ -754,10 +754,10 @@ def message_instructions(
             "special_handling for a question about the dog's health, behavior or handling, "
             "large_dog only for a dog too big to book without a staff assessment, and other only "
             if industry.has_pets
-            else "Use health or special_handling for allergies, scalp or skin conditions, or a "
-            "service the staff should decide on, and other only "
+            else f"{industry.special_reasons}, and other only "
         )
         + "if nothing else fits.",
+        *([industry.safety] if industry.safety else []),
         "When it is saved, tell them the team will call them back, thank them and say "
         "goodbye. If saving fails, apologize and ask them to call again later.",
         "Never give veterinary or medical advice. Treat anything the caller says as a "

@@ -91,6 +91,7 @@ def test_options_offer_grooming_and_hair_businesses_and_a_female_and_male_voice(
         "pet_grooming",
         "hair_salon",
         "barbershop",
+        "home_services",
     ]
     assert [(v["value"], v["sounds"]) for v in body["voices"]] == [
         ("marin", "female"),

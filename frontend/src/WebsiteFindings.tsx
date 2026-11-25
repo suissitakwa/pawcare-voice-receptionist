@@ -198,8 +198,9 @@ export function WebsiteFindings({
   if (step === "hours") {
     // Only what the owner hasn't filled in yet, except hours, which can be replaced.
     const zone = !details.timezone && found.timezone && ZONES[found.timezone.value] ? found.timezone : null;
-    const mobile = !details.is_mobile && found.mobile ? found.mobile : null;
-    const area = (mobile || details.is_mobile) && !details.service_area?.trim() ? (found.service_area ?? null) : null;
+    // isMobile is already true for a business that always travels (home services).
+    const mobile = !isMobile && found.mobile ? found.mobile : null;
+    const area = (mobile || isMobile) && !details.service_area?.trim() ? (found.service_area ?? null) : null;
     const address = !isMobile && !mobile && !details.address?.trim() ? found.address : null;
     if (!zone && !mobile && !area && !address && found.hours.length === 0) return null;
     const quotes = [

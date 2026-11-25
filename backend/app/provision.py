@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from app import go_live, plans
 from app.businesses import TEMPLATE_FILE, load_business, read_seed
 from app.config import get_settings
-from app.industries import STANDARD_SIZE
+from app.industries import INDUSTRIES, STANDARD_SIZE
 from app.integrations import share_calendar
 from app.models import Business, BusinessProfile, SubscriberAccount
 from app.schemas import BusinessSeed
@@ -37,8 +37,8 @@ from app.staff import upsert_staff
 from app.subscriber_schemas import ProfileDetails, prices_for
 
 # Every kind of business the receptionist has wording and booking rules for.
-SUPPORTED_TYPES = {"pet_grooming", "hair_salon", "barbershop"}
-# A salon or barbershop books every service as this one size.
+SUPPORTED_TYPES = {"pet_grooming", "hair_salon", "barbershop", "home_services"}
+# A business without dog sizes books every service as this one size.
 STANDARD_SIZES = [
     {
         "slug": STANDARD_SIZE,
@@ -51,6 +51,7 @@ BUSINESS_KINDS = {
     "pet_grooming": "pet grooming",
     "hair_salon": "hair salon",
     "barbershop": "barbershop",
+    "home_services": "home services",
 }
 # Taken from the template until owners can set them.
 BOOKING_RULES = (
@@ -183,6 +184,12 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         for f in details.faqs
     ]
     kind = BUSINESS_KINDS.get(profile.business_type, "grooming")
+    # Home services always go to the customer; a groomer only when the owner said so. A
+    # salon's or barbershop's leftover setting is ignored.
+    industry = INDUSTRIES.get(profile.business_type or "", INDUSTRIES["pet_grooming"])
+    mobile = industry.always_mobile or (pets and details.is_mobile)
+    if industry.always_mobile and not details.service_zip_codes:
+        gaps.append("service ZIP codes")
     data = {
         **{key: template[key] for key in BOOKING_RULES},
         "slug": free_slug(session, profile.business_name),
@@ -197,10 +204,9 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "address": details.address or "",
         "is_demo": False,
         "industry": profile.business_type,
-        # Only groomers can be mobile; a salon's or barbershop's leftover setting is ignored.
-        "is_mobile": pets and details.is_mobile,
-        "service_zip_codes": details.service_zip_codes if pets and details.is_mobile else [],
-        "service_area": (details.service_area or "") if pets and details.is_mobile else "",
+        "is_mobile": mobile,
+        "service_zip_codes": details.service_zip_codes if mobile else [],
+        "service_area": (details.service_area or "") if mobile else "",
         "hours": hours,
         "groomers": groomers,
         "size_categories": template["size_categories"] if pets else STANDARD_SIZES,

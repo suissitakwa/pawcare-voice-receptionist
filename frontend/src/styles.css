@@ -31,6 +31,19 @@
   --banner: #2b1a26;
   --banner-ink: #fdf0f6;
 }
+:root[data-industry="home_services"] {
+  --ink: #15202c;
+  --ink-soft: #4d5b6a;
+  --brand: #1f4e79;
+  --brand-dark: #163a5b;
+  --accent: #d0701c;
+  --accent-dark: #a95a16;
+  --paper: #f7f9fb;
+  --tint: #e6eef5;
+  --line: #ccd8e3;
+  --banner: #163a5b;
+  --banner-ink: #eef5fb;
+}
 :root[data-industry="barbershop"] {
   --ink: #18202e;
   --ink-soft: #4f5a6b;

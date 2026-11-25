@@ -32,6 +32,7 @@ const MISSING: Record<string, { step: number; label: string }> = {
   business_type: { step: 0, label: "Business type" },
   business_phone: { step: 0, label: "Business phone number" },
   hours: { step: 1, label: "Opening hours" },
+  service_zip_codes: { step: 1, label: "ZIP codes you travel to" },
   services: { step: 2, label: "At least one service with a length and price" },
   calendar_provider: { step: 4, label: "Calendar" },
   knowledge: { step: 5, label: "A website, document, or question and answer" },
@@ -134,7 +135,7 @@ function AuthForm({
       <h1>{mode === "signup" ? "Set up your AI receptionist" : "Sign in"}</h1>
       <p className="muted">
         {mode === "signup"
-          ? "For pet groomers, hair salons, and barbershops. Create an account, then tell us about your business."
+          ? "For pet groomers, hair salons, barbershops, and home services. Create an account, then tell us about your business."
           : "Continue setting up your receptionist."}
       </p>
       {mode === "signup" && (
@@ -303,8 +304,14 @@ function FaqEditor({ faqs, onChange }: { faqs: FaqItem[]; onChange: (faqs: FaqIt
 }
 
 // Blank text and half-filled questions become absent, so a step can be saved part-done.
-function cleanDetails(details: ProfileDetails, urls: string, zips: string): ProfileDetails {
-  const mobile = details.is_mobile ?? false;
+/** Home services always go to the customer; a pet groomer only when they say so. */
+export function travels(businessType: string, details: Pick<ProfileDetails, "is_mobile">): boolean {
+  const type = businessType || "pet_grooming";
+  return type === "home_services" || (type === "pet_grooming" && (details.is_mobile ?? false));
+}
+
+function cleanDetails(details: ProfileDetails, urls: string, zips: string, businessType: string): ProfileDetails {
+  const mobile = travels(businessType, details);
   return {
     is_mobile: mobile,
     service_zip_codes: mobile ? zips.split(/[\s,;]+/).filter(Boolean) : [],
@@ -574,7 +581,7 @@ function ProfileForm({
       const saved = await subscriberApi.save(token, {
         business_name: orNull(draft.business_name),
         business_type: draft.business_type || null,
-        details: cleanDetails(draft.details, urls, zips),
+        details: cleanDetails(draft.details, urls, zips, draft.business_type),
       });
       load(saved);
       // A website given on the first step is read in the background for the next steps.
@@ -590,7 +597,7 @@ function ProfileForm({
       await subscriberApi.save(token, {
         business_name: orNull(draft.business_name),
         business_type: draft.business_type || null,
-        details: cleanDetails(draft.details, urls, zips),
+        details: cleanDetails(draft.details, urls, zips, draft.business_type),
       });
       load(await subscriberApi.connectCalendar(token, calendarId.trim()));
       setSaved("Your calendar is connected.");
@@ -603,7 +610,7 @@ function ProfileForm({
       await subscriberApi.save(token, {
         business_name: orNull(draft.business_name),
         business_type: draft.business_type || null,
-        details: cleanDetails(draft.details, urls, zips),
+        details: cleanDetails(draft.details, urls, zips, draft.business_type),
       });
       navigation.go((await subscriberApi.googleStart(token)).url);
     });
@@ -637,7 +644,7 @@ function ProfileForm({
     const next = await subscriberApi.save(token, {
       business_name: orNull(draft.business_name),
       business_type: draft.business_type || null,
-      details: cleanDetails(draft.details, urls, zips),
+      details: cleanDetails(draft.details, urls, zips, draft.business_type),
     });
     load(next);
     return next;
@@ -712,7 +719,7 @@ function ProfileForm({
           step={current.id}
           state={website.state}
           details={details}
-          isMobile={details.is_mobile ?? false}
+          isMobile={travels(draft.business_type, details)}
           onChange={setDetails}
           onUsed={website.markUsed}
           onRetry={() => website.state && website.read(website.state.url)}
@@ -767,7 +774,10 @@ function ProfileForm({
                 <label htmlFor="mobile-groomer">We're a mobile groomer: we go to our customers.</label>
               </div>
             )}
-            {details.is_mobile && (draft.business_type || "pet_grooming") === "pet_grooming" && (
+            {draft.business_type === "home_services" && (
+              <p className="form-info">Your technicians go to your customers, so the receptionist asks every caller for their address.</p>
+            )}
+            {travels(draft.business_type, details) && (
               <>
                 <Field
                   label="ZIP codes you travel to"

@@ -81,10 +81,13 @@ def test_the_receptionist_asks_mobile_callers_where_to_come(db: Session) -> None
     assert "service_address" in prepare_tool["required"]
 
 
-def test_only_groomers_can_be_mobile() -> None:
+def test_only_groomers_and_home_services_can_be_mobile() -> None:
     data = json.loads(TEMPLATE_FILE.read_text())
     BusinessSeed.model_validate({**data, "is_mobile": True, "service_zip_codes": ["95126"]})
-    with pytest.raises(ValidationError, match="only a pet grooming business can be mobile"):
+    BusinessSeed.model_validate({**data, "industry": "home_services", "is_mobile": True})
+    with pytest.raises(ValidationError, match="only a pet grooming or home services business"):
         BusinessSeed.model_validate({**data, "industry": "barbershop", "is_mobile": True})
+    with pytest.raises(ValidationError, match="a home services business must be mobile"):
+        BusinessSeed.model_validate({**data, "industry": "home_services"})
     with pytest.raises(ValidationError, match="five-digit ZIP"):
         BusinessSeed.model_validate({**data, "is_mobile": True, "service_zip_codes": ["9512"]})
