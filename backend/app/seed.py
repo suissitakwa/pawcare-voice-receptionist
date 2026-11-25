@@ -95,6 +95,7 @@ def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UU
             {
                 "name": service.name,
                 "description": service.description,
+                "price_kind": service.price_kind,
                 "is_active": True,
                 "display_order": order,
             },

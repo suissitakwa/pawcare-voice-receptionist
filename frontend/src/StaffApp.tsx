@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ApiRequestError } from "./api";
 import { longDate, wallClock } from "./BookingForm";
-import { formatPrice } from "./format";
+import { formatPriceKind } from "./format";
 import { ForgotPasswordForm, NewPasswordForm, takeResetToken } from "./PasswordReset";
 import { PlanPanel } from "./PlanPanel";
 import {
@@ -177,7 +177,7 @@ function BookingsTable({
                 {booking.service}
                 <span className="size-note">
                   {pets ? `${booking.size}, ` : ""}
-                  {formatPrice(booking.price_cents)}
+                  {formatPriceKind(booking.price_cents, booking.price_kind)}
                 </span>
               </td>
               {showStaff && <td>{booking.staff}</td>}
@@ -186,6 +186,7 @@ function BookingsTable({
                 {booking.owner_name}
                 <span className="size-note">{[booking.owner_email, booking.owner_phone].filter(Boolean).join(", ")}</span>
                 {booking.service_address && <span className="size-note">At {booking.service_address}</span>}
+                {booking.job_details && <span className="size-note">Job: {booking.job_details}</span>}
               </td>
               <td>{booking.reference}</td>
               <td>{bookedVia(booking)}</td>

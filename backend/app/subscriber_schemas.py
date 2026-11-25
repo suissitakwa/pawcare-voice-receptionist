@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.prices import PriceKind
 from app.schemas import EMAIL_PATTERN, PHONE_PATTERN
 
 # Pet grooming and hair businesses first. Adding a type means extending this list and the
@@ -168,6 +169,8 @@ class ServiceItem(Strict):
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(default="", max_length=300)
     prices: list[ServicePrice] = Field(default_factory=list, max_length=4)
+    # Home services only: fixed, from (the lowest it costs) or visit_fee (to come out).
+    price_kind: PriceKind = "fixed"
 
     @field_validator("prices")
     @classmethod
@@ -320,6 +323,8 @@ class ProfileOptions(BaseModel):
     timezones: list[Option] = []
     # Price rows per business type: dog sizes for pet groomers, one row for the others.
     sizes: dict[str, list[Option]] = {}
+    # How a home services price is meant: fixed, a starting price, or a visit fee.
+    price_kinds: list[Option] = []
     # The address a Google Calendar is shared with to connect it; None while not offered.
     calendar_share_email: str | None = None
     # Owners can sign in with Google to pick their calendar and share it in one go.

@@ -26,6 +26,7 @@ from app import go_live
 from app.config import Settings
 from app.format_text import format_time
 from app.models import Business, WebhookEvent
+from app.prices import price_text
 
 logger = logging.getLogger("pawcare.email")
 
@@ -336,8 +337,10 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
             lines.append(f"With: {data['staff']}")
         if data.get("service_address"):
             lines.append(f"Address: {data['service_address']}")
+        if data.get("job_details"):
+            lines.append(f"Job: {data['job_details']}")
         lines += [
-            f"Price: ${data.get('price_cents', 0) / 100:.2f}",
+            f"Price: {price_text(data.get('price_cents', 0), data.get('price_kind'))}",
             f"Reference: {data.get('reference')}",
         ]
     if dashboard:

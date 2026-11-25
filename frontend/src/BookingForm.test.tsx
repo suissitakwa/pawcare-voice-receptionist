@@ -278,6 +278,67 @@ describe("BookingForm", () => {
     expect(body.service_address).toBe("12 Elm St, San Jose 95126");
   });
 
+  it("at a plumber, asks what needs doing and shows the visit fee", async () => {
+    const plumbing = {
+      size_categories: [{ slug: "standard", label: "Standard", description: "", requires_staff_assessment: false }],
+      services: [
+        {
+          slug: "leak",
+          name: "Leak repair visit",
+          description: "",
+          price_kind: "visit_fee" as const,
+          options: [{ size: "standard", duration_minutes: 90, price_cents: 8900 }],
+        },
+      ],
+    };
+    const job = "Kitchen sink leaking under the cabinet.";
+    const calls = mockApi({
+      "/api/v1/availability": [AVAILABLE],
+      "/api/v1/bookings/prepare": [
+        {
+          status: 201,
+          body: {
+            ...PREPARED,
+            summary: {
+              ...SUMMARY,
+              service: "Leak repair visit",
+              pet_name: "",
+              size: "Standard",
+              price_cents: 8900,
+              price_kind: "visit_fee",
+              service_address: "12 Elm St, San Jose 95126",
+              job_details: job,
+            },
+          },
+        },
+      ],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(
+      <BookingForm
+        business={{ ...BUSINESS, industry: "home_services", is_mobile: true, is_demo: false }}
+        catalog={plumbing}
+      />,
+    );
+    expect(screen.getByText(/\$89 visit fee\. The technician quotes any repair on site\./)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-01-05" } });
+    await user.click(await screen.findByRole("radio", { name: "9 AM" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(screen.getByLabelText("Your name"), "Jordan");
+    await user.type(screen.getByLabelText("Email"), "jordan@example.com");
+    await user.type(screen.getByLabelText("Address where we'll come"), "12 Elm St, San Jose 95126");
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    // What needs doing is required before anything is sent.
+    expect(screen.getByText("Say what needs doing.")).toBeInTheDocument();
+    expect(calls.some((c) => c.path.endsWith("prepare"))).toBe(false);
+    await user.type(screen.getByLabelText("What needs doing?"), job);
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    expect(await screen.findByText(job)).toBeInTheDocument();
+    expect(screen.getByText("$89 visit fee")).toBeInTheDocument();
+    const body = JSON.parse(calls.find((c) => c.path.endsWith("prepare"))!.init!.body as string);
+    expect(body.job_details).toBe(job);
+  });
+
   it("doesn't pull focus to the form when the page opens", () => {
     mockApi({});
     render(<BookingForm business={BUSINESS} catalog={CATALOG} />);

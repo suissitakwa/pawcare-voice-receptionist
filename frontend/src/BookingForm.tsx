@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ApiRequestError,
   confirmBooking,
+  asksJobDetails,
   hasPets,
   fetchAvailability,
   prepareBooking,
@@ -11,7 +12,7 @@ import {
   type Catalog,
   type PreparedBooking,
 } from "./api";
-import { formatDuration, formatPrice, formatTime } from "./format";
+import { formatDuration, formatPriceKind, formatTime } from "./format";
 
 type Step = "choose" | "details" | "review" | "done";
 
@@ -21,13 +22,14 @@ interface Contact {
   phone: string;
   petName: string;
   address: string;
+  job: string;
 }
 
 /** Shown by the phone field when the business texts customers. */
 export const TEXT_NOTICE =
   "We'll text your confirmation and a reminder the day before. Message and data rates may apply. Reply STOP to opt out.";
 
-const EMPTY_CONTACT: Contact ={ ownerName: "", email: "", phone: "", petName: "", address: "" };
+const EMPTY_CONTACT: Contact = { ownerName: "", email: "", phone: "", petName: "", address: "", job: "" };
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_PATTERN = /^\+?[0-9 ().-]{7,20}$/;
 
@@ -61,9 +63,10 @@ function newIdempotencyKey(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function validateContact(contact: Contact, pets: boolean, mobile = false): Record<string, string> {
+function validateContact(contact: Contact, pets: boolean, mobile = false, job = false): Record<string, string> {
   const errors: Record<string, string> = {};
   if (mobile && !contact.address.trim()) errors.address = "Enter the address where we'll come.";
+  if (job && !contact.job.trim()) errors.job = "Say what needs doing.";
   if (!contact.ownerName.trim()) errors.ownerName = "Enter your name.";
   if (pets && !contact.petName.trim()) errors.petName = "Enter your dog's name.";
   const email = contact.email.trim();
@@ -79,12 +82,15 @@ function Field({
   label,
   error,
   hint,
+  multiline,
   ...input
 }: {
   id: string;
   label: string;
   error?: string;
   hint?: string;
+  /** A few lines of text instead of one. */
+  multiline?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
   return (
@@ -95,12 +101,22 @@ function Field({
           {hint}
         </p>
       )}
-      <input
-        id={id}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy || undefined}
-        {...input}
-      />
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={3}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy || undefined}
+          {...(input as unknown as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+        />
+      ) : (
+        <input
+          id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy || undefined}
+          {...input}
+        />
+      )}
       {error && (
         <p id={`${id}-error`} className="field-error">
           {error}
@@ -118,6 +134,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
   const [step, setStep] = useState<Step>("choose");
   const [service, setService] = useState(catalog.services[0]?.slug ?? "");
   const pets = hasPets(business);
+  const asksJob = asksJobDetails(business);
   // Salons and barbershops book every service as their one size, without asking.
   const [size, setSize] = useState(pets ? "" : (catalog.size_categories[0]?.slug ?? ""));
   // Empty: anyone who does the service.
@@ -191,7 +208,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
 
   async function review(event: React.FormEvent) {
     event.preventDefault();
-    const errors = validateContact(contact, pets, business.is_mobile ?? false);
+    const errors = validateContact(contact, pets, business.is_mobile ?? false, asksJob);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       setMessage({ tone: "error", text: "Please fix the highlighted fields." });
@@ -210,6 +227,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
         pet_name: contact.petName.trim(),
         ...(staff ? { staff } : {}),
         ...(business.is_mobile ? { service_address: contact.address.trim() } : {}),
+        ...(asksJob ? { job_details: contact.job.trim() } : {}),
       });
       setPrepared(result);
       // One key per summary: retrying this summary can never create a second booking.
@@ -324,8 +342,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
       ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
       ...(summary.staff ? ([["With", summary.staff]] as [string, string][]) : []),
       ["Length", formatDuration(summary.duration_minutes)],
-      ["Price", `${formatPrice(summary.price_cents)}${business.is_demo ? " (demo price)" : ""}`],
+      ["Price", `${formatPriceKind(summary.price_cents, summary.price_kind)}${business.is_demo ? " (demo price)" : ""}`],
       ...((summary.service_address ? [["Address", summary.service_address]] : []) as [string, string][]),
+      ...((summary.job_details ? [["What needs doing", summary.job_details]] : []) as [string, string][]),
       ["Name", summary.owner_name],
       ["Contact", [summary.owner_email, summary.owner_phone].filter(Boolean).join(", ")],
     ];
@@ -395,6 +414,18 @@ export default function BookingForm({ business, catalog }: { business: Business;
             error={fieldErrors.address}
             maxLength={200}
             onChange={(e) => setContact({ ...contact, address: e.target.value })}
+          />
+        )}
+        {asksJob && (
+          <Field
+            id={`${id}-job`}
+            label="What needs doing?"
+            hint="For example: the kitchen sink is leaking under the cabinet since this morning."
+            multiline
+            value={contact.job}
+            error={fieldErrors.job}
+            maxLength={500}
+            onChange={(e) => setContact({ ...contact, job: e.target.value })}
           />
         )}
         {pets && (
@@ -528,8 +559,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
       {option && !needsAssessment && (
         <p className="muted">
           {selectedService?.name}: {formatDuration(option.duration_minutes)},{" "}
-          {formatPrice(option.price_cents)}
+          {formatPriceKind(option.price_cents, selectedService?.price_kind)}
           {business.is_demo ? " demo price." : "."}
+          {selectedService?.price_kind === "visit_fee" && " The technician quotes any repair on site."}
         </p>
       )}
       <div aria-live="polite">

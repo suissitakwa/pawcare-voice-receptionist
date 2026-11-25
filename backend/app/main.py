@@ -265,6 +265,7 @@ def list_services(db: DbSession, business_id: CurrentBusinessId) -> CatalogPubli
                 slug=service.slug,
                 name=service.name,
                 description=service.description,
+                price_kind=service.price_kind,
                 options=[
                     ServiceOptionPublic(
                         size=rule.size_category.slug,

@@ -161,6 +161,8 @@ class Service(Base):
     description: Mapped[str] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(server_default=true())
     display_order: Mapped[int]
+    # fixed, from (the lowest it costs) or visit_fee (to come out; repairs quoted on site).
+    price_kind: Mapped[str] = mapped_column(String(16), server_default="fixed")
 
     size_rules: Mapped[list["ServiceSizeRule"]] = relationship(back_populates="service")
 
@@ -340,6 +342,8 @@ class Booking(Base):
     pet_name: Mapped[str] = mapped_column(String(40))
     # Where the appointment happens, at a mobile business.
     service_address: Mapped[str | None] = mapped_column(String(200))
+    # What the customer needs done, in their words, at a business that asks (home services).
+    job_details: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[dict] = mapped_column(JSONB)
     idempotency_key: Mapped[str] = mapped_column(String(128))
     request_hash: Mapped[str] = mapped_column(String(64))
@@ -398,6 +402,8 @@ class BookingDraft(Base):
     pet_name: Mapped[str] = mapped_column(String(40))
     # Where the appointment happens, at a mobile business.
     service_address: Mapped[str | None] = mapped_column(String(200))
+    # What the customer needs done, in their words, at a business that asks (home services).
+    job_details: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[dict] = mapped_column(JSONB)
     summary_hash: Mapped[str] = mapped_column(String(64))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)

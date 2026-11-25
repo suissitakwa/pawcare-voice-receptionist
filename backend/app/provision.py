@@ -112,6 +112,7 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
     details = ProfileDetails.from_stored(profile.details)
     template = json.loads(TEMPLATE_FILE.read_text())
     pets = profile.business_type == "pet_grooming"
+    industry = INDUSTRIES.get(profile.business_type or "", INDUSTRIES["pet_grooming"])
     gaps = []
 
     hours = [
@@ -140,6 +141,8 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
                 "slug": slug,
                 "name": item.name.strip(),
                 "description": item.description.strip(),
+                # Only home services price by visit fee or starting price.
+                "price_kind": item.price_kind if industry.asks_job_details else "fixed",
                 "options": [
                     {
                         # Businesses without dog sizes book every service as one size.
@@ -186,7 +189,6 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
     kind = BUSINESS_KINDS.get(profile.business_type, "grooming")
     # Home services always go to the customer; a groomer only when the owner said so. A
     # salon's or barbershop's leftover setting is ignored.
-    industry = INDUSTRIES.get(profile.business_type or "", INDUSTRIES["pet_grooming"])
     mobile = industry.always_mobile or (pets and details.is_mobile)
     if industry.always_mobile and not details.service_zip_codes:
         gaps.append("service ZIP codes")
@@ -267,7 +269,10 @@ def summary(data: dict) -> str:
             f"{o['size']} {o['duration_minutes']} min ${o['price_cents'] / 100:.2f}"
             for o in service["options"]
         )
-        lines.append(f"  {service['name']}: {prices}")
+        kind = {"from": " (starting price)", "visit_fee": " (visit fee)"}.get(
+            service.get("price_kind", "fixed"), ""
+        )
+        lines.append(f"  {service['name']}: {prices}{kind}")
     lines.append("Team: " + ", ".join(g["display_name"] for g in data["groomers"]))
     lines.append(f"Answers to common questions: {len(data['faqs'])}")
     return "\n".join(lines)

@@ -815,6 +815,7 @@ function ProfileForm({
             <ServicesEditor
               services={details.services ?? []}
               sizes={options.sizes?.[draft.business_type || "pet_grooming"]}
+              priceKinds={draft.business_type === "home_services" ? options.price_kinds : undefined}
               onChange={(services) => setDetails({ services })}
             />
           </>

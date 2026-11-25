@@ -12,6 +12,16 @@ export function formatPrice(cents: number): string {
   }).format(cents / 100);
 }
 
+/** How a service's price is meant: the price, the lowest it costs, or a fee to come out. */
+export type PriceKind = "fixed" | "from" | "visit_fee";
+
+/** "$89 visit fee", "from $150" or "$45". */
+export function formatPriceKind(cents: number, kind: PriceKind | undefined | null): string {
+  if (kind === "visit_fee") return `${formatPrice(cents)} visit fee`;
+  if (kind === "from") return `from ${formatPrice(cents)}`;
+  return formatPrice(cents);
+}
+
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;

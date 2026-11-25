@@ -1,3 +1,4 @@
+import type { PriceKind } from "./format";
 import { publicApi } from "./site";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -27,6 +28,11 @@ export interface Business {
   assistant_phone?: string | null;
   /** Customers who give a phone number get booking texts and a reminder. */
   texts_customers?: boolean;
+}
+
+/** Home services note what needs doing on every booking. */
+export function asksJobDetails(business: Pick<Business, "industry"> | null | undefined): boolean {
+  return business?.industry === "home_services";
 }
 
 /** Pet groomers book by dog size and note the pet; salons and barbershops don't. */
@@ -59,6 +65,8 @@ export interface Service {
   name: string;
   description: string;
   options: ServiceOption[];
+  /** Missing from an older backend: a fixed price. */
+  price_kind?: PriceKind;
 }
 
 export interface StaffMember {
@@ -135,6 +143,8 @@ export interface BookingDetails {
   staff?: string | null;
   /** Where the appointment happens, at a mobile business. */
   service_address?: string | null;
+  /** What needs doing, at a home services business. */
+  job_details?: string | null;
 }
 
 export interface BookingSummary {
@@ -153,6 +163,8 @@ export interface BookingSummary {
   /** Who the appointment is with, at a business with more than one staff member. */
   staff?: string | null;
   service_address?: string | null;
+  job_details?: string | null;
+  price_kind?: PriceKind;
 }
 
 export interface PreparedBooking {

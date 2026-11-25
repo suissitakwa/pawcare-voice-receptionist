@@ -1,3 +1,4 @@
+import type { PriceKind } from "./format";
 import { request } from "./api";
 import { businessSlug } from "./site";
 
@@ -34,6 +35,9 @@ export interface StaffBooking {
   staff: string;
   /** Where the appointment is, at a mobile business. */
   service_address?: string | null;
+  /** What needs doing, at a home services business. */
+  job_details?: string | null;
+  price_kind?: PriceKind;
 }
 
 /** One conversation with the receptionist, by phone or on the website. */

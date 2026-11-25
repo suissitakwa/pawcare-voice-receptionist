@@ -125,6 +125,10 @@ def booking_data(booking: Booking, business: Business, source: str | None = None
         # Who the appointment is with, at a business with more than one staff member.
         "staff": summary.get("staff"),
         "service_address": booking.service_address,
+        # What needs doing, in the customer's words, at a business that asks (home services).
+        "job_details": booking.job_details,
+        # fixed, from or visit_fee: how price_cents is meant.
+        "price_kind": summary.get("price_kind", "fixed"),
     }
 
 

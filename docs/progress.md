@@ -1236,3 +1236,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Not verified | The sign-up form and the booking site's new look weren't checked in a browser. No voice or phone call was made with a home services business |
 | Live | Not deployed |
 
+## Home services: what needs doing, and visit fees (2026-11-24)
+
+**Outcome:** every home services booking now notes what needs doing, in the customer's words (up to 500 characters), and each service says how its price is meant: a fixed price, a starting price ("from $150"), or a visit fee ("$89 visit fee", with any repair quoted on site). On the phone, the receptionist asks what needs doing before preparing a booking, reads it back with the other details, and passes it as `job_details`; the booking tool requires it only at home services. Prices in its instructions carry their kind, and when a service isn't a fixed price it is told never to say or guess what a repair will cost; the booking summary it reads out carries the same reminder. The booking form asks "What needs doing?" and shows "$89 visit fee. The technician quotes any repair on site." The job and the price's meaning reach the review screen, the staff dashboard, the owner's email, the Google Calendar event, the webhook payload (`job_details`, `price_kind`) and a booking changed by phone. Owners choose what each price means in the sign-up form's services step (home services only); `provision approve` carries it over. Other businesses are unchanged: job details sent to them are dropped and their prices are fixed. Migration `0036` adds `job_details` to bookings and drafts and `price_kind` to services.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 801 passed (local PostgreSQL 14), 3 new in `test_home_services.py`: a plumber booking without what needs doing is refused, and with it the job and "visit fee" reach the summary, the saved booking, the webhook, the owner's email, the calendar event and the public catalog; the receptionist's instructions, booking tool and prepared summary ask for the job and quote only the visit fee; a groomer keeps no job details and fixed prices. Migration `0036` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 134 tests pass (Node 22), 1 new: a plumber's form shows the visit fee, requires what needs doing, and sends it |
+| Not verified | Not checked in a browser. No call was made with a home services business |
+| Live | Not deployed |
+

@@ -39,6 +39,7 @@ from app.integrations import (
     calendar_config,
 )
 from app.models import Booking, Business, BusinessIntegration
+from app.prices import price_text
 
 logger = logging.getLogger("pawcare.calendar")
 
@@ -407,7 +408,8 @@ def event_for(booking: Booking, business: Business) -> dict:
                     else [f"Client: {booking.owner_name}, {contact}"]
                 ),
                 *([f"With: {summary['staff']}"] if summary.get("staff") else []),
-                f"Price: ${booking.price_cents / 100:.2f}",
+                *([f"Job: {booking.job_details}"] if booking.job_details else []),
+                f"Price: {price_text(booking.price_cents, summary.get('price_kind'))}",
                 f"Booked through {business.name}.",
             ]
         ),

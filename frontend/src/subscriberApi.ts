@@ -7,6 +7,8 @@ export interface Option {
 
 export interface ProfileOptions {
   business_types: Option[];
+  /** How a home services price is meant. Missing from an older backend. */
+  price_kinds?: Option[];
   voices: (Option & { sounds: "female" | "male" })[];
   calendar_providers: Option[];
   document_types: string[];
@@ -65,6 +67,8 @@ export interface ServiceItem {
   name: string;
   description: string;
   prices: ServicePrice[];
+  /** Home services only: a fixed price, a starting price, or a fee to come out. */
+  price_kind?: "fixed" | "from" | "visit_fee";
 }
 
 export interface TeamMember {

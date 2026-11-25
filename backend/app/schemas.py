@@ -38,6 +38,8 @@ class ServiceSeed(SeedModel):
     name: str
     description: str
     options: list[ServiceOptionSeed]
+    # fixed, from (the lowest it costs) or visit_fee (to come out; repairs quoted on site).
+    price_kind: Literal["fixed", "from", "visit_fee"] = "fixed"
 
 
 class HoursSeed(SeedModel):
@@ -191,6 +193,7 @@ class ServicePublic(BaseModel):
     name: str
     description: str
     options: list[ServiceOptionPublic]
+    price_kind: Literal["fixed", "from", "visit_fee"] = "fixed"
 
 
 class StaffMemberPublic(BaseModel):
@@ -264,6 +267,8 @@ class PrepareBookingRequest(BaseModel):
     pet_name: str = Field(default="", max_length=40)
     # Where the appointment happens: needed at a mobile business only.
     service_address: str | None = Field(default=None, max_length=200)
+    # What needs doing, in the customer's words: needed where the business asks (home services).
+    job_details: str | None = Field(default=None, max_length=500)
     # A staff member's slug, only when the customer asked for someone. Otherwise anyone free.
     staff: str | None = Field(default=None, max_length=64)
 
@@ -312,6 +317,10 @@ class BookingSummary(BaseModel):
     staff: str | None = None
     # Where it happens, at a mobile business.
     service_address: str | None = None
+    # What needs doing, at a business that asks.
+    job_details: str | None = None
+    # How price_cents is meant; summaries saved before this existed are fixed prices.
+    price_kind: Literal["fixed", "from", "visit_fee"] = "fixed"
 
 
 class PreparedBooking(BaseModel):
@@ -379,6 +388,8 @@ class StaffBooking(BaseModel):
     cancelled_by: Literal["staff", "customer"] | None = None
     staff: str
     service_address: str | None = None
+    job_details: str | None = None
+    price_kind: Literal["fixed", "from", "visit_fee"] = "fixed"
 
 
 class StaffBlock(BaseModel):

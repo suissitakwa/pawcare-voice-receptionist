@@ -39,6 +39,7 @@ from app.manage import (
 )
 from app.models import Booking, BookingDraft, CallbackRequest, VoiceSession
 from app.names import clean_name
+from app.prices import price_note
 from app.schemas import (
     EMAIL_PATTERN,
     PHONE_PATTERN,
@@ -188,10 +189,16 @@ def prepare(
             **({"size": summary.size, "pet_name": summary.pet_name} if summary.pet_name else {}),
             "owner_name": summary.owner_name,
             **({"address": summary.service_address} if summary.service_address else {}),
+            **({"job": summary.job_details} if summary.job_details else {}),
             "date": summary.local_start.date().isoformat(),
             "time": format_time(summary.local_start.astimezone(timezone).time()),
             "duration_minutes": summary.duration_minutes,
             "price_dollars": summary.price_cents / 100,
+            **(
+                {"price_note": price_note(summary.price_kind)}
+                if price_note(summary.price_kind)
+                else {}
+            ),
             **({"with": summary.staff} if summary.staff else {}),
             "next_step": (
                 "Read this summary to the caller and ask whether to book it. It is not booked yet."

@@ -26,6 +26,7 @@ from app.booking import slot_unavailable, summary_hash
 from app.format_text import format_time
 from app.models import Booking, Business, Service, SizeCategory, VoiceSession
 from app.names import clean_name
+from app.prices import price_note
 from app.schemas import BookingSummary, VoiceToolResult
 from app.webhooks import booking_data, enqueue
 
@@ -95,6 +96,11 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
         described["with"] = booking_summary["staff"]
     if booking_summary.get("service_address"):
         described["address"] = booking_summary["service_address"]
+    if booking_summary.get("job_details"):
+        described["job"] = booking_summary["job_details"]
+    note = price_note(booking_summary.get("price_kind"))
+    if note:
+        described["price_note"] = note
     return described
 
 
@@ -224,6 +230,8 @@ def prepare_change(
         price_cents=rule.price_cents,
         staff=booking.summary.get("staff"),
         service_address=booking.service_address,
+        job_details=booking.job_details,
+        price_kind=service.price_kind,
     ).model_dump(mode="json")
     record.pending_change = {
         "booking_id": str(booking.id),

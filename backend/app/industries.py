@@ -39,6 +39,8 @@ class Industry:
     special_reasons: str = SALON_SPECIAL
     # Said before anything else when the caller may be in danger. Empty: nothing to add.
     safety: str = ""
+    # Every booking notes what the customer needs done, in their words.
+    asks_job_details: bool = False
 
 
 HOME_SAFETY = (
@@ -68,6 +70,7 @@ INDUSTRIES = {
             "or a job the technician should decide on"
         ),
         safety=HOME_SAFETY,
+        asks_job_details=True,
     ),
 }
 

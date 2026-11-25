@@ -148,6 +148,8 @@ def to_staff_booking(
         cancelled_by=cancelled_by(booking),
         staff=staff,
         service_address=booking.service_address,
+        job_details=booking.job_details,
+        price_kind=(booking.summary or {}).get("price_kind", "fixed"),
         reference=booking.reference,
         status=booking.status,
         service=service,

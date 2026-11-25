@@ -77,10 +77,13 @@ function numberOrNull(text: string, scale = 1): number | null {
 export function ServicesEditor({
   services,
   sizes,
+  priceKinds,
   onChange,
 }: {
   services: ServiceItem[];
   sizes: Option[] | undefined;
+  /** Offered to home services: a fixed price, a starting price, or a fee to come out. */
+  priceKinds?: Option[];
   onChange: (services: ServiceItem[]) => void;
 }) {
   const id = useId();
@@ -117,6 +120,22 @@ export function ServicesEditor({
               onChange={(e) => update(index, { description: e.target.value })}
             />
           </div>
+          {priceKinds && priceKinds.length > 0 && (
+            <div className="field">
+              <label htmlFor={`${id}-${index}-kind`}>What the price means</label>
+              <select
+                id={`${id}-${index}-kind`}
+                value={service.price_kind ?? "fixed"}
+                onChange={(e) => update(index, { price_kind: e.target.value as ServiceItem["price_kind"] })}
+              >
+                {priceKinds.map((kind) => (
+                  <option key={kind.value} value={kind.value}>
+                    {kind.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <table className="price-table">
             <thead>
               <tr>

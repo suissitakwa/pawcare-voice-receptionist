@@ -42,6 +42,7 @@ from app.password_reset import (
     request_reset,
 )
 from app.password_reset import client_hash as reset_client
+from app.prices import PRICE_KIND_LABELS
 from app.profile_changes import changed_sections, note_change, snapshot
 from app.staff import DUMMY_HASH, LOCKOUT, MAX_FAILED_ATTEMPTS, SESSION_LIFETIME, hasher
 from app.subscriber_schemas import (
@@ -220,6 +221,7 @@ def options(settings: Config) -> ProfileOptions:
             kind: [Option(value=s, label=SIZE_LABELS[s]) for s in sizes]
             for kind, sizes in SIZES_BY_TYPE.items()
         },
+        price_kinds=[Option(value=k, label=label) for k, label in PRICE_KIND_LABELS.items()],
         calendar_share_email=shared_account_email(settings),
         google_sign_in=google_oauth.available(settings),
     )

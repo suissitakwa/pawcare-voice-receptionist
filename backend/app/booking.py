@@ -71,6 +71,18 @@ def check_service_address(business: Business, address: str | None) -> str | None
     return address
 
 
+def check_job_details(business: Business, text: str | None) -> str | None:
+    """What needs doing, at a business that asks for it. Elsewhere none is kept."""
+    if not industry_of(business).asks_job_details:
+        return None
+    text = " ".join((text or "").split())
+    if not text:
+        raise ApiError(
+            422, "job_details_required", "Say what needs doing, for example where the leak is."
+        )
+    return text
+
+
 def slot_unavailable() -> ApiError:
     return ApiError(
         409, "slot_unavailable", "That time is no longer available. Please choose another."
@@ -88,6 +100,7 @@ def prepare_booking(
     if industry_of(business).has_pets and not request.pet_name:
         raise ApiError(422, "invalid_request", "Check these fields: pet_name.")
     address = check_service_address(business, request.service_address)
+    job_details = check_job_details(business, request.job_details)
     timezone = ZoneInfo(business.timezone)
     starts_at = request.starts_at.astimezone(UTC)
     check_booking_window(business, starts_at.astimezone(timezone).date(), now)
@@ -114,6 +127,8 @@ def prepare_booking(
         price_cents=rule.price_cents,
         staff=member.name if len(active_staff(session, business.id)) > 1 else None,
         service_address=address,
+        job_details=job_details,
+        price_kind=service.price_kind,
     ).model_dump(mode="json")
     token = secrets.token_urlsafe(32)
     draft = BookingDraft(
@@ -130,6 +145,7 @@ def prepare_booking(
         owner_phone=request.owner_phone,
         pet_name=request.pet_name,
         service_address=address,
+        job_details=job_details,
         summary=summary,
         summary_hash=summary_hash(summary),
         # Only a hash is stored, so the database alone cannot be used to confirm a draft.
@@ -247,6 +263,7 @@ def confirm_prepared(
             owner_phone=draft.owner_phone,
             pet_name=draft.pet_name,
             service_address=draft.service_address,
+            job_details=draft.job_details,
             summary=draft.summary,
             idempotency_key=idempotency_key,
             request_hash=request_hash,

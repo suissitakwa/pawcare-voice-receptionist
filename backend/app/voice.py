@@ -171,6 +171,8 @@ class ToolCatalog:
     has_pets: bool = True
     # A mobile business needs the address the appointment is at.
     mobile: bool = False
+    # Home services note what needs doing on every booking.
+    job_details: bool = False
 
 
 STAFF_PROPERTY = {
@@ -194,9 +196,11 @@ def tool_catalog(session: Session, business_id: uuid.UUID) -> ToolCatalog:
     industry, mobile = session.execute(
         select(Business.industry, Business.is_mobile).where(Business.id == business_id)
     ).one()
+    kind = INDUSTRIES.get(industry or "pet_grooming", INDUSTRIES["pet_grooming"])
     return ToolCatalog(
         mobile=mobile,
-        has_pets=INDUSTRIES.get(industry or "pet_grooming", INDUSTRIES["pet_grooming"]).has_pets,
+        has_pets=kind.has_pets,
+        job_details=kind.asks_job_details,
         services=tuple(services),
         sizes=tuple(slug for slug, _ in sizes),
         bookable_sizes=tuple(slug for slug, assessed in sizes if not assessed),
@@ -277,6 +281,15 @@ def for_industry(tools: list[dict], catalog: ToolCatalog | None) -> list[dict]:
                 ),
             }
             parameters.setdefault("required", []).append("service_address")
+        if catalog.job_details and tool["name"] == "prepare_booking":
+            properties["job_details"] = {
+                "type": "string",
+                "description": (
+                    "What needs doing, in one or two short sentences in the caller's words, "
+                    "as they confirmed it, such as where the leak is and since when"
+                ),
+            }
+            parameters.setdefault("required", []).append("job_details")
         if catalog.sizes == (STANDARD_SIZE,):
             # Salons and barbershops book everything as one size; nobody needs to be asked.
             drop_field(parameters, "size")
@@ -435,6 +448,14 @@ def sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+def spoken_price(cents: int, kind: str) -> str:
+    if kind == "visit_fee":
+        return f"{price(cents)} visit fee"
+    if kind == "from":
+        return f"from {price(cents)}"
+    return price(cents)
+
+
 def price(cents: int) -> str:
     return f"${cents // 100}" if cents % 100 == 0 else f"${cents / 100:.2f}"
 
@@ -489,7 +510,8 @@ def build_instructions(
             )
         else:
             options = ", ".join(
-                f"{r.duration_minutes} minutes {price(r.price_cents)}" for r in rules
+                f"{r.duration_minutes} minutes {spoken_price(r.price_cents, service.price_kind)}"
+                for r in rules
             )
         service_lines.append(f"- {service.name}: {service.description} Options: {options}.")
     size_lines = [f"- {size.label}: {size.description}" for size in sizes]
@@ -551,6 +573,24 @@ def build_instructions(
             )
             + "Wait for the caller to say yes, correcting anything they change. Only then call "
             "prepare_booking with details_read_back set to true.",
+            *(
+                [
+                    "Before preparing a booking, ask what needs doing and note it in one or two "
+                    "short sentences in the caller's own words, such as where the problem is and "
+                    "since when. Read it back with the other details and pass it as job_details."
+                ]
+                if industry.asks_job_details
+                else []
+            ),
+            *(
+                [
+                    "A visit fee is what the customer pays for the technician to come out. Any "
+                    "repair is quoted on site: never say or guess what a repair will cost. A "
+                    "price marked from is the lowest it costs; the final price depends on the job."
+                ]
+                if any(s.price_kind != "fixed" for s in services)
+                else []
+            ),
             confirm_line(channel),
             "If the caller changes the service, size, time, or details, call prepare_booking "
             "again. If a tool reports an error, explain it briefly and offer another time or a "
