@@ -1223,3 +1223,16 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Site typecheck and build | Pass (Node 22) |
 | Layout | Terms page and the home page's trial card checked in a browser at 375 px, no sideways scroll |
 | Live | Not deployed |
+
+## Home services as a fourth kind of business (2026-11-24)
+
+**Outcome:** a home services business (plumbers first) can sign up at `/get-started`, choose "Home services", and be approved like a groomer or salon. It always goes to the customer: the sign-up form asks for the ZIP codes it travels to (required before submitting, and approval refuses a profile without them) instead of offering the "mobile" checkbox, and the live business is mobile, so every booking needs an address inside those ZIP codes. Services have one price each, as at a salon. The receptionist describes it as a business that sends a technician, starts its instructions with safety (a gas smell: leave and call the gas company or 911 before anything else; flooding: turn off the main valve if safe), never diagnoses or quotes a repair, and offers a callback for anything a technician should decide. Message-only calls get the same safety line and treat leaks, no water or no heat as urgent. Reading the owner's website can say a home services business comes to its customers. The booking site gets its own colours, mark and headline. Migration `0035` allows `home_services` for profiles and businesses. Job details, visit fees, arrival windows and full emergency handling are not built yet.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 798 passed (local PostgreSQL 14), 4 new in `test_home_services.py`: a profile without ZIP codes can't be submitted; an approved plumber is a mobile business with one size, safety-first wording, no dog or stylist wording, an address required on bookings, and refuses an address outside its ZIP codes; groomer wording unchanged; the website can say a plumber comes to you. `test_mobile.py` covers which industries may be mobile. Migration `0035` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 133 tests pass (Node 22), 1 new: who counts as travelling to the customer |
+| Not verified | The sign-up form and the booking site's new look weren't checked in a browser. No voice or phone call was made with a home services business |
+| Live | Not deployed |
+

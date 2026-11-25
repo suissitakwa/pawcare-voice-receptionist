@@ -35,6 +35,13 @@ const MARKS: Record<string, React.ReactNode> = {
       <path d="M12.5 21 L19.5 18 L19.5 20.5 L12.5 23.5 Z" />
     </>
   ),
+  // A house with a wrench across it.
+  home_services: (
+    <>
+      <path d="M16 3 L29 14 L26 14 L26 28 L6 28 L6 14 L3 14 Z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M11 24.5 L18.5 17 A4 4 0 1 1 21 19.5 L13.5 27 Z" />
+    </>
+  ),
 };
 
 // The tab icon's background, matching each scheme's --brand.
@@ -42,12 +49,14 @@ const ICON_BACKGROUNDS: Record<string, string> = {
   pet_grooming: "#14534f",
   hair_salon: "#5b2a4a",
   barbershop: "#1d2a44",
+  home_services: "#1f4e79",
 };
 
 const HEADLINES: Record<string, string> = {
   pet_grooming: "One groomer. One dog at a time.",
   hair_salon: "Cuts, color and care, by appointment.",
   barbershop: "Sharp cuts, no waiting around.",
+  home_services: "A technician at your door, when it suits you.",
 };
 
 function known(industry: string | undefined): string {

@@ -15,6 +15,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from app import knowledge
 from app.config import Settings
+from app.industries import can_be_mobile
 from app.knowledge import KnowledgeError, normalise
 from app.subscriber_schemas import SIZES_BY_TYPE, clean_phone
 
@@ -30,7 +31,7 @@ MAX_TEAM = 20
 USEFUL = (
     "service", "price", "pricing", "rate", "menu", "groom", "salon", "barber", "hair",
     "cut", "hour", "contact", "location", "visit", "find", "about", "team", "staff",
-    "stylist", "groomer", "book", "faq",
+    "stylist", "groomer", "book", "faq", "plumb", "repair", "install", "area", "emergenc",
 )  # fmt: skip
 NOT_PAGES = (".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".ico", ".zip", ".mp4", ".mp3")
 
@@ -61,7 +62,8 @@ them, otherwise null,
 - whether the business is mobile, going to its customers instead of them coming in (null if \
 the text doesn't say so), and the area it serves in the text's own words (null if not given),
 - questions customers ask that the text answers, such as cancellations, deposits, payment, \
-vaccinations, what to bring, parking or policies, each with a short answer to say aloud. Leave \
+call-out fees, warranties, vaccinations, what to bring, parking or policies, each with a short \
+answer to say aloud. Leave \
 out hours, prices and services, which are covered above.
 
 For every item, copy into "quote" the exact words from the text it comes from, character for \
@@ -334,12 +336,12 @@ def check(data: dict, text: str, business_type: str | None) -> tuple[dict, int]:
         people.add(_words(name))
         found["team"].append({"name": name, "quote": quote})
 
-    # Only groomers can be mobile, as in the profile.
-    pets = (business_type or "pet_grooming") == "pet_grooming"
+    # Only groomers and home services can be mobile, as in the profile.
+    can_travel = can_be_mobile(business_type)
     mobile = data.get("mobile")
     found["mobile"] = None
     if mobile is not None:
-        quote = quote_of(mobile) if pets else None
+        quote = quote_of(mobile) if can_travel else None
         if quote:
             found["mobile"] = {"value": "yes", "quote": quote}
         else:

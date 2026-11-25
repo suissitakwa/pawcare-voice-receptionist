@@ -60,6 +60,8 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Callback requests and voice activity metrics on the dashboard
 - [ ] Per-session summaries on the dashboard
 - [x] Subscriber sign-up and business profile for groomers, hair salons, and barbershops (collected, not yet driving calls)
+- [x] Home services (plumbers first) as a kind of business: always mobile, service ZIP codes required, safety-first wording
+- [ ] Home services: job details, visit fees, arrival windows, and emergency handling
 - [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
 - [x] Phone line through OpenAI's SIP connection, with spoken booking confirmation (working on a real number; one booking made by phone)
 - [ ] Website import, document reading, calendar connection, and billing

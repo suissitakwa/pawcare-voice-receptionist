@@ -39,7 +39,7 @@ class Business(Base):
     notify_email: Mapped[str | None] = mapped_column(String(254))
     # Text customers their confirmations and reminders. Off until the owner asks for it.
     texts_enabled: Mapped[bool] = mapped_column(server_default=false())
-    # pet_grooming, hair_salon or barbershop: what the receptionist talks about.
+    # pet_grooming, hair_salon, barbershop or home_services: what the receptionist talks about.
     industry: Mapped[str] = mapped_column(String(20), server_default="pet_grooming")
     # A mobile business goes to the customer, so every booking needs an address in its area.
     is_mobile: Mapped[bool] = mapped_column(server_default=false())

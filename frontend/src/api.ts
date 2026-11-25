@@ -17,7 +17,7 @@ export interface Business {
   contact_phone: string;
   address: string;
   is_demo: boolean;
-  /** pet_grooming, hair_salon or barbershop. Missing means pet grooming. */
+  /** pet_grooming, hair_salon, barbershop or home_services. Missing means pet grooming. */
   industry?: string;
   /** A mobile business comes to the customer, within its service area. */
   is_mobile?: boolean;
@@ -38,6 +38,7 @@ export const INDUSTRY_LABELS: Record<string, string> = {
   pet_grooming: "Dog grooming",
   hair_salon: "Hair salon",
   barbershop: "Barbershop",
+  home_services: "Home services",
 };
 
 export interface SizeCategory {

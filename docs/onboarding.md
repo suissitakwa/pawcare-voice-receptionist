@@ -2,7 +2,7 @@
 
 How to set up a new business on an existing deployment, from its details to its phone number. Every command runs from `backend/` with `DATABASE_URL` pointing at the production database.
 
-This suits a **pet groomer, hair salon or barbershop** with one or more staff. Set `"industry"` in the business file (`pet_grooming`, `hair_salon` or `barbershop`; pet grooming if left out). A connected Google Calendar blocks every staff member at once (each person's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
+This suits a **pet groomer, hair salon, barbershop or home services business** with one or more staff. Set `"industry"` in the business file (`pet_grooming`, `hair_salon`, `barbershop` or `home_services`; pet grooming if left out). A connected Google Calendar blocks every staff member at once (each person's own calendar comes next). See [decision 0010](decisions/0010-multiple-businesses.md) for what comes next.
 
 ## From a sign-up
 
@@ -30,7 +30,7 @@ Hours, services, prices and team in a profile may have come from the owner's web
 
 **What the receptionist knows** is the profile's answers to common questions, plus services, prices and hours. Its web pages and documents are never read on calls. Owners can turn them into answers with **Suggest answers** in the profile: every suggestion is tied to words from the page or document, and only the ones they add are kept ([knowledge.md](knowledge.md)). Before approving, read the answers in `draft`. If a page they listed obviously covers something callers ask (prices, cancellations, deposits) and no answer covers it, ask them to add one.
 
-Pet groomers, hair salons and barbershops can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner".
+Pet groomers, hair salons, barbershops and home services can all be approved. The business type in the profile sets the receptionist's wording: dog sizes and pet names for groomers; for salons and barbershops, one price per service, no pet, and "client" instead of "owner". Home services book one price per service like a salon, always go to the customer (the profile must list the ZIP codes they travel to), and the receptionist puts safety first and never quotes a repair.
 
 ## Plans and the free trial
 
@@ -78,7 +78,7 @@ uv run python -m app.businesses template > happy-tails.json
 | `timezone` | The business's time zone, e.g. `America/Chicago` |
 | `contact_email`, `contact_phone`, `address` | Shown on the site and given to callers who ask |
 | `notify_email` | Optional. Where booking and callback emails go; without it, `contact_email` |
-| `is_mobile`, `service_zip_codes`, `service_area` | Mobile groomers only (`industry` pet grooming). They go to the customer: every booking needs the customer's address, and its ZIP code must be in `service_zip_codes` (leave the list empty to accept any address). `service_area` is how the receptionist describes the area, e.g. "San Jose and Campbell". Salons, barbershops and salon-based groomers never ask for an address |
+| `is_mobile`, `service_zip_codes`, `service_area` | Mobile groomers (`industry` pet grooming) and every home services business, which must be mobile. They go to the customer: every booking needs the customer's address, and its ZIP code must be in `service_zip_codes` (leave the list empty to accept any address). `service_area` is how the receptionist describes the area, e.g. "San Jose and Campbell". Salons, barbershops and salon-based groomers never ask for an address |
 | `is_demo` | `false` for a real business |
 | `slot_increment_minutes`, `buffer_minutes`, `min_notice_minutes`, `booking_horizon_days` | Start times every 15 minutes, 15 minutes between appointments, at least 2 hours' notice, up to 30 days ahead. Change if the owner wants |
 | `hours` | Opening hours, one entry per open day. `weekday` 0 is Monday |

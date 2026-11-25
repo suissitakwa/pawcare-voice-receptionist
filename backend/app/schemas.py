@@ -79,7 +79,7 @@ class BusinessSeed(SeedModel):
     is_demo: bool
     # Where owner notices go; leave out to use contact_email.
     notify_email: str | None = None
-    industry: Literal["pet_grooming", "hair_salon", "barbershop"] = "pet_grooming"
+    industry: Literal["pet_grooming", "hair_salon", "barbershop", "home_services"] = "pet_grooming"
     # A mobile business goes to the customer: bookings need an address in these ZIP codes.
     is_mobile: bool = False
     service_zip_codes: list[str] = []
@@ -98,10 +98,13 @@ class BusinessSeed(SeedModel):
         return sorted(set(cleaned))
 
     @model_validator(mode="after")
-    def only_groomers_are_mobile(self) -> "BusinessSeed":
-        # Only mobile groomers go to the customer; salons and barbershops never ask an address.
-        if self.is_mobile and self.industry != "pet_grooming":
-            raise ValueError("only a pet grooming business can be mobile")
+    def mobile_fits_industry(self) -> "BusinessSeed":
+        # Groomers may go to the customer and home services always do; salons and
+        # barbershops never ask an address.
+        if self.industry == "home_services" and not self.is_mobile:
+            raise ValueError("a home services business must be mobile")
+        if self.is_mobile and self.industry not in ("pet_grooming", "home_services"):
+            raise ValueError("only a pet grooming or home services business can be mobile")
         return self
 
     slot_increment_minutes: int = Field(gt=0)

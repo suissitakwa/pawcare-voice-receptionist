@@ -18,12 +18,13 @@ from pydantic import (
 from app.schemas import EMAIL_PATTERN, PHONE_PATTERN
 
 # Pet grooming and hair businesses first. Adding a type means extending this list and the
-# database check in migration 0008.
-BusinessType = Literal["pet_grooming", "hair_salon", "barbershop"]
+# database checks (migration 0035 is the latest).
+BusinessType = Literal["pet_grooming", "hair_salon", "barbershop", "home_services"]
 BUSINESS_TYPE_LABELS = {
     "pet_grooming": "Pet grooming",
     "hair_salon": "Hair salon",
     "barbershop": "Barbershop",
+    "home_services": "Home services",
 }
 # One voice that sounds female and one that sounds male, from the OpenAI Realtime voices.
 # More can be offered later; stored values outside this list are dropped on load.
@@ -122,6 +123,7 @@ SIZES_BY_TYPE = {
     "pet_grooming": ["small", "medium", "large"],
     "hair_salon": ["any"],
     "barbershop": ["any"],
+    "home_services": ["any"],
 }
 
 
@@ -205,7 +207,8 @@ class ProfileDetails(Strict):
     hours: list[OpeningHours] = Field(default_factory=list, max_length=7)
     services: list[ServiceItem] = Field(default_factory=list, max_length=30)
     team: list[TeamMember] = Field(default_factory=list, max_length=20)
-    # Mobile groomers only: they go to the customer, within these ZIP codes.
+    # Mobile groomers and every home services business: they go to the customer, within
+    # these ZIP codes. A home services profile counts as mobile whatever this says.
     is_mobile: bool = False
     service_zip_codes: list[str] = Field(default_factory=list, max_length=60)
     service_area: str | None = Field(default=None, max_length=200)

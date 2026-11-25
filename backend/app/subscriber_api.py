@@ -26,6 +26,7 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.errors import ApiError
 from app.google_calendar import CalendarAccessProblem, check_access, shared_account_email
+from app.industries import INDUSTRIES
 from app.models import (
     Business,
     BusinessProfile,
@@ -165,6 +166,9 @@ def missing_fields(profile: BusinessProfile, details: ProfileDetails, documents:
         "voice": bool(details.voice),
         "ai_disclosure_ack": details.ai_disclosure_ack,
     }
+    if INDUSTRIES.get(profile.business_type or "", INDUSTRIES["pet_grooming"]).always_mobile:
+        # Bookings are only taken inside these, so a business that always travels needs them.
+        checks["service_zip_codes"] = bool(details.service_zip_codes)
     return [name for name, done in checks.items() if not done]
 
 
