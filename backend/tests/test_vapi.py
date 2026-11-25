@@ -102,7 +102,7 @@ def test_a_call_gets_the_phone_assistant(client: TestClient, vapi, db) -> None:
     assert assistant["firstMessage"].startswith("Hi, thanks for calling")
     assert "AI assistant" in assistant["firstMessage"]
     assert assistant["voice"] == {"provider": "11labs", "voiceId": "21m00Tcm4TlvDq8ikWAM"}
-    assert assistant["transcriber"]["provider"] == "deepgram"
+    assert assistant["transcriber"] == {"provider": "deepgram", "model": "nova-3", "language": "en"}
     assert assistant["maxDurationSeconds"] == 600
     model = assistant["model"]
     assert model["model"] == "gpt-4.1-mini"
@@ -184,6 +184,28 @@ def test_the_deployment_ceiling_still_declines(client: TestClient, vapi) -> None
 
 def test_calls_are_not_recorded(client: TestClient, vapi) -> None:
     assert assistant_request(client)["assistant"]["artifactPlan"] == {"recordingEnabled": False}
+
+
+def test_assemblyai_can_transcribe(client: TestClient, vapi) -> None:
+    vapi["settings"] = vapi_settings(vapi_transcriber_provider="assembly-ai")
+    transcriber = assistant_request(client)["assistant"]["transcriber"]
+    assert transcriber == {"provider": "assembly-ai", "language": "en"}
+
+    vapi["settings"] = vapi_settings(
+        vapi_transcriber_provider="assembly-ai", vapi_transcriber_model="universal-3-5-pro"
+    )
+    transcriber = assistant_request(client)["assistant"]["transcriber"]
+    assert transcriber["speechModel"] == "universal-3-5-pro" and "model" not in transcriber
+
+
+def test_another_deepgram_model_can_be_chosen(client: TestClient, vapi) -> None:
+    vapi["settings"] = vapi_settings(vapi_transcriber_model="nova-2")
+    assert assistant_request(client)["assistant"]["transcriber"]["model"] == "nova-2"
+
+
+def test_an_unknown_transcriber_is_refused_at_startup() -> None:
+    with pytest.raises(ValueError):
+        vapi_settings(vapi_transcriber_provider="whisper")
 
 
 def test_overrides_tune_the_assistant(client: TestClient, vapi) -> None:

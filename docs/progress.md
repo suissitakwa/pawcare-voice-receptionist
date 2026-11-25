@@ -1193,3 +1193,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend tests | 791 passed (local PostgreSQL 14), 6 new in `test_billing.py`: every plan listed with which can be paid by card; choosing Growth checks out its price and puts the business on Growth; a plan without its price, or an unknown one, is refused; switching plan in the portal follows the price, and an unknown price keeps the plan; each plan runs out at its own calls; a stopped Growth subscription only takes messages. Migration `0034` upgrades and downgrades cleanly |
 | Frontend | Typecheck and build pass; 132 tests pass (Node 22): the three plans offered and the chosen one checked out; only plans that can be bought by card offered; back from Stripe on Growth, with how to change plan; the sign-up page lists the plans |
 | Live | Not deployed. The Growth and Pro prices aren't in Stripe yet |
+
+## Choosing the speech recognition provider for Vapi calls (2026-11-24)
+
+**Outcome:** Vapi calls can use AssemblyAI instead of Deepgram for speech recognition, with `VAPI_TRANSCRIBER_PROVIDER=assembly-ai`. Deepgram stays the default, with the same `nova-3` model and English as before. An empty `VAPI_TRANSCRIBER_MODEL` uses the provider's default model, and for AssemblyAI a model is sent as `speechModel`. An unknown provider stops the backend at startup instead of failing on a call. `docs/vapi.md` explains how to have Vapi bill Deepgram or AssemblyAI through your own key.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 794 passed (local PostgreSQL 14), 3 new in `test_vapi.py`: AssemblyAI with its default model and with a chosen `speechModel`; another Deepgram model; an unknown provider refused at startup. The default call's transcriber is checked as Deepgram `nova-3` in English |
+| Live | Not deployed |

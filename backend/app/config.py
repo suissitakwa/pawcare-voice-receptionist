@@ -62,7 +62,10 @@ class Settings(BaseSettings):
     vapi_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
     # Used instead for a business whose owner chose the male voice: ElevenLabs "Adam".
     vapi_male_voice_id: str = "pNInz6obpgDQGcFmaJgB"
-    vapi_transcriber_model: str = "nova-3"
+    # Speech recognition: "deepgram" or "assembly-ai". Empty model: the provider's default
+    # (Deepgram nova-3; AssemblyAI's English streaming model).
+    vapi_transcriber_provider: Literal["deepgram", "assembly-ai"] = "deepgram"
+    vapi_transcriber_model: str = ""
     # Optional JSON merged into the assistant, to tune Vapi settings without a deploy.
     vapi_assistant_overrides: str = ""
 
