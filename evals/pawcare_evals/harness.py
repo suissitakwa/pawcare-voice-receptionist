@@ -77,15 +77,32 @@ def reset(session: Session) -> None:
 def other_customer_booking(
     session: Session, business_id, starts_at: datetime, minutes: int
 ) -> None:
+    """Another customer takes this time with every staff member, so it's gone for the caller."""
     ends_at = starts_at + timedelta(minutes=minutes)
+    service_id = session.scalar(
+        select(Service.id)
+        .where(Service.business_id == business_id)
+        .order_by(Service.display_order)
+        .limit(1)
+    )
+    size_id = session.scalar(
+        select(SizeCategory.id)
+        .where(SizeCategory.business_id == business_id)
+        .order_by(SizeCategory.display_order)
+        .limit(1)
+    )
+    for groomer_id in session.scalars(select(Groomer.id).where(Groomer.business_id == business_id)):
+        add_other(session, business_id, groomer_id, service_id, size_id, starts_at, ends_at)
+    session.commit()
+
+
+def add_other(session, business_id, groomer_id, service_id, size_id, starts_at, ends_at) -> None:
     session.add(
         Booking(
             business_id=business_id,
-            groomer_id=session.scalar(select(Groomer.id).where(Groomer.business_id == business_id)),
-            service_id=session.scalar(select(Service.id).where(Service.slug == "full-groom")),
-            size_category_id=session.scalar(
-                select(SizeCategory.id).where(SizeCategory.slug == "medium")
-            ),
+            groomer_id=groomer_id,
+            service_id=service_id,
+            size_category_id=size_id,
             starts_at=starts_at,
             ends_at=ends_at,
             occupied_until=ends_at + timedelta(minutes=15),
@@ -100,12 +117,13 @@ def other_customer_booking(
             request_hash="0" * 64,
         )
     )
-    session.commit()
 
 
 async def run_scenario(session: Session, model, scenario: dict, now: datetime) -> Record:
     reset(session)
-    business = session.scalar(select(Business).where(Business.slug == "pawcare-demo"))
+    # The groomer demo unless the scenario names another business.
+    slug = scenario.get("business", "pawcare-demo")
+    business = session.scalar(select(Business).where(Business.slug == slug))
     business = load_business(session, business.id)
     token = secrets.token_urlsafe(32)
     voice = VoiceSession(

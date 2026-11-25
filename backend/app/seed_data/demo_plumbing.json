@@ -1,0 +1,238 @@
+{
+  "slug": "plumbing-demo",
+  "name": "Riverbend Plumbing",
+  "tagline": "Leaks, drains and water heaters, with a technician at your door in a three-hour window.",
+  "about": "Riverbend Plumbing is a fictional business created to demonstrate a voice receptionist for home services. Its service area, technicians, prices, and policies are sample data, and no real plumbing services are offered.",
+  "timezone": "America/Los_Angeles",
+  "contact_email": "hello@riverbend-plumbing.example",
+  "contact_phone": "(408) 555-0170",
+  "address": "",
+  "is_demo": true,
+  "industry": "home_services",
+  "is_mobile": true,
+  "service_zip_codes": [
+    "95008",
+    "95110",
+    "95112",
+    "95113",
+    "95125",
+    "95126",
+    "95128",
+    "95050"
+  ],
+  "service_area": "San Jose, Campbell and Santa Clara",
+  "slot_increment_minutes": 15,
+  "buffer_minutes": 0,
+  "min_notice_minutes": 120,
+  "booking_horizon_days": 30,
+  "arrival_window_minutes": 180,
+  "on_call_phone": "(408) 555-0171",
+  "hours": [
+    {
+      "weekday": 0,
+      "opens_at": "08:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 1,
+      "opens_at": "08:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 2,
+      "opens_at": "08:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 3,
+      "opens_at": "08:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 4,
+      "opens_at": "08:00",
+      "closes_at": "17:00"
+    },
+    {
+      "weekday": 5,
+      "opens_at": "08:00",
+      "closes_at": "11:00"
+    }
+  ],
+  "groomers": [
+    {
+      "slug": "dana",
+      "display_name": "Dana",
+      "hours": [
+        {
+          "weekday": 0,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 1,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 2,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 3,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 4,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 5,
+          "starts_at": "08:00",
+          "ends_at": "11:00"
+        }
+      ],
+      "breaks": [],
+      "services": []
+    },
+    {
+      "slug": "luis",
+      "display_name": "Luis",
+      "hours": [
+        {
+          "weekday": 0,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 1,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 2,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 3,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 4,
+          "starts_at": "08:00",
+          "ends_at": "17:00"
+        },
+        {
+          "weekday": 5,
+          "starts_at": "08:00",
+          "ends_at": "11:00"
+        }
+      ],
+      "breaks": [],
+      "services": [
+        "leak-repair",
+        "drain-cleaning",
+        "fixture-install"
+      ]
+    }
+  ],
+  "size_categories": [
+    {
+      "slug": "standard",
+      "label": "Standard",
+      "description": "",
+      "requires_staff_assessment": false
+    }
+  ],
+  "services": [
+    {
+      "slug": "leak-repair",
+      "name": "Leak repair visit",
+      "description": "A plumber finds the leak and fixes it if it can be done on the spot.",
+      "price_kind": "visit_fee",
+      "options": [
+        {
+          "size": "standard",
+          "duration_minutes": 90,
+          "price_cents": 8900
+        }
+      ]
+    },
+    {
+      "slug": "drain-cleaning",
+      "name": "Drain cleaning",
+      "description": "Clearing a slow or blocked sink, tub or shower drain.",
+      "price_kind": "from",
+      "options": [
+        {
+          "size": "standard",
+          "duration_minutes": 60,
+          "price_cents": 15000
+        }
+      ]
+    },
+    {
+      "slug": "water-heater",
+      "name": "Water heater check",
+      "description": "A look at a water heater that isn't heating, is leaking or makes noise.",
+      "price_kind": "visit_fee",
+      "options": [
+        {
+          "size": "standard",
+          "duration_minutes": 120,
+          "price_cents": 9900
+        }
+      ]
+    },
+    {
+      "slug": "fixture-install",
+      "name": "Faucet or toilet install",
+      "description": "Installing a faucet or toilet the customer has already bought.",
+      "price_kind": "fixed",
+      "options": [
+        {
+          "size": "standard",
+          "duration_minutes": 120,
+          "price_cents": 22500
+        }
+      ]
+    }
+  ],
+  "faqs": [
+    {
+      "slug": "visit-fee",
+      "question": "What is the visit fee for?",
+      "answer": "The visit fee covers the plumber coming out and finding the problem. If you go ahead with the repair, the plumber quotes the price on site before starting. This is a demonstration, so no payment is taken."
+    },
+    {
+      "slug": "area",
+      "question": "Where do you work?",
+      "answer": "San Jose, Campbell and Santa Clara. The receptionist checks your ZIP code when you book."
+    },
+    {
+      "slug": "arrival",
+      "question": "When will the plumber arrive?",
+      "answer": "You choose a three-hour arrival window, and the plumber calls about 30 minutes before arriving."
+    },
+    {
+      "slug": "emergencies",
+      "question": "Do you handle emergencies?",
+      "answer": "Yes. If water is leaking or flooding now, the receptionist alerts the on-call plumber, who calls you back."
+    },
+    {
+      "slug": "warranty",
+      "question": "Is the work guaranteed?",
+      "answer": "Repairs are guaranteed for one year, and parts carry the maker's warranty."
+    },
+    {
+      "slug": "payment",
+      "question": "How do I pay?",
+      "answer": "Card or check after the work is done. This is a demonstration, so no payment is taken."
+    }
+  ]
+}

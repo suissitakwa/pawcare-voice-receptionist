@@ -24,10 +24,18 @@ from app.models import (
 from app.schemas import BusinessSeed
 
 SEED_FILE = Path(__file__).parent / "seed_data" / "demo_business.json"
+# A fictional plumber, to show the receptionist for home services.
+PLUMBING_FILE = Path(__file__).parent / "seed_data" / "demo_plumbing.json"
 
 
-def load_seed() -> BusinessSeed:
-    return BusinessSeed.model_validate(json.loads(SEED_FILE.read_text()))
+def load_seed(path: Path = SEED_FILE) -> BusinessSeed:
+    return BusinessSeed.model_validate(json.loads(path.read_text()))
+
+
+def seed_demos(session: Session) -> None:
+    """Both demos: the dog groomer and the plumber."""
+    seed_business(session)
+    seed_business(session, load_seed(PLUMBING_FILE))
 
 
 def seed_business(session: Session, seed: BusinessSeed | None = None) -> uuid.UUID:
@@ -152,8 +160,8 @@ def _upsert(
 
 def main() -> None:
     with Session(get_engine()) as session, session.begin():
-        seed_business(session)
-    print("Demo data seeded.")
+        seed_demos(session)
+    print("Demo data seeded: pawcare-demo and plumbing-demo.")
 
 
 if __name__ == "__main__":

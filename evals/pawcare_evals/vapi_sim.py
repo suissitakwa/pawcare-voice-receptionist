@@ -30,15 +30,26 @@ PREMATURE = re.compile(
 CLEAN_ENDS = {"customer-ended-call", "assistant-ended-call", "assistant-said-end-call-phrase"}
 
 
+def business_kind(caller: dict) -> str:
+    """What the receptionist's business is, from the scenario file: a dog groomer unless it
+    says otherwise."""
+    return caller.get("business_kind", "a dog grooming business")
+
+
 def caller_prompt(scenario: dict, caller: dict, caller_number: str) -> str:
     owner = scenario.get("owner_name", caller["owner_name"])
-    pet = caller["pet_name"]
     digits = " ".join(ch for ch in caller_number.removeprefix("+1") if ch.isdigit())
+    # A dog owner names their dog; anyone else says what the scenario file tells them.
+    about = (
+        f"Your dog is {caller['pet']} called {caller['pet_name']}. "
+        if "pet" in caller
+        else (scenario.get("about") or caller.get("about", "")) + " "
+    )
     return (
-        "You are role-playing a customer phoning a dog grooming business, as part of a test of "
+        f"You are role-playing a customer phoning {business_kind(caller)}, as part of a test of "
         "its phone receptionist. You are the caller, never the business. The receptionist "
         "speaks first.\n\n"
-        f"Your name is {owner}. Your dog is {caller['pet']} called {pet}. If asked for a phone "
+        f"Your name is {owner}. {about}If asked for a phone "
         f"number, give {digits}, digit by digit. You have no email address to give.\n\n"
         f"Your goal: {scenario['goal']}\n\n"
         "How to speak: like a real person on the phone. One or two short sentences at a time. "
@@ -412,7 +423,13 @@ def receptionist_call_for(calls: list[dict], caller_number: str) -> dict | None:
     return min(matching, key=lambda c: c.get("createdAt") or "") if matching else None
 
 
-def judge(api_key: str, model: str, rubric: str, lines: list[dict]) -> dict:
+def judge(
+    api_key: str,
+    model: str,
+    rubric: str,
+    lines: list[dict],
+    kind: str = "a dog grooming business",
+) -> dict:
     """A model reads the transcript against the scenario's rubric. A second opinion beside the
     checks, not proof."""
     conversation = "\n".join(f"{line['who']}: {line['text']}" for line in lines)
@@ -424,7 +441,7 @@ def judge(api_key: str, model: str, rubric: str, lines: list[dict]) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "You grade a phone call between a dog grooming receptionist and a test "
+                    f"You grade a phone call between the receptionist of {kind} and a test "
                     "caller. Lines marked tool are the receptionist's tool calls. Reply with "
                     'JSON: {"passed": true or false, "reason": "one sentence"}.'
                 ),

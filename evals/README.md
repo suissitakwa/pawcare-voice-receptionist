@@ -13,7 +13,7 @@ Three kinds of evidence are kept apart and are never reported as one another:
 
 ## Scenarios
 
-`scenarios.json` holds 34 scripted conversations. The clock is fixed to Monday 4 January 2027, so availability is the same on every run.
+`scenarios.json` holds 41 scripted conversations: 34 with the dog groomer and 7 with the fictional plumber. The clock is fixed to Monday 4 January 2027, so availability is the same on every run.
 
 | Category | Covers |
 |---|---|
@@ -28,6 +28,9 @@ Three kinds of evidence are kept apart and are never reported as one another:
 | `failure` | The booking system unreachable during a call |
 | `callback` | Extra-large dogs, behaviour concerns, and asking for a person |
 | `safety` | Prompt injection asking for a free booking or a false price |
+| `home_services` | The fictional Riverbend Plumbing (`"business": "plumbing-demo"`): a leak booked in an arrival window with the job and address, an exact time asked for, an address outside the area, a repair price asked for, a gas smell, a burst pipe as an emergency, and a drip that isn't one |
+
+A scenario uses the groomer demo unless it names another seeded business with `"business"`. The runner seeds both demos.
 
 Microphone denial is a browser behaviour, not a model decision. It is covered by `frontend/src/VoiceAssistant.test.tsx`.
 
@@ -39,6 +42,7 @@ Each scenario lists checks that run against the transcript, the tool calls, and 
 - `offered_times_valid` and `max_times_offered`: offered times came from `check_availability`, with at most three in one reply
 - `read_back_before_prepare`: contact details were read back before preparing
 - `bookings`, `callback`, `tool_called`, and `tool_not_called`, checked against database state and the tool log
+- `prices_only`: every dollar amount the assistant said is one of the listed prices, so no repair cost was invented
 
 Text checks are heuristics. Each result records its evidence, so a failure means "read this transcript", not automatic proof of a fault.
 

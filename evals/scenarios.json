@@ -1,6 +1,6 @@
 {
   "today": "2027-01-04T08:00:00-08:00",
-  "notes": "Scripted text conversations. The clock is fixed to Monday 4 January 2027, so 'Tuesday' means 5 January. Seed data: Tuesday to Saturday, 9 AM to 5 PM, lunch 12:00 to 12:30, groomer until 3 PM on Saturdays.",
+  "notes": "Scripted text conversations. The clock is fixed to Monday 4 January 2027, so 'Tuesday' means 5 January. Seed data: Tuesday to Saturday, 9 AM to 5 PM, lunch 12:00 to 12:30, groomer until 3 PM on Saturdays. Scenarios marked with business plumbing-demo use the fictional Riverbend Plumbing: Monday to Friday 8 AM to 5 PM and Saturday 8 to 11 AM, three-hour arrival windows, two plumbers, ZIP codes in San Jose, Campbell and Santa Clara, and an $89 visit fee for leak repairs.",
   "scenarios": [
     {
       "id": "faq-hours",
@@ -1054,6 +1054,323 @@
             "cost $0",
             "yes, it's free"
           ]
+        }
+      ]
+    },
+    {
+      "id": "home-book-leak",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "Hi, my kitchen sink is leaking under the cabinet. It's been dripping since yesterday. Can a plumber come this Tuesday, January 5?"
+        },
+        {
+          "caller": "The morning, please."
+        },
+        {
+          "caller": "I'm Jordan, J O R D A N. My phone is 408 555 0100. The address is 12 Elm Street, San Jose, 95126."
+        },
+        {
+          "caller": "Yes, that's all correct."
+        },
+        {
+          "confirm": true
+        },
+        {
+          "caller": "Thanks!"
+        }
+      ],
+      "checks": [
+        {
+          "type": "tool_called",
+          "name": "check_availability",
+          "args": {
+            "service": "leak-repair",
+            "date": "2027-01-05"
+          }
+        },
+        {
+          "type": "tool_called",
+          "name": "prepare_booking",
+          "args": {
+            "owner_name": "Jordan"
+          }
+        },
+        {
+          "type": "last_prepare_args_contains",
+          "field": "job_details",
+          "value": "sink"
+        },
+        {
+          "type": "last_prepare_args_contains",
+          "field": "service_address",
+          "value": "95126"
+        },
+        {
+          "type": "offered_times_valid"
+        },
+        {
+          "type": "read_back_before_prepare",
+          "values": [
+            "0100",
+            "95126"
+          ]
+        },
+        {
+          "type": "prices_only",
+          "values": [
+            89
+          ]
+        },
+        {
+          "type": "no_premature_confirmation"
+        },
+        {
+          "type": "reference_spoken"
+        },
+        {
+          "type": "bookings",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "home-window-not-exact-time",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "My bathroom drain is really slow. Can someone come at exactly 9:15 on Tuesday, January 5?"
+        }
+      ],
+      "checks": [
+        {
+          "type": "tool_called",
+          "name": "check_availability",
+          "args": {
+            "service": "drain-cleaning",
+            "date": "2027-01-05"
+          }
+        },
+        {
+          "type": "mentions_any",
+          "values": [
+            "window",
+            "between"
+          ]
+        },
+        {
+          "type": "not_mentions",
+          "values": [
+            "arrive at 9:15",
+            "there at 9:15",
+            "exactly 9:15"
+          ]
+        },
+        {
+          "type": "offered_times_valid"
+        },
+        {
+          "type": "bookings",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "home-outside-area",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "Can a plumber fix a leaking toilet on Tuesday, January 5, in the afternoon?"
+        },
+        {
+          "caller": "Sure, the first one."
+        },
+        {
+          "caller": "I'm Sam, S A M, 408 555 0122. The address is 400 Main Street, Austin, Texas 78701. The toilet keeps running and leaks at the base."
+        },
+        {
+          "caller": "Yes, that's right."
+        }
+      ],
+      "checks": [
+        {
+          "type": "mentions_any",
+          "values": [
+            "San Jose",
+            "Campbell",
+            "Santa Clara",
+            "area",
+            "don't travel",
+            "doesn't travel",
+            "outside"
+          ]
+        },
+        {
+          "type": "bookings",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "home-repair-price",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "How much will it cost to fix a leaking pipe under my sink?"
+        }
+      ],
+      "checks": [
+        {
+          "type": "mentions_any",
+          "values": [
+            "visit fee",
+            "89",
+            "eighty-nine",
+            "eighty nine"
+          ]
+        },
+        {
+          "type": "mentions_any",
+          "values": [
+            "on site",
+            "on-site",
+            "quote",
+            "when the plumber",
+            "technician"
+          ]
+        },
+        {
+          "type": "prices_only",
+          "values": [
+            89
+          ]
+        },
+        {
+          "type": "tool_not_called",
+          "name": "prepare_booking"
+        }
+      ]
+    },
+    {
+      "id": "home-gas-smell",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "I can smell gas in my kitchen, it's pretty strong. Can someone come look at it?"
+        }
+      ],
+      "checks": [
+        {
+          "type": "mentions_any",
+          "values": [
+            "leave",
+            "get out",
+            "outside"
+          ]
+        },
+        {
+          "type": "mentions_any",
+          "values": [
+            "911",
+            "gas company",
+            "utility"
+          ]
+        },
+        {
+          "type": "tool_not_called",
+          "name": "check_availability"
+        },
+        {
+          "type": "tool_not_called",
+          "name": "prepare_booking"
+        },
+        {
+          "type": "bookings",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "home-emergency-flood",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "Help, a pipe burst under my kitchen sink and water is all over the floor!"
+        },
+        {
+          "caller": "Okay, I turned the main valve off. I'm Maria, M A R I A, 408 555 0133, at 88 Oak Avenue, Campbell, 95008."
+        },
+        {
+          "caller": "Yes, that's right."
+        }
+      ],
+      "checks": [
+        {
+          "type": "mentions_any",
+          "values": [
+            "valve",
+            "shut off",
+            "turn off",
+            "water main"
+          ]
+        },
+        {
+          "type": "callback",
+          "reason": "emergency"
+        },
+        {
+          "type": "tool_not_called",
+          "name": "prepare_booking"
+        },
+        {
+          "type": "not_mentions",
+          "values": [
+            "within an hour",
+            "in 30 minutes",
+            "right there",
+            "on the way",
+            "on their way"
+          ]
+        },
+        {
+          "type": "bookings",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "home-not-urgent-drip",
+      "category": "home_services",
+      "business": "plumbing-demo",
+      "turns": [
+        {
+          "caller": "My bathroom faucet has a slow drip. It's not urgent, it can wait a few days. Can I book a plumber for Wednesday, January 6?"
+        }
+      ],
+      "checks": [
+        {
+          "type": "tool_called",
+          "name": "check_availability",
+          "args": {
+            "date": "2027-01-06"
+          }
+        },
+        {
+          "type": "tool_not_called",
+          "name": "create_callback_request"
+        },
+        {
+          "type": "offered_times_valid"
+        },
+        {
+          "type": "bookings",
+          "count": 0
         }
       ]
     }

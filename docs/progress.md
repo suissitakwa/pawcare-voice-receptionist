@@ -1272,3 +1272,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Not verified | No real text or email was sent, and no call was made with a home services business. Not checked in a browser |
 | Live | Not deployed. On-call texts need Twilio settings and a number to text from, as customer texts do |
 
+## Home services: a demo plumber, evaluations and simulated calls (2026-11-24)
+
+**Outcome:** a second demo business, the fictional **Riverbend Plumbing** (`plumbing-demo`, from `seed_data/demo_plumbing.json`), shows the receptionist for home services: San Jose, Campbell and Santa Clara ZIP codes, three-hour arrival windows (weekdays 8 to 5, Saturday 8 to 11), two plumbers (one doesn't do water heaters), an $89 visit fee for leaks, a starting price for drains, a fixed price for installs, an on-call number, and answers to common questions. `python -m app.seed`, and the container when `SEED_DEMO_DATA=true`, now seed both demos. A demo's receptionist now calls itself "a fictional" business of its own kind instead of always "a fictional dog grooming business". The scripted evaluations gained 7 conversations with the plumber (a leak booked with its job and address, an exact time asked for, an address outside the area, a repair price asked for, a gas smell, a burst pipe, a drip that isn't an emergency) and a `prices_only` check that catches an invented repair cost; a scenario can name its business. Offered arrival windows count as real times in `offered_times_valid`. The simulated calls gained `--scenarios` and `voice_scenarios_home.json` with 4 calls, the caller playing a homeowner.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 814 passed (local PostgreSQL 14), 6 new: the plumbing demo seeds with its windows, prices and two plumbers and describes itself as a fictional home services business; a scripted plumber conversation passes every check of `home-book-leak` and an invented $250 repair price fails `prices_only`; every check in the home simulation file is known, the simulated caller is a homeowner, and a guessed repair price on a call is caught |
+| Frontend | Unchanged |
+| Not run | The 7 new scenarios have not been run against the real model, and no simulated call was placed. Both cost money and need keys; nothing here is a voice measurement |
+| Live | Not deployed. With `SEED_DEMO_DATA=true`, the next deploy creates `/b/plumbing-demo` in production |
+

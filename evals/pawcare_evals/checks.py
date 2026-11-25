@@ -21,6 +21,7 @@ CLAIMS_BOOKED = re.compile(
     r"(confirmed your (booking|appointment))|(successfully booked)",
     re.IGNORECASE,
 )
+DOLLARS = re.compile(r"\$\s?(\d+(?:\.\d{2})?)")
 NEGATION = re.compile(
     r"\b(not|n't|until|once|after you|when you|before you|isn't|yet)\b", re.IGNORECASE
 )
@@ -48,7 +49,10 @@ def availability_labels(record) -> set[str]:
     labels = set()
     for call in record.tool_calls:
         if call["name"] == "check_availability" and call["ok"]:
-            labels.update(t["label"] for t in call["result"].get("times", []))
+            # A label is a time ("9 AM") or an arrival window ("between 8 AM and 11 AM"); every
+            # time in it may be said.
+            for offered in call["result"].get("times", []):
+                labels.update(times_in(offered["label"]) or [offered["label"]])
     return labels
 
 
@@ -220,6 +224,13 @@ def check(record, spec: dict, session: Session) -> tuple[bool, str]:
             return False, "no booking was prepared"
         starts = datetime.fromisoformat(made[-1]["args"]["starts_at"]).astimezone(LA).date()
         return starts.isoformat() == spec["date"], f"prepared for {starts}"
+
+    if kind == "prices_only":
+        # Every dollar amount said is one of the listed prices, so no repair cost is invented.
+        allowed = {float(v) for v in spec["values"]}
+        said_amounts = {float(a) for a in DOLLARS.findall(joined)}
+        bad = sorted(a for a in said_amounts if a not in allowed)
+        return not bad, f"unlisted amounts: {bad}" if bad else "only listed prices were said"
 
     raise ValueError(f"Unknown check type: {kind}")
 

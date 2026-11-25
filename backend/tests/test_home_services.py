@@ -537,3 +537,35 @@ def test_the_on_call_number_comes_from_the_profile(client, db) -> None:
     assert seed.on_call_phone == "(408) 555-0199"
     business = db.scalar(select(Business).where(Business.slug == seed.slug))
     assert business.on_call_phone == "(408) 555-0199"
+
+
+def test_the_plumbing_demo_seeds_with_windows_and_two_plumbers(client, db) -> None:
+    from app.seed import PLUMBING_FILE, load_seed, seed_business
+
+    seed_business(db, load_seed(PLUMBING_FILE))
+    db.commit()
+    business = client.get("/api/v1/b/plumbing-demo/business").json()
+    assert business["industry"] == "home_services"
+    assert business["is_demo"] and business["is_mobile"]
+    assert business["arrival_window_minutes"] == 180
+    catalog = client.get("/api/v1/b/plumbing-demo/services").json()
+    assert {s["slug"]: s["price_kind"] for s in catalog["services"]} == {
+        "leak-repair": "visit_fee",
+        "drain-cleaning": "from",
+        "water-heater": "visit_fee",
+        "fixture-install": "fixed",
+    }
+    assert [m["slug"] for m in catalog["staff"]] == ["dana", "luis"]
+    slots = client.get(
+        "/api/v1/b/plumbing-demo/availability",
+        params={"service": "leak-repair", "date": "2027-01-05"},
+    ).json()["slots"]
+    assert [(s["local_start"][11:16], s["arrival_until"][11:16]) for s in slots] == [
+        ("08:00", "11:00"),
+        ("11:00", "14:00"),
+        ("14:00", "17:00"),
+    ]
+    demo = db.scalar(select(Business).where(Business.slug == "plumbing-demo"))
+    text = build_instructions(db, demo, NOW.date(), channel="phone")
+    assert "Riverbend Plumbing, a fictional home services business" in text
+    assert "dog grooming" not in text

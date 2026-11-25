@@ -106,6 +106,12 @@ def main() -> None:
     parser.add_argument("--judge", action="store_true", help="Also grade with a model rubric")
     parser.add_argument("--gap", type=int, default=20, help="Seconds to wait between calls")
     parser.add_argument("--yes", action="store_true", help="Place the calls (they cost money)")
+    parser.add_argument(
+        "--scenarios",
+        default="voice_scenarios.json",
+        help="Scenario file in evals/: voice_scenarios.json (the groomer) or "
+        "voice_scenarios_home.json (the plumber); the receptionist number must ring that business",
+    )
     args = parser.parse_args()
 
     needed = ["VAPI_API_KEY", "SIM_CALLER_NUMBER_ID", "SIM_RECEPTIONIST_NUMBER_ID"]
@@ -116,7 +122,7 @@ def main() -> None:
     if args.judge and not judge_key:
         sys.exit("--judge needs OPENAI_API_KEY in the environment.")
 
-    spec = json.loads((HERE / "voice_scenarios.json").read_text())
+    spec = json.loads((HERE / args.scenarios).read_text())
     scenarios = [s for s in spec["scenarios"] if not args.scenario or s["id"] in args.scenario]
     if not scenarios:
         sys.exit("No matching scenarios.")
@@ -192,7 +198,13 @@ def main() -> None:
         run["checks"] = [vapi_sim.check(c, events, receptionist_call) for c in scenario["checks"]]
         run["reply_gaps_ms"] = vapi_sim.reply_gaps_ms(events)
         if args.judge and scenario.get("rubric"):
-            run["judge"] = vapi_sim.judge(judge_key, JUDGE_MODEL, scenario["rubric"], lines)
+            run["judge"] = vapi_sim.judge(
+                judge_key,
+                JUDGE_MODEL,
+                scenario["rubric"],
+                lines,
+                vapi_sim.business_kind(spec["caller"]),
+            )
         passed = all(c["passed"] for c in run["checks"])
         print(f"{'PASS' if passed else 'FAIL'}  {scenario['id']}")
         for c in run["checks"]:

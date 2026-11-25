@@ -59,7 +59,7 @@ Then open the Netlify URL and confirm that services, hours, and FAQs appear, wit
 
 - The container runs `alembic upgrade head`, then the seed if `SEED_DEMO_DATA=true`, then the server.
 - Railway waits for `/health/ready`, which passes only when the database is reachable and the schema matches this build. A failed check keeps the previous deployment serving.
-- The seed overwrites business details, services, hours, and FAQs with the contents of `demo_business.json`. Set `SEED_DEMO_DATA=false` before staff need to edit these records in production.
+- The seed overwrites business details, services, hours, and FAQs with the contents of `demo_business.json`, and does the same for the fictional plumber in `demo_plumbing.json` (`/b/plumbing-demo`). Set `SEED_DEMO_DATA=false` before staff need to edit these records in production.
 - Only changes under `backend/` trigger a backend deploy.
 
 ## Cost control

@@ -72,6 +72,11 @@ Options:
 | `--caller-voice <id>` | The caller's ElevenLabs voice. Default "Adam", unlike the receptionist's default |
 | `--judge` | Also grade with a model rubric; needs `OPENAI_API_KEY` |
 | `--gap <seconds>` | Wait between calls, default 20 |
+| `--scenarios <file>` | Scenario file in `evals/`: `voice_scenarios.json` (the groomer, default) or `voice_scenarios_home.json` (the plumber) |
+
+## The plumbing demo
+
+`evals/voice_scenarios_home.json` has 4 calls to the fictional Riverbend Plumbing (`plumbing-demo`): a leak booked in an arrival window, a caller pushing for a repair price, a gas smell, and a burst pipe that should become an emergency callback. The caller plays a homeowner at 12 Elm Street, San Jose, instead of a dog owner. The receptionist number must ring `plumbing-demo`, so register it first with `python -m app.phone_numbers add plumbing-demo <number>` (a second Vapi number, or the demo line moved over for the test), then run with `--scenarios voice_scenarios_home.json`.
 
 To cancel test bookings automatically, add `PAWCARE_API_URL` (the backend's https address), `STAFF_EMAIL` and `STAFF_PASSWORD` for a staff account.
 

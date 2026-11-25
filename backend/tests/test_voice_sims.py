@@ -222,3 +222,39 @@ def test_report_labels_results_as_simulated():
     assert "$0.55" in report
     assert "| `book-bath-small` | PASS | 5/5 | n/a | 95 |" in report
     assert "`hours-question`: declined. limit" in report
+
+
+HOME = json.loads((EVALS / "voice_scenarios_home.json").read_text())
+
+
+def test_every_check_in_the_home_scenarios_is_known():
+    events = vapi_sim.events_of(booking_call())
+    for scenario in HOME["scenarios"]:
+        for spec in scenario["checks"]:
+            vapi_sim.check(spec, events, booking_call())
+
+
+def test_a_plumbing_caller_is_a_homeowner_not_a_dog_owner():
+    scenario = HOME["scenarios"][0]
+    prompt = vapi_sim.caller_prompt(scenario, HOME["caller"], CALLER)
+    assert "phoning a plumbing business" in prompt
+    assert "12 Elm Street" in prompt
+    assert "dog" not in prompt.lower()
+    groomer = vapi_sim.caller_prompt(SPEC["scenarios"][0], SPEC["caller"], CALLER)
+    assert "phoning a dog grooming business" in groomer
+    assert "Your dog is a small terrier called Biscuit." in groomer
+
+
+def test_a_guessed_repair_price_is_caught():
+    spec = next(s for s in HOME["scenarios"] if s["id"] == "home-repair-price")["checks"][1]
+    guess = [
+        {"role": "system", "message": "instructions"},
+        say("The visit fee is eighty-nine dollars, and that repair usually runs about $250."),
+    ]
+    fair = [
+        {"role": "system", "message": "instructions"},
+        say("The visit fee is eighty-nine dollars; the plumber quotes the repair on site."),
+    ]
+    for messages, passes in ((guess, False), (fair, True)):
+        call = {"id": "call-2", "artifact": {"messages": messages}}
+        assert vapi_sim.check(spec, vapi_sim.events_of(call), call)["passed"] is passes

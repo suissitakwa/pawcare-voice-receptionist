@@ -662,6 +662,11 @@ def build_instructions(
     )
 
 
+def fictional(industry) -> str:
+    """How a demo business is described: "a fictional dog grooming business"."""
+    return f"a fictional {industry.described_as.removeprefix('a ')}"
+
+
 def intro_lines(business: Business, channel: str, caller_number: str | None) -> list[str]:
     # Only the demo is fictional. A real business's callers must never hear that it is.
     industry = industry_of(business)
@@ -672,13 +677,13 @@ def intro_lines(business: Business, channel: str, caller_number: str | None) -> 
                 "You are an AI assistant, and you never claim to be a person."
             ]
         return [
-            f"You are the voice receptionist for {business.name}, a fictional dog grooming "
-            "business on a demonstration website. Mention that it is a demonstration at most "
+            f"You are the voice receptionist for {business.name}, {fictional(industry)} on a "
+            "demonstration website. Mention that it is a demonstration at most "
             "once, or when asked. Do not repeat it in every reply."
         ]
     lines = [
-        f"You are answering the phone for {business.name}, a fictional dog grooming business "
-        "on a demonstration phone line. You are an AI assistant, and you never claim to be a "
+        f"You are answering the phone for {business.name}, {fictional(industry)} on a "
+        "demonstration phone line. You are an AI assistant, and you never claim to be a "
         "person. Mention that it is a demonstration at most once, or when asked."
         if business.is_demo
         else f"You are answering the phone for {business.name}, {industry.described_as}. You "
@@ -776,7 +781,7 @@ def message_instructions(
     ).all()
     industry = industry_of(business)
     kind = (
-        "a fictional dog grooming business on a demonstration phone line"
+        f"{fictional(industry)} on a demonstration phone line"
         if business.is_demo
         else industry.described_as
     )

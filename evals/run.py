@@ -72,7 +72,7 @@ async def main() -> None:
     from sqlalchemy.orm import Session
 
     from app.db import get_engine
-    from app.seed import seed_business
+    from app.seed import seed_demos
 
     spec = json.loads((HERE / "scenarios.json").read_text())
     today = datetime.fromisoformat(spec["today"])
@@ -82,7 +82,7 @@ async def main() -> None:
 
     runs = []
     with Session(get_engine()) as session:
-        seed_business(session)
+        seed_demos(session)
         session.commit()
         for scenario in scenarios:
             for attempt in range(args.repeat):

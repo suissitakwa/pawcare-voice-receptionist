@@ -64,6 +64,8 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Home services: what needs doing on every booking, and visit fees or starting prices
 - [x] Home services: arrival windows instead of exact times
 - [x] Home services: emergencies alert the owner first and text the on-call number
+- [x] Home services: a fictional demo plumber, scripted evaluations and simulated calls
+- [ ] Home services: real evaluation run and simulated calls against the plumbing demo
 - [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
 - [x] Phone line through OpenAI's SIP connection, with spoken booking confirmation (working on a real number; one booking made by phone)
 - [ ] Website import, document reading, calendar connection, and billing

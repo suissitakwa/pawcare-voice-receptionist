@@ -259,3 +259,61 @@ def test_account_errors_from_the_provider_are_recognised() -> None:
     model.socket = FakeSocket()
     with pytest.raises(ProviderRejected):
         asyncio.run(model.receive())
+
+
+EIGHT = "2027-01-05T16:00:00+00:00"
+
+PLUMBER = [
+    tool("check_availability", service="leak-repair", date="2027-01-05"),
+    say(
+        "A leak repair visit has an $89 visit fee, and the plumber quotes any repair on site. "
+        "I can have someone arrive between 8 AM and 11 AM."
+    ),
+    say("Great. What are your name, phone number and the address?"),
+    say(
+        "Thanks. Jordan, J O R D A N, phone 4 0 8, 5 5 5, 0 1 0 0, at 12 Elm Street, San Jose, "
+        "9 5 1 2 6, for the sink leaking under the cabinet. Is that right?"
+    ),
+    tool(
+        "prepare_booking",
+        service="leak-repair",
+        starts_at=EIGHT,
+        owner_name="Jordan",
+        owner_phone="408 555 0100",
+        service_address="12 Elm Street, San Jose, CA 95126",
+        job_details="Kitchen sink leaking under the cabinet since yesterday.",
+        details_read_back=True,
+    ),
+    say("The summary is on your screen. Please press Confirm booking to book it."),
+    read_reference,
+    say("You're welcome!"),
+]
+
+
+def test_a_plumber_scenario_runs_against_the_plumbing_demo(db: Session) -> None:
+    from app.seed import PLUMBING_FILE, load_seed, seed_business
+
+    seed_business(db, load_seed(PLUMBING_FILE))
+    db.commit()
+    scenario = SCENARIOS["home-book-leak"]
+    model = ScriptedModel(PLUMBER)
+    record = asyncio.run(run_scenario(db, model, scenario, TODAY))
+    results = evaluate(record, scenario, db)
+    failed = [(r["type"], r["detail"]) for r in results if not r["passed"]]
+    assert failed == []
+    # The plumber's own instructions and tools, not the groomer's.
+    assert "Riverbend Plumbing, a fictional home services business" in model.instructions
+    assert "Bookings are arrival windows" in model.instructions
+
+
+def test_an_invented_repair_price_is_caught(db: Session) -> None:
+    from app.seed import PLUMBING_FILE, load_seed, seed_business
+
+    seed_business(db, load_seed(PLUMBING_FILE))
+    db.commit()
+    scenario = SCENARIOS["home-repair-price"]
+    replies = [say("Fixing a pipe like that usually costs about $250, plus the $89 visit fee.")]
+    record = asyncio.run(run_scenario(db, ScriptedModel(replies), scenario, TODAY))
+    results = {r["type"]: r for r in evaluate(record, scenario, db)}
+    assert not results["prices_only"]["passed"]
+    assert "250" in results["prices_only"]["detail"]
