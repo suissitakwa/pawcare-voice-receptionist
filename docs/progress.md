@@ -1213,3 +1213,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Site typecheck and build | Pass (Node 22). The site repo has no test suite |
 | Layout | Checked in a browser: three cards side by side at 1280 px wide, stacked at 375 px, no sideways scroll; each button links to the sign-up page |
 | Live | Not deployed |
+
+## Payment terms on the public website (2026-11-24)
+
+**Outcome:** the website's terms of service now cover paid plans, matching how billing works in `app/plans.py` and `app/billing.py`: the 14-day, 100-call free trial with no card; the three plans in US dollars, plus any taxes that apply; monthly card payment through Stripe, renewing on the day first paid, or an agreed invoice; calls counted from the 1st of each month, with no extra charge once they're used up (the receptionist only takes messages); plan changes from Manage billing; failed payments retried by Stripe; cancelling, effective at the end of the paid month; refunds; and 30 days' notice of price changes. The refund and price-change terms are a choice, not something the code does. The home page now says "Free 14-day trial" instead of "Free 30-day pilot". The privacy policy lists Stripe as a provider. Both pages are drafts to have reviewed by a lawyer.
+
+| Check | Result |
+| --- | --- |
+| Site typecheck and build | Pass (Node 22) |
+| Layout | Terms page and the home page's trial card checked in a browser at 375 px, no sideways scroll |
+| Live | Not deployed |
