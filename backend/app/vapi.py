@@ -106,6 +106,19 @@ def vapi_voice(settings: Settings, business: Business) -> str:
     return settings.vapi_voice_id
 
 
+def vapi_transcriber(settings: Settings) -> dict:
+    """Speech recognition for the call. Deepgram names its model `model`, AssemblyAI
+    `speechModel`; an empty model leaves AssemblyAI on its own default."""
+    provider = settings.vapi_transcriber_provider
+    config: dict = {"provider": provider, "language": TRANSCRIPTION_LANGUAGE}
+    if provider == "assembly-ai":
+        if settings.vapi_transcriber_model:
+            config["speechModel"] = settings.vapi_transcriber_model
+    else:
+        config["model"] = settings.vapi_transcriber_model or "nova-3"
+    return config
+
+
 def assistant(
     settings: Settings,
     business: Business,
@@ -128,11 +141,7 @@ def assistant(
             "provider": settings.vapi_voice_provider,
             "voiceId": vapi_voice(settings, business),
         },
-        "transcriber": {
-            "provider": "deepgram",
-            "model": settings.vapi_transcriber_model,
-            "language": TRANSCRIPTION_LANGUAGE,
-        },
+        "transcriber": vapi_transcriber(settings),
         "maxDurationSeconds": min(MESSAGE_CALL_SECONDS, settings.phone_max_call_seconds)
         if message_only
         else settings.phone_max_call_seconds,

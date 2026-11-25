@@ -42,7 +42,8 @@ On the backend service:
 | `VAPI_MALE_VOICE_ID` | optional; for businesses whose owner chose the male voice, with `VAPI_VOICE_PROVIDER=11labs`. Default ElevenLabs "Adam" (`pNInz6obpgDQGcFmaJgB`) |
 | `VAPI_VOICE_PROVIDER` | optional; default `11labs` (for example `cartesia`) |
 | `VAPI_MODEL` | optional; default `gpt-4.1-mini` |
-| `VAPI_TRANSCRIBER_MODEL` | optional; Deepgram model, default `nova-3` |
+| `VAPI_TRANSCRIBER_PROVIDER` | optional; `deepgram` (default) or `assembly-ai` |
+| `VAPI_TRANSCRIBER_MODEL` | optional; empty uses the provider's default: Deepgram `nova-3`, AssemblyAI `universal-streaming-english`. For AssemblyAI it is sent as `speechModel`. Clear it when you switch provider |
 | `VAPI_ASSISTANT_OVERRIDES` | optional JSON merged into the assistant, for example `{"startSpeakingPlan": {"waitSeconds": 0.6}}` |
 
 Redeploy. Until `VAPI_SECRET` is set, the endpoint returns 404.
@@ -86,4 +87,6 @@ Browse voices in Vapi's voice library or ElevenLabs, copy the voice id, set `VAP
 
 ## Costs
 
-Vapi charges per minute for its platform, plus the transcriber, model and voice providers. Twilio charges for the number and minutes. Each call's cost as reported by Vapi is stored on the voice session (`usage.cost_usd`). See Vapi's pricing page for current rates.
+Vapi charges per minute for its platform, plus the transcriber, model and voice providers. Twilio charges for the number and minutes.
+
+To pay a provider from your own account (and its credits) instead of through Vapi, add that provider's API key under **Integrations** in the Vapi dashboard. Vapi then uses your account for that part of every call; its platform fee stays. For speech recognition, add a Deepgram or AssemblyAI key and set `VAPI_TRANSCRIBER_PROVIDER` to match. Each call uses one transcriber, so switch providers when one account's credits run out. The voice and the model are usually larger shares of a call than speech recognition; the per-call breakdown is in Vapi's **Call Logs**. Each call's cost as reported by Vapi is stored on the voice session (`usage.cost_usd`). See Vapi's pricing page for current rates.
