@@ -25,6 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.industries import industry_of
 from app.models import Business, VoiceSession
 from app.phone import CALL_ID_PATTERN, hash_caller, limit_problem
 from app.voice import (
@@ -135,7 +136,9 @@ def assistant(
             "model": settings.vapi_model,
             "temperature": 0.4,
             "messages": [{"role": "system", "content": instructions}],
-            "tools": vapi_shape(message_tools()) if message_only else vapi_tools(catalog),
+            "tools": vapi_shape(message_tools(industry_of(business).takes_emergencies))
+            if message_only
+            else vapi_tools(catalog),
         },
         "voice": {
             "provider": settings.vapi_voice_provider,

@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.industries import industry_of
 from app.models import Business, VoiceSession
 from app.schemas import VoiceToolResult, VoiceUsage
 from app.voice import (
@@ -286,7 +287,7 @@ def handle_incoming(
         instructions = build_instructions(session, business, today, "phone", number)
     try:
         tools = (
-            message_tools()
+            message_tools(industry_of(business).takes_emergencies)
             if record.message_only
             else phone_tools(tool_catalog(session, business.id))
         )

@@ -1260,3 +1260,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Not verified | Not checked in a browser. No call was made with a home services business. The Google Calendar event spans the window; its wording wasn't changed |
 | Live | Not deployed |
 
+## Home services: emergencies (2026-11-24)
+
+**Outcome:** a caller to a home services business with an emergency (water leaking or flooding now, no water, sewage backing up, no heat in freezing weather, or a gas smell once they are safely outside) is no longer offered a booking time. The receptionist takes their name, number, address and what is happening, reads it back, and raises a callback with the new reason `emergency`; it tells them the team is being alerted and says it can't promise how soon. Safety advice still comes first. The callback writes a `callback.emergency` event: the owner's email ("EMERGENCY: call Jordan back now") goes out before anything else waiting, and the business's on-call number, set in the sign-up form, is texted at once, whether or not customer texts are on. An on-call text is retried after a minute and given up after an hour, since the email still has it. The staff dashboard lists emergency callbacks first, marked "Emergency: call now." The webhook sends `callback.emergency` too. Only home services can raise one: any other business's emergency is saved as special handling, and their tools are unchanged. Message-only calls can raise one too. Migration `0038` allows the reason and adds `on_call_phone`.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 808 passed (local PostgreSQL 14), 4 new in `test_home_services.py`: the triage wording comes after safety and the emergency reason is offered only to home services, in booking and message-only calls; an emergency is emailed before an earlier ordinary request, and texted to the on-call number (not when there's no number to text from); a groomer's emergency becomes special handling with no emergency event; the on-call number comes from the profile. The demo's tools are unchanged. Migration `0038` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 136 tests pass (Node 22), 1 new: emergency callbacks listed first and marked |
+| Not verified | No real text or email was sent, and no call was made with a home services business. Not checked in a browser |
+| Live | Not deployed. On-call texts need Twilio settings and a number to text from, as customer texts do |
+

@@ -41,7 +41,19 @@ class Industry:
     safety: str = ""
     # Every booking notes what the customer needs done, in their words.
     asks_job_details: bool = False
+    # Callers with an emergency are put through to the on-call person as an urgent callback.
+    takes_emergencies: bool = False
 
+
+EMERGENCY = (
+    "An emergency is water leaking or flooding now, no water at all, sewage backing up, no "
+    "heat in freezing weather, or a gas smell once the caller is safely outside. For an "
+    "emergency, don't look for a booking time: take the caller's name, a phone number, the "
+    "address and what is happening, read them back, wait for yes, and call "
+    "create_callback_request with reason emergency and that sentence as the note. Then tell "
+    "them the team is being alerted right away and will call them back, and say you can't "
+    "promise how soon. Anything that can wait is booked as usual."
+)
 
 HOME_SAFETY = (
     "Safety comes first. If the caller smells gas, tell them to leave the building now and "
@@ -66,11 +78,13 @@ INDUSTRIES = {
             "callback."
         ),
         special_reasons=(
-            "Use special_handling for an urgent problem such as a leak, no water or no heat, "
-            "or a job the technician should decide on"
+            "Use emergency for water leaking or flooding now, no water, sewage backing up, no "
+            "heat in freezing weather, or a gas smell once the caller is safe, and "
+            "special_handling for a job the technician should decide on"
         ),
         safety=HOME_SAFETY,
         asks_job_details=True,
+        takes_emergencies=True,
     ),
 }
 

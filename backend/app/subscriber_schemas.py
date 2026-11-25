@@ -218,6 +218,8 @@ class ProfileDetails(Strict):
     # Home services: customers book an arrival window this long ("between 8 and 11") instead
     # of an exact time. Empty: exact times.
     arrival_window_minutes: Literal[120, 180, 240] | None = None
+    # Home services: texted at once when a caller has an emergency. Empty: email only.
+    on_call_phone: str | None = None
 
     @field_validator("service_zip_codes")
     @classmethod
@@ -250,7 +252,7 @@ class ProfileDetails(Strict):
             raise ValueError("Give each service a different name.")
         return value
 
-    _phone = field_validator("business_phone")(clean_phone)
+    _phone = field_validator("business_phone", "on_call_phone")(clean_phone)
 
     @field_validator("website_url")
     @classmethod

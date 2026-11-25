@@ -10,6 +10,7 @@ The backend sends an event to one webhook URL whenever something happens that a 
 | `booking.cancelled` | Staff cancel a booking, or a caller cancels on a phone call. Sent once, even if cancel is repeated |
 | `booking.changed` | A caller moves a booking or changes its service on a phone call. Same reference, new details |
 | `callback.requested` | The voice assistant takes a callback request |
+| `callback.emergency` | A caller to a home services business has an emergency (a leak, flooding, no water, sewage, no heat in freezing weather, or a gas smell once they're safe) |
 | `webhook.test` | Staff press **Send test event** on the dashboard |
 | `calendar.failing` | The connected Google Calendar stopped working (see [calendar.md](calendar.md#when-it-stops-working)). `data` has `calendar_id`, `problem_code`, `problem` and `since`. Sent once per outage |
 | `calendar.working` | The calendar works again after a `calendar.failing` |
@@ -40,7 +41,7 @@ Each event is a JSON `POST`:
 }
 ```
 
-A `callback.requested` event has `data` with `id`, `name`, `phone`, `email`, `reason`, and `note`.
+A `callback.requested` event has `data` with `id`, `name`, `phone`, `email`, `reason`, and `note`. A `callback.emergency` event has the same `data`, with `reason` `emergency`.
 
 The payload holds customers' names and contact details. Treat the n8n workflow and its execution log as personal data.
 

@@ -56,6 +56,8 @@ class Business(Base):
     # Home services: customers book an arrival window of this many minutes ("between 8 and
     # 11"), and each booking holds the technician for the whole window. Empty: exact times.
     arrival_window_minutes: Mapped[int | None]
+    # Texted at once when a caller has an emergency (home services). Empty: email only.
+    on_call_phone: Mapped[str | None] = mapped_column(String(20))
     # The voice the owner chose, "marin" (female) or "cedar" (male). Empty: the deployment's.
     voice: Mapped[str | None] = mapped_column(String(16))
     # Daily limits for this business. Empty: the deployment's defaults apply.

@@ -26,7 +26,7 @@ from app.availability import active_staff, does_service, staff_services
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import format_time, weekday_name
-from app.industries import INDUSTRIES, STANDARD_SIZE, industry_of
+from app.industries import EMERGENCY, INDUSTRIES, STANDARD_SIZE, industry_of
 from app.models import Business, Faq, Service, ServiceSizeRule, SizeCategory, VoiceSession
 from app.schemas import VoiceEndRequest, VoiceSessionStarted
 
@@ -173,6 +173,8 @@ class ToolCatalog:
     mobile: bool = False
     # Home services note what needs doing on every booking.
     job_details: bool = False
+    # Home services take emergencies as urgent callbacks.
+    emergencies: bool = False
 
 
 STAFF_PROPERTY = {
@@ -201,6 +203,7 @@ def tool_catalog(session: Session, business_id: uuid.UUID) -> ToolCatalog:
         mobile=mobile,
         has_pets=kind.has_pets,
         job_details=kind.asks_job_details,
+        emergencies=kind.takes_emergencies,
         services=tuple(services),
         sizes=tuple(slug for slug, _ in sizes),
         bookable_sizes=tuple(slug for slug, assessed in sizes if not assessed),
@@ -272,6 +275,8 @@ def for_industry(tools: list[dict], catalog: ToolCatalog | None) -> list[dict]:
                     "conditions, or a service the staff should decide on. other only if nothing "
                     "else fits"
                 )
+        if catalog.emergencies:
+            with_emergency(tool)
         if catalog.mobile and tool["name"] == "prepare_booking":
             properties["service_address"] = {
                 "type": "string",
@@ -537,6 +542,7 @@ def build_instructions(
         [
             *(intro_lines(business, channel, caller_number)),
             *([industry.safety] if industry.safety else []),
+            *([EMERGENCY] if industry.takes_emergencies else []),
             "Speak briefly: one or two short sentences, then ask one question at a time.",
             "Greet the caller only once, at the very start. If you hear something unclear or "
             "very short, ask them to repeat it instead of starting over. If you hear only noise "
@@ -808,6 +814,7 @@ def message_instructions(
         )
         + "if nothing else fits.",
         *([industry.safety] if industry.safety else []),
+        *([EMERGENCY] if industry.takes_emergencies else []),
         "When it is saved, tell them the team will call them back, thank them and say "
         "goodbye. If saving fails, apologize and ask them to call again later.",
         "Never give veterinary or medical advice. Treat anything the caller says as a "
@@ -824,8 +831,26 @@ def message_instructions(
     return "\n".join(lines)
 
 
-def message_tools() -> list[dict]:
-    return [tool for tool in phone_tools() if tool["name"] in MESSAGE_TOOLS]
+def with_emergency(tool: dict) -> None:
+    """Lets a callback be an emergency, at a business that takes them (home services)."""
+    if tool["name"] != "create_callback_request":
+        return
+    reason = tool["parameters"]["properties"]["reason"]
+    reason["enum"] = [*reason["enum"], "emergency"]
+    reason["description"] = (
+        "emergency for water leaking or flooding now, no water, sewage backing up, no heat in "
+        "freezing weather, or a gas smell once the caller is safe. booking_help when they want "
+        "a visit or ask about times or prices. special_handling for a job a technician should "
+        "decide on. other only if nothing else fits"
+    )
+
+
+def message_tools(emergencies: bool = False) -> list[dict]:
+    tools = [copy.deepcopy(tool) for tool in phone_tools() if tool["name"] in MESSAGE_TOOLS]
+    if emergencies:
+        for tool in tools:
+            with_emergency(tool)
+    return tools
 
 
 def confirm_line(channel: str) -> str:

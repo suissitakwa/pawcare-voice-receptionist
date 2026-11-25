@@ -54,7 +54,13 @@ const REASONS: Record<string, string> = {
   large_dog: "Extra large dog",
   booking_help: "Wants an appointment",
   other: "Other",
+  emergency: "Emergency",
 };
+
+/** Emergencies first, then the order they came in. */
+function urgentFirst<T extends { reason: string }>(callbacks: T[]): T[] {
+  return [...callbacks.filter((c) => c.reason === "emergency"), ...callbacks.filter((c) => c.reason !== "emergency")];
+}
 
 function errorText(error: unknown): string {
   return error instanceof ApiRequestError ? error.message : "Something went wrong.";
@@ -494,9 +500,10 @@ function Dashboard({ token, staff, onSignedOut }: { token: string; staff: StaffU
           <p className="muted">No open callback requests.</p>
         ) : (
           <ul className="block-list">
-            {callbacks.map((callback) => (
-              <li key={callback.id}>
+            {urgentFirst(callbacks).map((callback) => (
+              <li key={callback.id} className={callback.reason === "emergency" ? "urgent" : undefined}>
                 <span>
+                  {callback.reason === "emergency" && <strong className="urgent-label">Emergency: call now. </strong>}
                   <strong>{callback.name}</strong>, {[callback.phone, callback.email].filter(Boolean).join(", ")}
                   <span className="size-note">
                     {REASONS[callback.reason] ?? callback.reason}

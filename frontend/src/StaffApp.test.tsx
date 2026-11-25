@@ -429,6 +429,31 @@ describe("StaffApp", () => {
     expect(calls.some((c) => c.key === "POST /api/v1/staff/callbacks/c1/done")).toBe(true);
   });
 
+  it("puts emergency callbacks first and marks them", async () => {
+    const emergency = {
+      ...CALLBACK,
+      id: "c2",
+      name: "Jordan",
+      reason: "emergency",
+      note: "Water pouring from the ceiling",
+      created_at: "2027-01-04T19:00:00Z",
+    };
+    mockApi(
+      dashboardRoutes({
+        "GET /api/v1/staff/callbacks": () => ({ status: 200, body: [CALLBACK, emergency] }),
+      }),
+    );
+    render(<StaffApp />);
+    await signIn();
+    expect(await screen.findByText(/Emergency: call now/)).toBeInTheDocument();
+    const items = within(screen.getByRole("region", { name: "Callback requests" })).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Emergency: call now.");
+    expect(items[0]).toHaveTextContent("Emergency: Water pouring from the ceiling");
+    expect(items[0]).toHaveClass("urgent");
+    expect(items[1]).toHaveTextContent("Sam");
+    expect(items[1]).not.toHaveClass("urgent");
+  });
+
   it("resumes a stored session without asking to sign in again", async () => {
     sessionStorage.setItem("pawcare-staff-token", "t-123");
     mockApi(dashboardRoutes());

@@ -89,7 +89,7 @@ def test_a_plumber_goes_live_as_a_mobile_business(client, db) -> None:
 
     message = message_instructions(db, business, None)
     assert "If the caller smells gas" in message
-    assert "urgent problem such as a leak" in message
+    assert "Use emergency for water leaking or flooding now" in message
 
     # Bookings go only to addresses inside the area.
     day = "2027-01-05"  # a Tuesday, when the test profile is open
@@ -376,3 +376,164 @@ def test_exact_times_are_unchanged_without_a_window(client, db) -> None:
     assert starts == ["09:00", "09:15"]
     instructions = build_instructions(db, business, NOW.date(), channel="phone")
     assert "arrival windows" not in instructions
+
+
+ON_CALL = "+14085550199"
+
+
+def emergency_call(db, business: Business, reason: str = "emergency"):
+    from app.voice_tools import create_callback
+
+    record = VoiceSession(
+        business_id=business.id,
+        mode="test",
+        channel="phone",
+        client_hash="0" * 64,
+        token_hash=uuid.uuid4().hex * 2,
+    )
+    db.add(record)
+    db.flush()
+    result = create_callback(
+        db,
+        business,
+        record,
+        {
+            "name": "Jordan",
+            "phone": "(408) 555-0100",
+            "reason": reason,
+            "note": "Water pouring from the ceiling at 12 Elm St, San Jose.",
+        },
+        NOW,
+    )
+    db.commit()
+    assert result.ok
+    return result
+
+
+def test_the_receptionist_triages_emergencies(client, db) -> None:
+    business = live_plumber(client, db)
+    text = build_instructions(db, business, NOW.date(), channel="phone")
+    assert "An emergency is water leaking or flooding now" in text
+    assert "reason emergency" in text and "can't promise how soon" in text
+    assert text.index("smells gas") < text.index("An emergency is")
+    tools = {t["name"]: t for t in phone_tools(tool_catalog(db, business.id))}
+    reasons = tools["create_callback_request"]["parameters"]["properties"]["reason"]
+    assert "emergency" in reasons["enum"]
+    assert "allergies" not in reasons["description"]
+
+    demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
+    assert "An emergency is" not in build_instructions(db, demo, NOW.date(), channel="phone")
+    demo_tools = {t["name"]: t for t in phone_tools(tool_catalog(db, demo.id))}
+    demo_reasons = demo_tools["create_callback_request"]["parameters"]["properties"]["reason"]
+    assert "emergency" not in demo_reasons["enum"]
+
+    # A message-only call can raise an emergency too, at a business that takes them.
+    from app.voice import message_tools
+
+    def message_reasons(emergencies: bool) -> list[str]:
+        tool = next(t for t in message_tools(emergencies) if t["name"] == "create_callback_request")
+        return tool["parameters"]["properties"]["reason"]["enum"]
+
+    assert "emergency" in message_reasons(True)
+    assert "emergency" not in message_reasons(False)
+
+
+def test_an_emergency_alerts_the_owner_first_and_texts_on_call(client, db) -> None:
+    from sqlalchemy import update
+
+    from app import owner_email
+    from app.models import CallbackRequest
+    from tests.test_customer_texts import settings as text_settings
+    from tests.test_owner_email import Outbox
+    from tests.test_owner_email import settings as email_settings
+
+    business = live_plumber(client, db)
+    business.on_call_phone = ON_CALL
+    # Nothing else waiting, so the order below is only about these two.
+    db.execute(update(WebhookEvent).values(email_sent_at=NOW, text_sent_at=NOW))
+    db.commit()
+    emergency_call(db, business, reason="booking_help")
+    emergency_call(db, business)
+
+    callback = db.scalar(
+        select(CallbackRequest).where(
+            CallbackRequest.business_id == business.id, CallbackRequest.reason == "emergency"
+        )
+    )
+    assert callback is not None
+    event = db.scalar(
+        select(WebhookEvent).where(
+            WebhookEvent.business_id == business.id,
+            WebhookEvent.event_type == "callback.emergency",
+        )
+    )
+    assert event.payload["data"]["reason"] == "emergency"
+
+    # The emergency is emailed first, though the ordinary request came in earlier.
+    outbox = Outbox()
+    assert owner_email.send_due(db, email_settings(), NOW, outbox) == 2
+    assert outbox.sent[0]["Subject"] == "EMERGENCY: call Jordan back now"
+    assert "Water pouring from the ceiling" in outbox.sent[0].get_content()
+    assert outbox.sent[1]["Subject"].startswith("Please call back: Jordan")
+
+    # The on-call person is texted, though customer texts are off for this business.
+    texts = []
+    assert not business.texts_enabled
+    sent = customer_texts.send_due(
+        db,
+        text_settings(phone_number="", business_slug="other"),
+        NOW,
+        lambda _settings, text: texts.append(text),
+    )
+    assert sent == 0  # The plumber has no number to text from yet.
+    db.expire_all()
+    event = db.get(WebhookEvent, event.id)
+    assert event.text_error == "no number to text from"
+
+    event.text_failed_at = None
+    event.text_error = None
+    db.commit()
+    sent = customer_texts.send_due(
+        db,
+        text_settings(twilio_messaging_service_sid="MG00000000000000000000000000000000"),
+        NOW,
+        lambda _settings, text: texts.append(text),
+    )
+    assert sent == 1
+    assert texts[0].to == ON_CALL
+    assert texts[0].body.startswith(f"{business.name} EMERGENCY: call Jordan back now at")
+    assert "Water pouring from the ceiling" in texts[0].body
+
+
+def test_other_businesses_never_raise_an_emergency(client, db) -> None:
+    from app.models import CallbackRequest
+
+    demo = db.scalar(select(Business).where(Business.slug == "pawcare-demo"))
+    emergency_call(db, demo)
+    callback = db.scalar(
+        select(CallbackRequest)
+        .where(CallbackRequest.business_id == demo.id)
+        .order_by(CallbackRequest.created_at.desc())
+    )
+    assert callback.reason == "special_handling"
+    assert not db.scalar(
+        select(WebhookEvent).where(
+            WebhookEvent.business_id == demo.id,
+            WebhookEvent.event_type == "callback.emergency",
+        )
+    )
+
+
+def test_the_on_call_number_comes_from_the_profile(client, db) -> None:
+    headers = plumber(client, zips=["95126"])
+    response = client.patch(
+        f"{API}/profile", headers=headers, json={"details": {"on_call_phone": "(408) 555-0199"}}
+    )
+    assert response.status_code == 200, response.text
+    assert client.post(f"{API}/profile/submit", headers=headers).status_code == 200
+    db.expire_all()
+    seed, _, _ = approve(db, "sam@example.com")
+    db.commit()
+    assert seed.on_call_phone == "(408) 555-0199"
+    business = db.scalar(select(Business).where(Business.slug == seed.slug))
+    assert business.on_call_phone == "(408) 555-0199"

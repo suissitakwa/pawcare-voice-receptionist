@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid, parseaddr
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app import go_live
@@ -35,6 +35,8 @@ EMAILED_EVENTS = {
     "booking.changed",
     "booking.cancelled",
     "callback.requested",
+    # A caller with an emergency (home services): sent before anything else that's waiting.
+    "callback.emergency",
     # About the service itself, with no business yet.
     "profile.submitted",
     "profile.received",
@@ -75,6 +77,7 @@ REASONS = {
     "special_handling": "special handling",
     "large_dog": "large dog",
     "booking_help": "wants an appointment",
+    "emergency": "emergency",
     "other": "other",
 }
 
@@ -298,6 +301,17 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
             f"Your receptionist can use your Google Calendar ({data.get('calendar_id')}) again. "
             "Busy times block booking and new bookings are added to it as before.",
         ]
+    elif event.event_type == "callback.emergency":
+        subject = f"EMERGENCY: call {data.get('name')} back now"
+        lines = [
+            f"{data.get('name')} called with an emergency and is waiting for a call back. The "
+            "receptionist told them the team is being alerted and couldn't promise how soon.",
+            "",
+            f"Phone: {data.get('phone') or '-'}",
+            f"Email: {data.get('email') or '-'}",
+        ]
+        if data.get("note"):
+            lines.append(f"What's happening: {data['note']}")
     elif event.event_type == "callback.requested":
         reason = REASONS.get(data.get("reason"), data.get("reason") or "")
         subject = f"Please call back: {data.get('name')} ({reason})"
@@ -451,7 +465,11 @@ def send_due(session: Session, settings: Settings, now: datetime, mail: Mailer =
             (WebhookEvent.email_next_attempt_at.is_(None))
             | (WebhookEvent.email_next_attempt_at <= now),
         )
-        .order_by(WebhookEvent.created_at)
+        # Emergencies first, then oldest first.
+        .order_by(
+            case((WebhookEvent.event_type == "callback.emergency", 0), else_=1),
+            WebhookEvent.created_at,
+        )
         .limit(BATCH)
         # Several workers can share the outbox without emailing twice.
         .with_for_update(skip_locked=True)

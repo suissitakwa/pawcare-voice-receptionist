@@ -30,6 +30,7 @@ from app.booking import sha256 as booking_sha256
 from app.config import Settings
 from app.errors import ApiError
 from app.format_text import arrival_label, format_time
+from app.industries import industry_of
 from app.manage import (
     CHANGE_LIFETIME,
     cancel,
@@ -82,7 +83,9 @@ class CallbackArgs(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     phone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=254)
-    reason: str = Field(pattern="^(health|behavior|special_handling|large_dog|booking_help|other)$")
+    reason: str = Field(
+        pattern="^(health|behavior|special_handling|large_dog|booking_help|other|emergency)$"
+    )
     note: str = Field(default="", max_length=300)
 
     _name = field_validator("name")(clean_name)
@@ -241,18 +244,24 @@ def create_callback(
         return tool_error("invalid_email", "That email address does not look right.")
     if not phone and not email:
         return tool_error("contact_required", "A phone number or email address is needed.")
+    reason = args.reason
+    if reason == "emergency" and not industry_of(business).takes_emergencies:
+        # Only home services alert someone on call; elsewhere it's a request staff decide on.
+        reason = "special_handling"
     callback = CallbackRequest(
         business_id=business.id,
         voice_session_id=record.id,
         name=args.name,
         phone=phone,
         email=email,
-        reason=args.reason,
+        reason=reason,
         note=args.note,
     )
     session.add(callback)
     session.flush()
-    enqueue(session, business.id, "callback.requested", callback_data(callback), now)
+    # An emergency has its own event, so the owner's email and the on-call text go first.
+    event = "callback.emergency" if reason == "emergency" else "callback.requested"
+    enqueue(session, business.id, event, callback_data(callback), now)
     return VoiceToolResult(
         ok=True,
         result={"status": "callback_requested", "message": "Staff will contact the caller."},

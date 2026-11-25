@@ -213,6 +213,8 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "arrival_window_minutes": details.arrival_window_minutes
         if industry.always_mobile
         else None,
+        # Only home services take emergency calls.
+        "on_call_phone": details.on_call_phone if industry.always_mobile else None,
         "hours": hours,
         "groomers": groomers,
         "size_categories": template["size_categories"] if pets else STANDARD_SIZES,

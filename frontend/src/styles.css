@@ -284,6 +284,8 @@ h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.3125rem; font-weig
 .field-hint { margin: 0; color: var(--ink-soft); font-size: 0.9375rem; }
 .field-error { margin: 0; color: var(--error-ink); font-weight: 600; font-size: 0.9375rem; }
 .form-alert { margin: 16px 0 0; padding: 12px 16px; background: var(--error-bg); color: var(--error-ink); border-radius: 10px; }
+.block-list li.urgent { border-left: 4px solid var(--error-ink); padding-left: 12px; background: var(--error-bg); }
+.urgent-label { color: var(--error-ink); }
 .form-info { margin: 16px 0 0; padding: 12px 16px; background: var(--tint); border-radius: 10px; }
 .booking-panel .muted { margin-top: 12px; }
 .booking-panel .actions { margin-top: 24px; }

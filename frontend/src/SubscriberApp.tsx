@@ -321,6 +321,7 @@ function cleanDetails(details: ProfileDetails, urls: string, zips: string, busin
     address: orNull(details.address ?? null),
     hours: (details.hours ?? []).map((h) => ({ ...h, opens_at: h.opens_at.slice(0, 5), closes_at: h.closes_at.slice(0, 5) })),
     business_phone: orNull(details.business_phone),
+    on_call_phone: orNull(details.on_call_phone ?? null),
     website_url: orNull(details.website_url),
     calendar_other: details.calendar_provider === "other" ? orNull(details.calendar_other) : null,
     knowledge_urls: lines(urls),
@@ -796,6 +797,19 @@ function ProfileForm({
                       <option value="180">A 3-hour arrival window</option>
                       <option value="240">A 4-hour arrival window</option>
                     </select>
+                  )}
+                </Field>
+                <Field
+                  label="On-call phone for emergencies (optional)"
+                  hint="When a caller has a leak, flooding, no water or no heat, we text this number straight away. We always email you too."
+                >
+                  {(props) => (
+                    <input
+                      {...props}
+                      type="tel"
+                      value={details.on_call_phone ?? ""}
+                      onChange={(e) => setDetails({ on_call_phone: e.target.value || null })}
+                    />
                   )}
                 </Field>
               </>

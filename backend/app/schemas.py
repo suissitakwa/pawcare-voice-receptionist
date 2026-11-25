@@ -116,6 +116,8 @@ class BusinessSeed(SeedModel):
     # Customers book "arriving between 8 and 11" instead of an exact time. Leave out for exact
     # times.
     arrival_window_minutes: int | None = Field(default=None, ge=60, le=480)
+    # Texted at once when a caller has an emergency. Leave out to only email the owner.
+    on_call_phone: str | None = Field(default=None, max_length=20, pattern=r"^\+?[0-9 ().-]{7,20}$")
     # Optional daily limits for this business; without them the deployment's defaults apply.
     voice_daily_limit: int | None = Field(default=None, ge=0)
     phone_daily_limit: int | None = Field(default=None, ge=0)

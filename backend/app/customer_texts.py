@@ -248,6 +248,73 @@ def text_events(session: Session, settings: Settings, now: datetime, texter: Tex
     return sent
 
 
+# An alert that arrives this late is no longer an alert; the owner's email still has it.
+EMERGENCY_GIVE_UP = timedelta(hours=1)
+
+
+def emergency_text(data: dict, business: Business) -> str:
+    """The on-call person's alert: who to call, and what's happening."""
+    note = f" {data['note']}" if data.get("note") else ""
+    return (
+        f"{business.name} EMERGENCY: call {data.get('name')} back now at "
+        f"{data.get('phone') or data.get('email') or 'the number in your email'}.{note}"
+    )
+
+
+def text_emergencies(session: Session, settings: Settings, now: datetime, texter: Texter) -> int:
+    """Texts the on-call person about each emergency caller, before anything else is sent.
+    Unlike customer texts, these don't depend on texts being switched on for customers."""
+    events = session.scalars(
+        select(WebhookEvent)
+        .where(
+            WebhookEvent.event_type == "callback.emergency",
+            WebhookEvent.text_sent_at.is_(None),
+            WebhookEvent.text_failed_at.is_(None),
+            or_(
+                WebhookEvent.text_next_attempt_at.is_(None),
+                WebhookEvent.text_next_attempt_at <= now,
+            ),
+        )
+        .order_by(WebhookEvent.created_at)
+        .limit(BATCH)
+        .with_for_update(skip_locked=True)
+    ).all()
+    sent = 0
+    for event in events:
+        business = session.get(Business, event.business_id)
+        to = normalize(business.on_call_phone)
+        source = sender(session, business, settings)
+        if to is None or source is None:
+            event.text_failed_at = now
+            event.text_error = "no on-call number" if to is None else "no number to text from"
+            continue
+        if event.created_at < now - EMERGENCY_GIVE_UP:
+            event.text_failed_at, event.text_error = now, "not sent in time"
+            continue
+        event.text_attempts += 1
+        try:
+            texter(
+                settings,
+                Text(to=to, body=emergency_text(event.payload["data"], business), **source),
+            )
+        except Retry as error:
+            event.text_error = str(error)[:200]
+            if event.text_attempts >= MAX_ATTEMPTS:
+                event.text_failed_at = now
+                logger.warning("Emergency text for event %s failed: %s", event.id, error)
+            else:
+                # Seconds matter here, so try again soon rather than backing off.
+                event.text_next_attempt_at = now + FIRST_RETRY
+            continue
+        except Refused as error:
+            event.text_failed_at, event.text_error = now, str(error)[:200]
+            logger.warning("Emergency text for event %s refused: %s", event.id, error)
+            continue
+        event.text_sent_at, event.text_error = now, None
+        sent += 1
+    return sent
+
+
 def finish_reminder(booking: Booking, error: str | None) -> None:
     booking.reminder_for = booking.starts_at
     booking.reminder_attempts = 0
@@ -315,7 +382,9 @@ def send_due(
     """Sends the texts that are due. Returns how many were sent."""
     if texting_problem(settings) is not None:
         return 0
-    sent = text_events(session, settings, now, texter)
+    sent = text_emergencies(session, settings, now, texter)
+    session.commit()
+    sent += text_events(session, settings, now, texter)
     session.commit()
     sent += text_reminders(session, settings, now, texter)
     session.commit()

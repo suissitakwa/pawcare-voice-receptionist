@@ -102,6 +102,8 @@ export interface ProfileDetails {
   service_area?: string | null;
   /** Home services: an arrival window this many minutes long instead of exact times. */
   arrival_window_minutes?: 120 | 180 | 240 | null;
+  /** Home services: texted at once when a caller has an emergency. */
+  on_call_phone?: string | null;
 }
 
 export interface ProfileDocument {

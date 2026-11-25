@@ -63,7 +63,7 @@ Evidence for finished work is in [progress.md](progress.md).
 - [x] Home services (plumbers first) as a kind of business: always mobile, service ZIP codes required, safety-first wording
 - [x] Home services: what needs doing on every booking, and visit fees or starting prices
 - [x] Home services: arrival windows instead of exact times
-- [ ] Home services: emergency handling
+- [x] Home services: emergencies alert the owner first and text the on-call number
 - [ ] A submitted profile configures its own receptionist: voice, greeting, hours, services, and knowledge
 - [x] Phone line through OpenAI's SIP connection, with spoken booking confirmation (working on a real number; one booking made by phone)
 - [ ] Website import, document reading, calendar connection, and billing
