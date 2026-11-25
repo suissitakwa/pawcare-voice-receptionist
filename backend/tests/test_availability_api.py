@@ -193,7 +193,14 @@ def test_response_contains_no_booking_or_customer_fields(client: TestClient, db:
         "closed",
         "slots",
     }
-    assert set(body["slots"][0]) == {"starts_at", "ends_at", "local_start", "local_end"}
+    assert set(body["slots"][0]) == {
+        "starts_at",
+        "ends_at",
+        "local_start",
+        "local_end",
+        # The end of an arrival window, at a business that has them: a time, not a booking.
+        "arrival_until",
+    }
 
 
 def test_database_failure_returns_503(client: TestClient, database_down: None) -> None:

@@ -215,6 +215,9 @@ class ProfileDetails(Strict):
     is_mobile: bool = False
     service_zip_codes: list[str] = Field(default_factory=list, max_length=60)
     service_area: str | None = Field(default=None, max_length=200)
+    # Home services: customers book an arrival window this long ("between 8 and 11") instead
+    # of an exact time. Empty: exact times.
+    arrival_window_minutes: Literal[120, 180, 240] | None = None
 
     @field_validator("service_zip_codes")
     @classmethod

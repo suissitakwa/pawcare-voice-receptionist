@@ -16,14 +16,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.availability import (
+    arrival_window,
+    buffer_of,
     check_booking_window,
     does_service,
+    reserved,
     resolve_option,
     slot_is_open,
     staff_services,
 )
-from app.booking import slot_unavailable, summary_hash
-from app.format_text import format_time
+from app.booking import arrival_until, slot_unavailable, summary_hash
+from app.format_text import arrival_label, format_time
 from app.models import Booking, Business, Service, SizeCategory, VoiceSession
 from app.names import clean_name
 from app.prices import price_note
@@ -89,6 +92,18 @@ def describe(booking_summary: dict, timezone: ZoneInfo) -> dict:
         "date": start.date().isoformat(),
         "weekday": f"{start:%A}",
         "time": format_time(start.time()),
+        **(
+            {
+                "arrival": arrival_label(
+                    start.time(),
+                    datetime.fromisoformat(booking_summary["arrival_until"])
+                    .astimezone(timezone)
+                    .time(),
+                )
+            }
+            if booking_summary.get("arrival_until")
+            else {}
+        ),
         "duration_minutes": booking_summary["duration_minutes"],
         "price_dollars": booking_summary["price_cents"] / 100,
     }
@@ -203,7 +218,7 @@ def prepare_change(
         )
     timezone = ZoneInfo(business.timezone)
     starts_at = (args.starts_at or booking.starts_at).astimezone(ZoneInfo("UTC"))
-    duration = timedelta(minutes=rule.duration_minutes)
+    duration = reserved(timedelta(minutes=rule.duration_minutes), arrival_window(business))
     ends_at = starts_at + duration
     if starts_at != booking.starts_at or ends_at != booking.ends_at:
         # Only a new time or a longer service needs the time checked again; a corrected
@@ -232,6 +247,7 @@ def prepare_change(
         service_address=booking.service_address,
         job_details=booking.job_details,
         price_kind=service.price_kind,
+        arrival_until=arrival_until(business, starts_at),
     ).model_dump(mode="json")
     record.pending_change = {
         "booking_id": str(booking.id),
@@ -239,7 +255,7 @@ def prepare_change(
         "size_category_id": str(size.id),
         "starts_at": starts_at.isoformat(),
         "ends_at": ends_at.isoformat(),
-        "occupied_until": (ends_at + timedelta(minutes=business.buffer_minutes)).isoformat(),
+        "occupied_until": (ends_at + buffer_of(business)).isoformat(),
         "price_cents": rule.price_cents,
         "owner_name": owner_name,
         "pet_name": pet_name,

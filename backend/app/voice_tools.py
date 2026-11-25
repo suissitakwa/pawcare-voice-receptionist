@@ -18,6 +18,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.availability import (
+    arrival_window,
     check_booking_window,
     day_openings,
     load_business,
@@ -28,7 +29,7 @@ from app.booking import confirm_prepared, prepare_booking
 from app.booking import sha256 as booking_sha256
 from app.config import Settings
 from app.errors import ApiError
-from app.format_text import format_time
+from app.format_text import arrival_label, format_time
 from app.manage import (
     CHANGE_LIFETIME,
     cancel,
@@ -126,6 +127,7 @@ def check_availability(session: Session, business, raw: dict, now: datetime) -> 
     staff = staff_for(session, business.id, service.id, args.staff)
     check_booking_window(business, args.date, now)
     timezone = ZoneInfo(business.timezone)
+    window = arrival_window(business)
     openings = day_openings(
         session, business, args.date, timedelta(minutes=rule.duration_minutes), now, staff
     )
@@ -149,7 +151,13 @@ def check_availability(session: Session, business, raw: dict, now: datetime) -> 
             "price_dollars": rule.price_cents / 100,
             "times": [
                 {
-                    "label": format_time(slot.starts_at.astimezone(timezone).time()),
+                    # An arrival window where the business has them: say the whole window.
+                    "label": arrival_label(
+                        slot.starts_at.astimezone(timezone).time(),
+                        (slot.starts_at + window).astimezone(timezone).time(),
+                    )
+                    if window
+                    else format_time(slot.starts_at.astimezone(timezone).time()),
                     "starts_at": slot.starts_at.isoformat(),
                 }
                 for slot in slots[:MAX_TIMES_RETURNED]
@@ -192,6 +200,16 @@ def prepare(
             **({"job": summary.job_details} if summary.job_details else {}),
             "date": summary.local_start.date().isoformat(),
             "time": format_time(summary.local_start.astimezone(timezone).time()),
+            **(
+                {
+                    "arrival": arrival_label(
+                        summary.local_start.astimezone(timezone).time(),
+                        summary.arrival_until.astimezone(timezone).time(),
+                    )
+                }
+                if summary.arrival_until
+                else {}
+            ),
             "duration_minutes": summary.duration_minutes,
             "price_dollars": summary.price_cents / 100,
             **(

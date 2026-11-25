@@ -23,6 +23,8 @@ export interface Business {
   /** A mobile business comes to the customer, within its service area. */
   is_mobile?: boolean;
   service_area?: string;
+  /** Customers book an arrival window this long instead of an exact time. */
+  arrival_window_minutes?: number | null;
   hours: BusinessHours[];
   /** The receptionist's number (E.164), only while the phone line answers. */
   assistant_phone?: string | null;
@@ -121,6 +123,8 @@ export interface Slot {
   ends_at: string;
   local_start: string;
   local_end: string;
+  /** At a business with arrival windows: the latest arrival, local time. */
+  arrival_until?: string | null;
 }
 
 export interface Availability {
@@ -165,6 +169,8 @@ export interface BookingSummary {
   service_address?: string | null;
   job_details?: string | null;
   price_kind?: PriceKind;
+  /** At a business with arrival windows: the latest arrival, local time. */
+  arrival_until?: string | null;
 }
 
 export interface PreparedBooking {

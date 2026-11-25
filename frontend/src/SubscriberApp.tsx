@@ -775,7 +775,30 @@ function ProfileForm({
               </div>
             )}
             {draft.business_type === "home_services" && (
-              <p className="form-info">Your technicians go to your customers, so the receptionist asks every caller for their address.</p>
+              <>
+                <p className="form-info">Your technicians go to your customers, so the receptionist asks every caller for their address.</p>
+                <Field
+                  label="What customers book"
+                  hint="An arrival window gives your technician room to run late. Each booking holds the technician for the whole window."
+                >
+                  {(props) => (
+                    <select
+                      {...props}
+                      value={details.arrival_window_minutes ?? ""}
+                      onChange={(e) =>
+                        setDetails({
+                          arrival_window_minutes: e.target.value ? (Number(e.target.value) as 120 | 180 | 240) : null,
+                        })
+                      }
+                    >
+                      <option value="">An exact start time</option>
+                      <option value="120">A 2-hour arrival window</option>
+                      <option value="180">A 3-hour arrival window</option>
+                      <option value="240">A 4-hour arrival window</option>
+                    </select>
+                  )}
+                </Field>
+              </>
             )}
             {travels(draft.business_type, details) && (
               <>

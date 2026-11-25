@@ -591,6 +591,16 @@ def build_instructions(
                 if any(s.price_kind != "fixed" for s in services)
                 else []
             ),
+            *(
+                [
+                    "Bookings are arrival windows, not exact times. Each time check_availability "
+                    "returns is a window, such as between 8 AM and 11 AM: offer it and read it "
+                    "back that way, and never promise an exact arrival time. If the caller names "
+                    "a time, offer the window that contains it."
+                ]
+                if business.arrival_window_minutes
+                else []
+            ),
             confirm_line(channel),
             "If the caller changes the service, size, time, or details, call prepare_booking "
             "again. If a tool reports an error, explain it briefly and offer another time or a "

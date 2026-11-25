@@ -113,6 +113,9 @@ class BusinessSeed(SeedModel):
     buffer_minutes: int = Field(ge=0)
     min_notice_minutes: int = Field(ge=0)
     booking_horizon_days: int = Field(gt=0)
+    # Customers book "arriving between 8 and 11" instead of an exact time. Leave out for exact
+    # times.
+    arrival_window_minutes: int | None = Field(default=None, ge=60, le=480)
     # Optional daily limits for this business; without them the deployment's defaults apply.
     voice_daily_limit: int | None = Field(default=None, ge=0)
     phone_daily_limit: int | None = Field(default=None, ge=0)
@@ -166,6 +169,8 @@ class BusinessPublic(BaseModel):
     # A mobile business comes to the customer, within its service area.
     is_mobile: bool = False
     service_area: str = ""
+    # Customers book an arrival window of this many minutes instead of an exact time.
+    arrival_window_minutes: int | None = None
     hours: list[HoursPublic]
     # The receptionist's phone number, only while the phone line can answer.
     assistant_phone: str | None = None
@@ -223,6 +228,9 @@ class SlotPublic(BaseModel):
     ends_at: datetime
     local_start: datetime
     local_end: datetime
+    # At a business with arrival windows: the latest arrival, in the business's time zone.
+    # The customer is told "between local_start and arrival_until".
+    arrival_until: datetime | None = None
 
 
 class AvailabilityPublic(BaseModel):
@@ -319,6 +327,8 @@ class BookingSummary(BaseModel):
     service_address: str | None = None
     # What needs doing, at a business that asks.
     job_details: str | None = None
+    # At a business with arrival windows: the latest arrival, local time.
+    arrival_until: datetime | None = None
     # How price_cents is meant; summaries saved before this existed are fixed prices.
     price_kind: Literal["fixed", "from", "visit_fee"] = "fixed"
 

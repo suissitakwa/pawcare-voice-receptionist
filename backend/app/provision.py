@@ -209,6 +209,10 @@ def build(session: Session, account: SubscriberAccount, profile: BusinessProfile
         "is_mobile": mobile,
         "service_zip_codes": details.service_zip_codes if mobile else [],
         "service_area": (details.service_area or "") if mobile else "",
+        # Only businesses that always travel book by arrival window.
+        "arrival_window_minutes": details.arrival_window_minutes
+        if industry.always_mobile
+        else None,
         "hours": hours,
         "groomers": groomers,
         "size_categories": template["size_categories"] if pets else STANDARD_SIZES,

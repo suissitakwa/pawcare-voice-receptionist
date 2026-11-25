@@ -100,6 +100,8 @@ export interface ProfileDetails {
   is_mobile?: boolean;
   service_zip_codes?: string[];
   service_area?: string | null;
+  /** Home services: an arrival window this many minutes long instead of exact times. */
+  arrival_window_minutes?: 120 | 180 | 240 | null;
 }
 
 export interface ProfileDocument {

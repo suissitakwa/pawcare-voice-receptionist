@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.admin_api import router as admin_router
 from app.availability import (
     active_staff,
+    arrival_window,
     check_booking_window,
     day_openings,
     does_service,
@@ -308,6 +309,7 @@ def get_availability(
     check_booking_window(business, day, now)
 
     timezone = ZoneInfo(business.timezone)
+    window = arrival_window(business)
     openings = day_openings(
         db, business, day, timedelta(minutes=rule.duration_minutes), now, members
     )
@@ -324,6 +326,7 @@ def get_availability(
                 ends_at=slot.ends_at,
                 local_start=slot.starts_at.astimezone(timezone),
                 local_end=slot.ends_at.astimezone(timezone),
+                arrival_until=(slot.starts_at + window).astimezone(timezone) if window else None,
             )
             for slot in openings.slots
         ],

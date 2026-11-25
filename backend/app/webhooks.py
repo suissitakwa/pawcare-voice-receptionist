@@ -129,6 +129,8 @@ def booking_data(booking: Booking, business: Business, source: str | None = None
         "job_details": booking.job_details,
         # fixed, from or visit_fee: how price_cents is meant.
         "price_kind": summary.get("price_kind", "fixed"),
+        # The latest arrival, local time, at a business with arrival windows.
+        "arrival_until": summary.get("arrival_until"),
     }
 
 

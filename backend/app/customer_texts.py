@@ -29,7 +29,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.format_text import format_time
+from app.format_text import arrival_label, format_time
 from app.models import Booking, Business, BusinessPhoneNumber, WebhookEvent
 from app.phone_numbers import normalize
 from app.webhooks import booking_data
@@ -101,8 +101,12 @@ def texts_customers(session: Session, business: Business, settings: Settings) ->
     )
 
 
-def when(local_iso: str) -> str:
+def when(local_iso: str, until_iso: str | None = None) -> str:
+    """The day and time, or the arrival window at a business that books by window."""
     start = datetime.fromisoformat(local_iso)
+    if until_iso:
+        until = datetime.fromisoformat(until_iso).time()
+        return f"{start:%a, %b} {start.day}, arriving {arrival_label(start.time(), until)}"
     return f"{start:%a, %b} {start.day} at {format_time(start.time())}"
 
 
@@ -113,7 +117,7 @@ def compose(kind: str, data: dict, business: Business) -> str:
         what += f" for {data['pet_name']}"
     if data.get("staff"):
         what += f" with {data['staff']}"
-    start = when(data["local_start"])
+    start = when(data["local_start"], data.get("arrival_until"))
     place = f" at {data['service_address']}" if data.get("service_address") else ""
     call = f"call {business.contact_phone}" if business.contact_phone else "contact us"
     reference = f"Ref {data.get('reference')}."

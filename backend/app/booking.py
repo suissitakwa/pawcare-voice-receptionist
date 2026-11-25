@@ -20,8 +20,11 @@ from sqlalchemy.orm import Session
 
 from app.availability import (
     active_staff,
+    arrival_window,
+    buffer_of,
     check_booking_window,
     free_staff_at,
+    reserved,
     resolve_option,
     slot_is_open,
     staff_for,
@@ -71,6 +74,12 @@ def check_service_address(business: Business, address: str | None) -> str | None
     return address
 
 
+def arrival_until(business: Business, starts_at: datetime) -> datetime | None:
+    """The latest arrival, local time, at a business with arrival windows."""
+    window = arrival_window(business)
+    return (starts_at + window).astimezone(ZoneInfo(business.timezone)) if window else None
+
+
 def check_job_details(business: Business, text: str | None) -> str | None:
     """What needs doing, at a business that asks for it. Elsewhere none is kept."""
     if not industry_of(business).asks_job_details:
@@ -111,7 +120,7 @@ def prepare_booking(
         raise slot_unavailable()
     member = free[0]
 
-    ends_at = starts_at + duration
+    ends_at = starts_at + reserved(duration, arrival_window(business))
     summary = BookingSummary(
         service=service.name,
         size=size.label,
@@ -129,6 +138,7 @@ def prepare_booking(
         service_address=address,
         job_details=job_details,
         price_kind=service.price_kind,
+        arrival_until=arrival_until(business, starts_at),
     ).model_dump(mode="json")
     token = secrets.token_urlsafe(32)
     draft = BookingDraft(
@@ -138,7 +148,7 @@ def prepare_booking(
         size_category_id=size.id,
         starts_at=starts_at,
         ends_at=ends_at,
-        occupied_until=ends_at + timedelta(minutes=business.buffer_minutes),
+        occupied_until=ends_at + buffer_of(business),
         price_cents=rule.price_cents,
         owner_name=request.owner_name,
         owner_email=request.owner_email,

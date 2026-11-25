@@ -1248,3 +1248,15 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Not verified | Not checked in a browser. No call was made with a home services business |
 | Live | Not deployed |
 
+## Home services: arrival windows (2026-11-24)
+
+**Outcome:** a business can book by arrival window instead of exact time, with `arrival_window_minutes` (60 to 480; empty keeps exact times). Home services choose an exact time or a 2, 3 or 4-hour window in the sign-up form, and `provision approve` carries it over. Windows follow one another from opening time (open 9 to 5 with three-hour windows: 9 to 12 and 12 to 3), and each booking holds its technician for the whole window, or for the job if it runs longer, so they can arrive any time inside it. No travel buffer is added between windows, since the window leaves that room. Availability returns `arrival_until` with each slot; the booking summary, the webhook payload, a booking changed by phone, the owner's email ("Tuesday, January 5, arriving between 9 AM and 12 PM") and customer texts say the window. The receptionist offers times as windows ("between 12 PM and 3 PM"), reads them back that way and is told never to promise an exact arrival. The booking form lists "Arrival windows" and reviews "Arrival: Between 9 AM and 12 PM". Migration `0037` adds the setting.
+
+| Check | Result |
+| --- | --- |
+| Backend lint and format | `ruff check`, `ruff format --check` clean |
+| Backend tests | 804 passed (local PostgreSQL 14), 3 new in `test_home_services.py`: windows follow each other from opening and a longer job holds the technician longer; a booked window holds the one technician for three hours while the next window stays open, and the webhook, owner email, customer text, instructions and the receptionist's offered times all say the window; without a window, times and wording are unchanged. The public availability test now allows `arrival_until`. Migration `0037` upgrades and downgrades cleanly |
+| Frontend | Typecheck and build pass; 135 tests pass (Node 22), 1 new: windows offered, chosen and reviewed as windows |
+| Not verified | Not checked in a browser. No call was made with a home services business. The Google Calendar event spans the window; its wording wasn't changed |
+| Live | Not deployed |
+

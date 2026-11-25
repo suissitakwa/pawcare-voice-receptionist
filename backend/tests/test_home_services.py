@@ -3,17 +3,19 @@ to addresses in the area, with safety first, noting what needs doing and quoting
 visit fee."""
 
 import uuid
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 
-from app import website_details
+from app import customer_texts, website_details
 from app.config import get_settings
 from app.google_calendar import event_for
 from app.models import Booking, Business, VoiceSession, WebhookEvent
 from app.owner_email import compose
 from app.provision import approve
 from app.voice import build_instructions, message_instructions, phone_tools, tool_catalog
+from app.voice_tools import check_availability
 from app.voice_tools import prepare as voice_prepare
 from tests.test_provision import no_leftover_businesses  # noqa: F401
 from tests.test_subscribers import API, NOW, auth, complete, fixed_clock  # noqa: F401
@@ -275,3 +277,102 @@ def test_other_businesses_keep_no_job_details(client, db) -> None:
     assert "job_details" not in text and "visit fee" not in text
     tools = {t["name"]: t for t in phone_tools(tool_catalog(db, demo.id))}
     assert "job_details" not in tools["prepare_booking"]["parameters"]["properties"]
+
+
+def windowed_plumber(client: TestClient, db, minutes: int = 180) -> Business:
+    business = live_plumber(client, db)
+    business.arrival_window_minutes = minutes
+    db.commit()
+    return business
+
+
+def slots_on(client: TestClient, slug: str, service: str = "leak-repair-visit") -> list[dict]:
+    return client.get(
+        f"/api/v1/b/{slug}/availability", params={"service": service, "date": "2027-01-05"}
+    ).json()["slots"]
+
+
+def test_windows_follow_each_other_from_opening(client, db) -> None:
+    # Open 9 to 5 on Tuesdays: three-hour windows start at 9 and 12; a 3 PM one would end
+    # after closing.
+    business = windowed_plumber(client, db)
+    slots = slots_on(client, business.slug)
+    assert [s["local_start"][11:16] for s in slots] == ["09:00", "12:00"]
+    assert [s["arrival_until"][11:16] for s in slots] == ["12:00", "15:00"]
+    # A job longer than the window holds the technician for the job.
+    db.execute(
+        text(
+            "UPDATE service_size_rules SET duration_minutes = 240 WHERE service_id IN "
+            "(SELECT id FROM services WHERE business_id = :b AND slug = 'drain-cleaning')"
+        ),
+        {"b": business.id},
+    )
+    db.commit()
+    long = slots_on(client, business.slug, "drain-cleaning")
+    assert [s["local_start"][11:16] for s in long] == ["09:00", "12:00"]
+    assert long[0]["local_end"][11:16] == "13:00"
+
+
+def test_a_window_holds_the_technician_and_is_said_as_a_window(client, db) -> None:
+    business = windowed_plumber(client, db)
+    slug = business.slug
+    nine = slots_on(client, slug)[0]
+    prepared = client.post(
+        f"/api/v1/b/{slug}/bookings/prepare",
+        json={
+            "service": "leak-repair-visit",
+            "starts_at": nine["starts_at"],
+            "owner_name": "Jordan",
+            "owner_phone": "(408) 555-0100",
+            "service_address": INSIDE,
+            "job_details": JOB,
+        },
+    ).json()
+    assert prepared["summary"]["arrival_until"][11:16] == "12:00"
+    assert prepared["summary"]["duration_minutes"] == 90
+    confirmed = client.post(
+        f"/api/v1/b/{slug}/bookings/confirm",
+        json={
+            "confirmation_token": prepared["confirmation_token"],
+            "summary_hash": prepared["summary_hash"],
+        },
+        headers={"Idempotency-Key": "plumber-window-0001"},
+    )
+    assert confirmed.status_code == 201, confirmed.text
+
+    # The one technician is held for the whole 9 to 12 window; the next window is still free.
+    assert [s["local_start"][11:16] for s in slots_on(client, slug)] == ["12:00"]
+    db.expire_all()
+    saved = db.scalar(select(Booking).where(Booking.business_id == business.id))
+    assert saved.occupied_until - saved.starts_at == timedelta(hours=3)
+
+    # The owner and the customer are told the window, not an exact time.
+    event = db.scalar(
+        select(WebhookEvent).where(
+            WebhookEvent.business_id == business.id,
+            WebhookEvent.event_type == "booking.confirmed",
+        )
+    )
+    assert event.payload["data"]["arrival_until"][11:16] == "12:00"
+    subject, _ = compose(event, business, get_settings())
+    assert "Tuesday, January 5, arriving between 9 AM and 12 PM" in subject
+    text = customer_texts.compose("booking.confirmed", event.payload["data"], business)
+    assert "Tue, Jan 5, arriving between 9 AM and 12 PM" in text
+
+    # The receptionist offers windows and is told never to promise an exact time.
+    instructions = build_instructions(db, business, NOW.date(), channel="phone")
+    assert "Bookings are arrival windows, not exact times" in instructions
+    offered = check_availability(
+        db, business, {"service": "leak-repair-visit", "date": "2027-01-05"}, NOW
+    )
+    assert [t["label"] for t in offered.result["times"]] == ["between 12 PM and 3 PM"]
+
+
+def test_exact_times_are_unchanged_without_a_window(client, db) -> None:
+    business = live_plumber(client, db)
+    slots = slots_on(client, business.slug)
+    assert slots[0]["arrival_until"] is None
+    starts = [s["local_start"][11:16] for s in slots[:2]]
+    assert starts == ["09:00", "09:15"]
+    instructions = build_instructions(db, business, NOW.date(), channel="phone")
+    assert "arrival windows" not in instructions

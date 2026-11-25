@@ -48,6 +48,18 @@ export function wallClock(localTimestamp: string): string {
   return formatTime(localTimestamp.slice(11, 19));
 }
 
+/** A start time, or an arrival window such as "8 AM to 11 AM". */
+function slotLabel(localStart: string, arrivalUntil?: string | null): string {
+  return arrivalUntil ? `${wallClock(localStart)} to ${wallClock(arrivalUntil)}` : wallClock(localStart);
+}
+
+/** "at 9 AM", or "arriving between 8 AM and 11 AM". */
+function atTime(localStart: string, arrivalUntil?: string | null): string {
+  return arrivalUntil
+    ? `arriving between ${wallClock(localStart)} and ${wallClock(arrivalUntil)}`
+    : `at ${wallClock(localStart)}`;
+}
+
 export function longDate(isoDate: string): string {
   return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-US", {
     weekday: "long",
@@ -155,6 +167,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
   const sizeCategory = catalog.size_categories.find((s) => s.slug === size);
   const needsAssessment = sizeCategory?.requires_staff_assessment ?? false;
   const selectedService = catalog.services.find((s) => s.slug === service);
+  const selectedSlot = availability?.slots.find((s) => s.starts_at === startsAt);
   const option = selectedService?.options.find((o) => o.size === size);
   const team = catalog.staff ?? [];
   const teamForService = team.filter((member) => member.services.includes(service));
@@ -301,7 +314,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
           {summary.service}
           {summary.pet_name ? ` for ${summary.pet_name}` : ""}
           {summary.staff ? ` with ${summary.staff}` : ""} on{" "}
-          {longDate(summary.local_start.slice(0, 10))} at {wallClock(summary.local_start)}.
+          {longDate(summary.local_start.slice(0, 10))} {atTime(summary.local_start, summary.arrival_until)}.
         </p>
         {business.texts_customers && summary.owner_phone && (
           <p>
@@ -339,7 +352,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
           ]
         : [["Service", summary.service]]) as [string, string][]),
       ["Date", longDate(summary.local_start.slice(0, 10))],
-      ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
+      summary.arrival_until
+        ? ["Arrival", `Between ${wallClock(summary.local_start)} and ${wallClock(summary.arrival_until)}`]
+        : ["Time", `${wallClock(summary.local_start)} to ${wallClock(summary.local_end)}`],
       ...(summary.staff ? ([["With", summary.staff]] as [string, string][]) : []),
       ["Length", formatDuration(summary.duration_minutes)],
       ["Price", `${formatPriceKind(summary.price_cents, summary.price_kind)}${business.is_demo ? " (demo price)" : ""}`],
@@ -392,7 +407,12 @@ export default function BookingForm({ business, catalog }: { business: Business;
           Your details
         </h3>
         <p className="muted">
-          {selectedService?.name} on {longDate(date)} at {wallClock(availability?.slots.find((s) => s.starts_at === startsAt)?.local_start ?? `${date}T00:00:00`)}.
+          {selectedService?.name} on {longDate(date)}{" "}
+          {atTime(
+            selectedSlot?.local_start ?? `${date}T00:00:00`,
+            selectedSlot?.arrival_until,
+          )}
+          .
           {business.is_demo && "This is a demo, so please use made-up details."}
         </p>
         <Field
@@ -583,7 +603,9 @@ export default function BookingForm({ business, catalog }: { business: Business;
       </div>
       {slotsState === "ready" && availability && availability.slots.length > 0 && (
         <fieldset>
-          <legend>Open times on {longDate(date)}</legend>
+          <legend>
+            {business.arrival_window_minutes ? "Arrival windows" : "Open times"} on {longDate(date)}
+          </legend>
           <div className="slot-grid">
             {availability.slots.map((slot) => (
               <label key={slot.starts_at} className="slot">
@@ -594,7 +616,7 @@ export default function BookingForm({ business, catalog }: { business: Business;
                   checked={startsAt === slot.starts_at}
                   onChange={() => setStartsAt(slot.starts_at)}
                 />
-                <span>{wallClock(slot.local_start)}</span>
+                <span>{slotLabel(slot.local_start, slot.arrival_until)}</span>
               </label>
             ))}
           </div>

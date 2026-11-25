@@ -339,6 +339,52 @@ describe("BookingForm", () => {
     expect(body.job_details).toBe(job);
   });
 
+  it("with arrival windows, offers and reviews a window instead of an exact time", async () => {
+    const windows = ok({
+      date: "2027-01-05",
+      timezone: "America/Los_Angeles",
+      duration_minutes: 90,
+      closed: false,
+      slots: [
+        {
+          starts_at: "2027-01-05T17:00:00Z",
+          ends_at: "2027-01-05T20:00:00Z",
+          local_start: "2027-01-05T09:00:00-08:00",
+          local_end: "2027-01-05T12:00:00-08:00",
+          arrival_until: "2027-01-05T12:00:00-08:00",
+        },
+      ],
+    });
+    mockApi({
+      "/api/v1/availability": [windows],
+      "/api/v1/bookings/prepare": [
+        {
+          status: 201,
+          body: {
+            ...PREPARED,
+            summary: {
+              ...SUMMARY,
+              local_start: "2027-01-05T09:00:00-08:00",
+              local_end: "2027-01-05T12:00:00-08:00",
+              arrival_until: "2027-01-05T12:00:00-08:00",
+            },
+          },
+        },
+      ],
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<BookingForm business={{ ...BUSINESS, arrival_window_minutes: 180 }} catalog={CATALOG} />);
+    await user.selectOptions(screen.getByLabelText("Dog size"), "small");
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-01-05" } });
+    expect(await screen.findByText(/^Arrival windows on/)).toBeInTheDocument();
+    await user.click(await screen.findByRole("radio", { name: "9 AM to 12 PM" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText(/arriving between 9 AM and 12 PM/)).toBeInTheDocument();
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Review booking" }));
+    expect(await screen.findByText("Between 9 AM and 12 PM")).toBeInTheDocument();
+  });
+
   it("doesn't pull focus to the form when the page opens", () => {
     mockApi({});
     render(<BookingForm business={BUSINESS} catalog={CATALOG} />);

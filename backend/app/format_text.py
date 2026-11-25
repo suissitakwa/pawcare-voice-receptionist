@@ -12,3 +12,8 @@ def format_time(value: time) -> str:
     suffix = "AM" if value.hour < 12 else "PM"
     hour = value.hour % 12 or 12
     return f"{hour} {suffix}" if value.minute == 0 else f"{hour}:{value.minute:02d} {suffix}"
+
+
+def arrival_label(start: time, until: time) -> str:
+    """An arrival window as said aloud: between 8 AM and 11 AM."""
+    return f"between {format_time(start)} and {format_time(until)}"

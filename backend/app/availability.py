@@ -1,5 +1,9 @@
 """Works out which appointment start times are genuinely open on one date.
 
+A business with arrival windows (home services) offers windows instead: starts every window
+length from opening time, each holding the technician for the whole window, or for the job if
+it runs longer, so they can arrive any time inside it.
+
 `compute_slots` is pure so that time zone and overlap rules can be tested exactly.
 All instants are compared in UTC, because local wall-clock times repeat or vanish
 when daylight saving changes.
@@ -51,12 +55,32 @@ class DayRules:
     increment: timedelta
     buffer: timedelta
     min_notice: timedelta
+    # Arrival window length, when the business books by window.
+    window: timedelta | None = None
 
 
 @dataclass(frozen=True)
 class Slot:
     starts_at: datetime
     ends_at: datetime
+
+
+def arrival_window(business: Business) -> timedelta | None:
+    minutes = getattr(business, "arrival_window_minutes", None)
+    return timedelta(minutes=minutes) if minutes else None
+
+
+def buffer_of(business: Business) -> timedelta:
+    """Time kept free after each booking. A window already leaves room to travel, so windows
+    follow one another with none."""
+    if arrival_window(business):
+        return timedelta(0)
+    return timedelta(minutes=business.buffer_minutes)
+
+
+def reserved(duration: timedelta, window: timedelta | None) -> timedelta:
+    """How long a booking holds its staff member: the job, or the whole arrival window."""
+    return max(duration, window) if window else duration
 
 
 def local_instant(day: date, wall_clock: time, timezone: ZoneInfo) -> datetime:
@@ -92,10 +116,11 @@ def compute_slots(day: date, duration: timedelta, rules: DayRules, now: datetime
     unavailable.extend(rules.blocked)
     earliest = now + rules.min_notice
 
+    length = reserved(duration, rules.window)
     slots = []
     start = window.start
-    while start + duration <= window.end:
-        appointment = Interval(start, start + duration)
+    while start + length <= window.end:
+        appointment = Interval(start, start + length)
         occupied = Interval(start, appointment.end + rules.buffer)
         if (
             start >= earliest
@@ -249,9 +274,11 @@ def load_day_rules(
         breaks=breaks,
         blocked=blocked,
         booked=booked,
-        increment=timedelta(minutes=business.slot_increment_minutes),
-        buffer=timedelta(minutes=business.buffer_minutes),
+        # Windows follow one another from opening time.
+        increment=arrival_window(business) or timedelta(minutes=business.slot_increment_minutes),
+        buffer=buffer_of(business),
         min_notice=timedelta(minutes=business.min_notice_minutes),
+        window=arrival_window(business),
     )
 
 

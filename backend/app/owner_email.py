@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app import go_live
 from app.config import Settings
-from app.format_text import format_time
+from app.format_text import arrival_label, format_time
 from app.models import Business, WebhookEvent
 from app.prices import price_text
 
@@ -263,8 +263,12 @@ def signup_next_steps(data: dict) -> list[str]:
     return ["Next: check it with them, then in Railway's backend Console:", approve]
 
 
-def when(local_iso: str) -> str:
+def when(local_iso: str, until_iso: str | None = None) -> str:
+    """The day and time, or the arrival window at a business that books by window."""
     start = datetime.fromisoformat(local_iso)
+    if until_iso:
+        until = datetime.fromisoformat(until_iso).time()
+        return f"{start:%A, %B} {start.day}, arriving {arrival_label(start.time(), until)}"
     return f"{start:%A, %B} {start.day} at {format_time(start.time())}"
 
 
@@ -312,7 +316,7 @@ def compose(event: WebhookEvent, business: Business, settings: Settings) -> tupl
             "booking.changed": "Booking changed",
             "booking.cancelled": "Booking cancelled",
         }[event.event_type]
-        start = when(data["local_start"])
+        start = when(data["local_start"], data.get("arrival_until"))
         pet = data.get("pet_name")
         who = pet or data.get("owner_name")
         subject = f"{action}: {data.get('service')} for {who}, {start}"
