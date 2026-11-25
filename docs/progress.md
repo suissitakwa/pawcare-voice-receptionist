@@ -1203,3 +1203,13 @@ The server keeps only what the site says. Each item needs a quote that is on the
 | Backend lint and format | `ruff check`, `ruff format --check` clean |
 | Backend tests | 794 passed (local PostgreSQL 14), 3 new in `test_vapi.py`: AssemblyAI with its default model and with a chosen `speechModel`; another Deepgram model; an unknown provider refused at startup. The default call's transcriber is checked as Deepgram `nova-3` in English |
 | Live | Not deployed |
+
+## Plans on the public website (2026-11-24)
+
+**Outcome:** the pricing section of helloeverai.com (the separate site repo) now lists the three paid plans instead of "Book a call for pricing": **Starter $49 a month for 100 calls, Growth $99 for 300, Pro $149 for 500**, each after the free trial with no card needed. Every plan's "Start free trial" button goes to the sign-up page, `https://app.helloeverai.com/get-started` (or `VITE_SIGNUP_URL` when set). The plans are kept in one list in the site's `src/config.ts`, with a note that it must match `PAID` in `backend/app/plans.py`; the site has no API call for plans, so it can't read them from here.
+
+| Check | Result |
+| --- | --- |
+| Site typecheck and build | Pass (Node 22). The site repo has no test suite |
+| Layout | Checked in a browser: three cards side by side at 1280 px wide, stacked at 375 px, no sideways scroll; each button links to the sign-up page |
+| Live | Not deployed |
